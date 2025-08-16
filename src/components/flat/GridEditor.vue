@@ -1,0 +1,2067 @@
+<template>
+  <div class="editor-container">
+    <!-- ابزارها - Fixed on the right side -->
+    <div class="controls-panel">
+      <div class="controls-header">
+        <h3 class="mb-4 text-lg font-bold text-gray-800">🎨 ابزارهای طراحی</h3>
+      </div>
+
+      <div class="controls-content">
+        <!-- تنظیمات ابعاد -->
+        <div class="dimensions-section">
+          <h4 class="mb-2 text-sm font-semibold text-gray-700">
+            📐 ابعاد شبکه
+          </h4>
+          <div class="dimension-inputs">
+            <label class="dimension-label">
+              <span class="dimension-text">ردیف‌ها:</span>
+              <input
+                v-model.number="rows"
+                type="number"
+                min="1"
+                class="dimension-input"
+              />
+            </label>
+            <label class="dimension-label">
+              <span class="dimension-text">ستون‌ها:</span>
+              <input
+                v-model.number="cols"
+                type="number"
+                min="1"
+                class="dimension-input"
+              />
+            </label>
+          </div>
+        </div>
+
+        <!-- انتخاب رنگ -->
+        <div class="color-section">
+          <h4 class="mb-2 text-sm font-semibold text-gray-700">
+            🎨 انتخاب رنگ
+          </h4>
+          <div class="color-picker-container">
+            <input
+              v-model="selectedColor"
+              type="color"
+              class="color-picker"
+            />
+            <span class="color-value">{{ selectedColor }}</span>
+          </div>
+          <div class="recent-colors-header mt-3!">
+            <h4 class="text-sm font-semibold text-gray-700">🔄 رنگ‌های اخیر</h4>
+            <button
+              v-if="recentColors.length > 0"
+              class="clear-colors-btn"
+              title="پاک کردن تمام رنگ‌ها"
+              @click="clearRecentColors"
+            >
+              🗑️ پاک کردن
+            </button>
+          </div>
+          <div class="recent-colors-grid">
+            <div
+              v-for="color in recentColors"
+              :key="color"
+              class="color-swatch"
+              :style="{ backgroundColor: color }"
+              :title="color"
+              @click="selectedColor = color"
+            >
+              <button
+                class="remove-color-btn"
+                @click.stop="removeRecentColor(color)"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ابزارهای اصلی -->
+        <div class="tools-section">
+          <h4 class="mb-2 text-sm font-semibold text-gray-700">🛠️ ابزارها</h4>
+          <div class="tools-grid">
+            <button
+              class="tool-btn primary"
+              :class="{ active: tool === 'paint' }"
+              @click="setTool('paint')"
+            >
+              🖌️ Paint
+            </button>
+            <button
+              class="tool-btn primary"
+              :class="{ active: tool === 'fill' }"
+              @click="setTool('fill')"
+            >
+              🪣 Fill
+            </button>
+            <button
+              class="tool-btn secondary"
+              :class="{ active: tool === 'select' }"
+              @click="setTool('select')"
+            >
+              📐 Select
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="copySelection"
+            >
+              📋 Copy
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="cutSelection"
+            >
+              ✂️ Cut
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="pasteSelection"
+            >
+              📥 Paste
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="pasteAtCenter"
+            >
+              📍 Paste at Center
+            </button>
+            <button
+              class="tool-btn secondary"
+              :disabled="!hasClipboardContent()"
+              @click="enablePasteMode"
+            >
+              🎯 Select Paste Position
+            </button>
+            <button
+              v-if="isPasteMode"
+              class="tool-btn danger"
+              @click="cancelPasteMode"
+            >
+              ❌ Cancel Paste
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="clearSelection"
+            >
+              🗑️ Clear Selection
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="undo"
+            >
+              ↩️ Undo
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="redo"
+            >
+              ↪️ Redo
+            </button>
+          </div>
+        </div>
+
+        <!-- دکمه‌های خروجی -->
+        <div class="export-section">
+          <h4 class="mb-2 text-sm font-semibold text-gray-700">📤 خروجی</h4>
+
+          <!-- دکمه‌های ذخیره و بارگذاری -->
+          <div class="save-load-buttons mb-3">
+            <button
+              class="export-btn success"
+              @click="saveGridToLocalStorage"
+            >
+              💾 ذخیره گرید
+            </button>
+            <button
+              class="export-btn info"
+              @click="loadGridFromLocalStorage"
+            >
+              📂 بارگذاری اخرین ذخیره
+            </button>
+            <button
+              class="export-btn danger"
+              @click="clearSavedGrid"
+            >
+              🗑️ پاک کردن ذخیره
+            </button>
+          </div>
+
+          <!-- نمایش آخرین زمان ذخیره -->
+          <div
+            v-if="lastSavedTime"
+            class="last-saved-info"
+          >
+            <small class="text-gray-600">
+              آخرین ذخیره: {{ formatLastSavedTime(lastSavedTime) }}
+            </small>
+          </div>
+
+          <button
+            class="export-btn primary"
+            @click="$emit('update-grid', getGridMatrix())"
+          >
+            🚀 ارسال به 3D
+          </button>
+
+          <button
+            class="export-btn success"
+            @click="exportGridAsImage"
+          >
+            📷 خروجی عکس
+          </button>
+
+          <button
+            class="export-btn info"
+            @click="exportGridAsHighQualityImage"
+          >
+            🖼️ خروجی HD
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- صفحه شطرنجی -->
+    <div class="grid-container">
+      <div class="image-section">
+        <div class="upload-section">
+          <label class="upload-label mb-2!">
+            <span class="upload-text">📁 آپلود فایل txt grid</span>
+            <input
+              type="file"
+              accept=".txt"
+              class="upload-input"
+              @change="handleTxtUpload"
+            />
+          </label>
+          <label class="upload-label">
+            <span class="upload-text">📁 آپلود تصویر</span>
+            <input
+              type="file"
+              accept="image/*"
+              class="upload-input"
+              @change="handleImageUpload"
+            />
+          </label>
+        </div>
+        <div
+          v-if="selectedImage"
+          class="image-preview"
+        >
+          <img
+            :src="selectedImage"
+            alt="تصویر انتخاب شده"
+            class="preview-image"
+          />
+        </div>
+      </div>
+
+      <div class="grid-wrapper">
+        <div
+          class="grid"
+          :style="{ gridTemplateColumns: `repeat(${rows}, 15px)` }"
+          @mousedown="startDrawing"
+          @mouseup="stopDrawing"
+          @mouseleave="stopDrawing"
+          @mousemove="drawMove"
+        >
+          <div
+            v-for="(cell, i) in grid"
+            :key="i"
+            class="cell"
+            :style="{
+              backgroundColor: cell,
+              border: selection.includes(i)
+                ? '2px dashed #ff4757'
+                : '1px solid #ddd',
+            }"
+            @click="handleCellClick(i)"
+          >
+            <span
+              v-if="i == (rows * cols) / 2"
+              class="center-marker"
+              >•</span
+            >
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, watch, onMounted } from 'vue';
+import {
+  showError,
+  showSuccess,
+  showConfirm,
+  showInfo,
+} from '@/lib/utils/sweetalert';
+
+defineEmits(['update-grid']);
+
+const rows = ref(16);
+const cols = ref(80);
+const selectedColor = ref('#ff0000');
+const recentColors = ref([]);
+const lastSavedTime = ref(null);
+
+const selectedImage = ref(null);
+
+const grid = ref([
+  '#08a1b6',
+  '#08a1b6',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#f6ee21',
+  '#f6ee21',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#f6ee21',
+  '#08a1b6',
+  '#08a1b6',
+  '#f6ee21',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#f6ee21',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#f6ee21',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#f6ee21',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#f6ee21',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#f6ee21',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#f6ee21',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#f6ee21',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#f6ee21',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#f6ee21',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#f6ee21',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#f6ee21',
+  '#ffffff',
+  '#f6ee21',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#f6ee21',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#f6ee21',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#f6ee21',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#182163',
+  '#182163',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#c9131f',
+  '#c9131f',
+  '#c9131f',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#c9131f',
+  '#c9131f',
+  '#c9131f',
+  '#d97e7d',
+  '#f6ee21',
+  '#d97e7d',
+  '#c9131f',
+  '#c9131f',
+  '#c9131f',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#c9131f',
+  '#c9131f',
+  '#d97e7d',
+  '#d97e7d',
+  '#d97e7d',
+  '#c9131f',
+  '#c9131f',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#c9131f',
+  '#c9131f',
+  '#c9131f',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#c9131f',
+  '#c9131f',
+  '#c9131f',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#c9131f',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#f6ee21',
+  '#f6ee21',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#f6ee21',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#f6ee21',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#f6ee21',
+  '#f6ee21',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#f6ee21',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#182163',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#f6ee21',
+  '#ffffff',
+  '#f6ee21',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#182163',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#182163',
+  '#182163',
+  '#f6ee21',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#f6ee21',
+  '#08a1b6',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#f6ee21',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#f6ee21',
+  '#08a1b6',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#f6ee21',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#f6ee21',
+  '#182163',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#f6ee21',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#f6ee21',
+  '#182163',
+  '#08a1b6',
+  '#08a1b6',
+  '#08a1b6',
+  '#f6ee21',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#f6ee21',
+  '#08a1b6',
+  '#08a1b6',
+  '#f6ee21',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#08a1b6',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#f6ee21',
+  '#f6ee21',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+  '#ffffff',
+]);
+
+// توابع ذخیره و بارگذاری grid در localStorage
+function saveGridToLocalStorage() {
+  try {
+    const gridData = {
+      grid: grid.value,
+      rows: rows.value,
+      cols: cols.value,
+      recentColors: recentColors.value,
+      timestamp: new Date().toISOString(),
+    };
+    localStorage.setItem('gridEditorData', JSON.stringify(gridData));
+    lastSavedTime.value = gridData.timestamp;
+    showSuccess('ذخیره شد', 'گرید با موفقیت ذخیره شد');
+  } catch (error) {
+    showError('خطا در ذخیره', 'خطا در ذخیره گرید: ' + error.message);
+    console.error('Error saving grid:', error);
+  }
+}
+
+function loadGridFromLocalStorage() {
+  try {
+    const savedData = localStorage.getItem('gridEditorData');
+    if (savedData) {
+      const gridData = JSON.parse(savedData);
+
+      // بررسی اعتبار داده‌های ذخیره شده
+      if (
+        gridData.grid &&
+        Array.isArray(gridData.grid) &&
+        gridData.rows &&
+        gridData.cols &&
+        gridData.grid.length === gridData.rows * gridData.cols
+      ) {
+        // بارگذاری داده‌ها
+        rows.value = gridData.rows;
+        cols.value = gridData.cols;
+        grid.value = [...gridData.grid];
+
+        // بارگذاری رنگ‌های اخیر (اگر موجود باشد)
+        if (gridData.recentColors && Array.isArray(gridData.recentColors)) {
+          recentColors.value = [...gridData.recentColors];
+        }
+
+        // تنظیم زمان آخرین ذخیره
+        lastSavedTime.value = gridData.timestamp;
+
+        // ریست کردن تاریخچه
+        history.stacks = [];
+        history.index = -1;
+        saveHistory();
+
+        showSuccess('بارگذاری شد', 'گرید با موفقیت بارگذاری شد');
+        return true;
+      } else {
+        // داده‌های نامعتبر، حذف از localStorage
+        localStorage.removeItem('gridEditorData');
+        showInfo('اطلاعات', 'داده‌های ذخیره شده نامعتبر بودند و حذف شدند');
+        return false;
+      }
+    }
+    return false;
+  } catch (error) {
+    showError('خطا در بارگذاری', 'خطا در بارگذاری گرید: ' + error.message);
+    console.error('Error loading grid:', error);
+    // در صورت خطا، حذف داده‌های خراب
+    localStorage.removeItem('gridEditorData');
+    return false;
+  }
+}
+
+// بارگذاری خودکار گرید در هنگام شروع
+onMounted(() => {
+  loadGridFromLocalStorage();
+});
+
+const selection = ref([]);
+const clipboard = ref([]);
+const clipboardSize = ref({ width: 0, height: 0 });
+const pastePosition = ref({ x: 0, y: 0 });
+const isPasteMode = ref(false);
+
+const tool = ref('paint');
+let isDrawing = false;
+let selectionStart = null;
+let isSelecting = false;
+
+// تاریخچه Undo/Redo
+const history = reactive({ stacks: [], index: -1 });
+function saveHistory() {
+  history.stacks = history.stacks.slice(0, history.index + 1);
+  history.stacks.push([...grid.value]);
+  history.index++;
+}
+function undo() {
+  if (history.index > 0) {
+    history.index--;
+    grid.value = [...history.stacks[history.index]];
+  }
+}
+function redo() {
+  if (history.index < history.stacks.length - 1) {
+    history.index++;
+    grid.value = [...history.stacks[history.index]];
+  }
+}
+saveHistory();
+
+function handleTxtUpload(e) {
+  const file = e.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target.result.trim();
+        // Parse the JSON array format from the text file
+        const colors = JSON.parse(content);
+
+        // Validate that it's an array of color strings
+        if (
+          Array.isArray(colors) &&
+          colors.every(
+            (color) =>
+              typeof color === 'string' && color.match(/^#[0-9A-Fa-f]{6}$/),
+          )
+        ) {
+          grid.value = colors;
+          saveHistory();
+        } else {
+          showError(
+            'خطا در فرمت فایل',
+            'فایل باید شامل آرایه‌ای از رنگ‌ها باشد (مثل ["#08a1b6","#ffffff",...])',
+          );
+        }
+      } catch (error) {
+        showError('خطا در خواندن فایل', 'خطا در خواندن فایل: ' + error.message);
+        console.error('Error parsing text file:', error);
+      }
+    };
+    reader.readAsText(file);
+  }
+}
+
+watch([rows, cols], () => {
+  grid.value = Array(rows.value * cols.value).fill('#ffffff');
+  // ریست کردن clipboard و selection
+  clipboard.value = [];
+  clipboardSize.value = { width: 0, height: 0 };
+  selection.value = [];
+  isPasteMode.value = false;
+  saveHistory();
+});
+
+// ذخیره خودکار گرید در localStorage هنگام تغییر
+watch(
+  grid,
+  () => {
+    // تاخیر کوتاه برای جلوگیری از ذخیره مکرر
+    setTimeout(() => {
+      try {
+        const gridData = {
+          grid: grid.value,
+          rows: rows.value,
+          cols: cols.value,
+          recentColors: recentColors.value,
+          timestamp: new Date().toISOString(),
+        };
+        localStorage.setItem('gridEditorData', JSON.stringify(gridData));
+        lastSavedTime.value = gridData.timestamp;
+      } catch (error) {
+        console.error('Error auto-saving grid:', error);
+      }
+    }, 1000); // تاخیر 1 ثانیه
+  },
+  { deep: true },
+);
+
+function setTool(t) {
+  tool.value = t;
+  selection.value = [];
+
+  // اگر ابزار جدید انتخاب شد، از حالت چسباندن خارج شو
+  if (t !== 'paste') {
+    isPasteMode.value = false;
+  }
+}
+
+// تابع کمکی برای بررسی clipboard
+function hasClipboardContent() {
+  return (
+    clipboard.value &&
+    clipboard.value.length > 0 &&
+    clipboardSize.value.width > 0
+  );
+}
+
+// رسم با موس
+function startDrawing(e) {
+  isDrawing = true;
+  const index = getCellIndexFromEvent(e);
+  if (tool.value === 'paint') {
+    paintCell(index);
+  } else if (tool.value === 'fill') {
+    bucketFill(index, grid.value[index], selectedColor.value);
+  } else if (tool.value === 'select') {
+    selectionStart = index;
+    selection.value = [index];
+    isSelecting = true;
+  }
+}
+function stopDrawing() {
+  if (isDrawing) saveHistory();
+  isDrawing = false;
+  selectionStart = null;
+}
+function drawMove(e) {
+  if (!isDrawing) return;
+  const index = getCellIndexFromEvent(e);
+  if (tool.value === 'paint') {
+    paintCell(index);
+  } else if (tool.value === 'select' && isSelecting) {
+    selection.value = getSelectionRect(selectionStart, index);
+  }
+}
+
+// ابزار Paint
+function paintCell(i) {
+  grid.value[i] = selectedColor.value;
+  addToRecentColors(selectedColor.value);
+}
+
+// اضافه کردن رنگ به لیست رنگ‌های اخیر
+function addToRecentColors(color) {
+  // اگر رنگ قبلاً وجود دارد، آن را حذف کن
+  const index = recentColors.value.indexOf(color);
+  if (index > -1) {
+    recentColors.value.splice(index, 1);
+  }
+
+  // رنگ جدید را در ابتدا اضافه کن
+  recentColors.value.unshift(color);
+
+  // حداکثر 10 رنگ نگه دار
+  if (recentColors.value.length > 10) {
+    recentColors.value = recentColors.value.slice(0, 10);
+  }
+}
+
+// حذف رنگ از لیست رنگ‌های اخیر
+function removeRecentColor(color) {
+  const index = recentColors.value.indexOf(color);
+  if (index > -1) {
+    recentColors.value.splice(index, 1);
+  }
+}
+
+// پاک کردن تمام رنگ‌های اخیر
+async function clearRecentColors() {
+  const result = await showConfirm(
+    'پاک کردن رنگ‌ها',
+    'آیا می‌خواهید تمام رنگ‌های اخیر پاک شوند؟',
+  );
+  if (result.isConfirmed) {
+    recentColors.value = [];
+  }
+}
+
+// Fill
+function bucketFill(startIndex, targetColor, newColor) {
+  if (targetColor === newColor) return;
+  const stack = [startIndex];
+  while (stack.length) {
+    const idx = stack.pop();
+    if (grid.value[idx] === targetColor) {
+      grid.value[idx] = newColor;
+      const x = idx % cols.value;
+      const y = Math.floor(idx / cols.value);
+      if (x > 0) stack.push(idx - 1);
+      if (x < cols.value - 1) stack.push(idx + 1);
+      if (y > 0) stack.push(idx - cols.value);
+      if (y < rows.value - 1) stack.push(idx + cols.value);
+    }
+  }
+
+  // اضافه کردن رنگ جدید به لیست رنگ‌های اخیر
+  addToRecentColors(newColor);
+}
+
+// انتخاب
+function getCellIndexFromEvent(e) {
+  const cell = e.target;
+  return Array.from(cell.parentNode.children).indexOf(cell);
+}
+
+function getSelectionRect(startIdx, endIdx) {
+  // در طرح عمودی: rows = تعداد ستون‌ها، cols = تعداد ردیف‌ها
+  const sx = startIdx % rows.value; // x از rows می‌آید
+  const sy = Math.floor(startIdx / rows.value); // y از rows می‌آید
+  const ex = endIdx % rows.value;
+  const ey = Math.floor(endIdx / rows.value);
+
+  const minX = Math.min(sx, ex);
+  const maxX = Math.max(sx, ex);
+  const minY = Math.min(sy, ey);
+  const maxY = Math.max(sy, ey);
+
+  const selected = [];
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      selected.push(y * rows.value + x); // از rows استفاده می‌کنیم
+    }
+  }
+  return selected;
+}
+
+// کلیک تکی
+function handleCellClick(i) {
+  if (tool.value === 'paint') {
+    paintCell(i);
+    saveHistory();
+  } else if (tool.value === 'fill') {
+    bucketFill(i, grid.value[i], selectedColor.value);
+    saveHistory();
+  } else if (tool.value === 'paste' && isPasteMode.value) {
+    // محاسبه موقعیت کلیک شده
+    const clickX = i % rows.value;
+    const clickY = Math.floor(i / rows.value);
+
+    // تنظیم موقعیت چسباندن
+    pastePosition.value = { x: clickX, y: clickY };
+
+    // چسباندن در موقعیت انتخاب شده
+    pasteAtPosition();
+  }
+}
+
+// Copy / Cut / Paste
+function copySelection() {
+  if (selection.value.length === 0) {
+    showError('خطا', 'ابتدا یک ناحیه انتخاب کنید');
+    return;
+  }
+
+  // در طرح عمودی: rows = تعداد ستون‌ها، cols = تعداد ردیف‌ها
+  const selCols = rows.value; // از rows استفاده می‌کنیم
+  const minX = Math.min(...selection.value.map((i) => i % selCols));
+  const maxX = Math.max(...selection.value.map((i) => i % selCols));
+  const minY = Math.min(...selection.value.map((i) => Math.floor(i / selCols)));
+  const maxY = Math.max(...selection.value.map((i) => Math.floor(i / selCols)));
+
+  const width = maxX - minX + 1;
+  const height = maxY - minY + 1;
+
+  clipboardSize.value = { width, height };
+
+  clipboard.value = [];
+  for (let y = 0; y < height; y++) {
+    const row = [];
+    for (let x = 0; x < width; x++) {
+      const idx = (minY + y) * selCols + (minX + x);
+      row.push(grid.value[idx]);
+    }
+    clipboard.value.push(row);
+  }
+}
+
+function cutSelection() {
+  if (selection.value.length === 0) {
+    showError('خطا', 'ابتدا یک ناحیه انتخاب کنید');
+    return;
+  }
+
+  copySelection();
+  selection.value.forEach((idx) => (grid.value[idx] = '#ffffff'));
+  saveHistory();
+}
+
+function pasteSelection() {
+  if (!hasClipboardContent()) {
+    showError('خطا', 'هیچ چیزی برای چسباندن وجود ندارد');
+    return;
+  }
+
+  // اگر ناحیه‌ای انتخاب نشده، در وسط صفحه قرار بده
+  let pasteX = 0;
+  let pasteY = 0;
+
+  if (selection.value.length > 0) {
+    const selCols = rows.value; // از rows استفاده می‌کنیم
+    pasteX = Math.min(...selection.value.map((i) => i % selCols));
+    pasteY = Math.min(...selection.value.map((i) => Math.floor(i / selCols)));
+  } else {
+    // در وسط صفحه قرار بده
+    pasteX = Math.floor((rows.value - clipboardSize.value.width) / 2); // از rows استفاده می‌کنیم
+    pasteY = Math.floor((cols.value - clipboardSize.value.height) / 2); // از cols استفاده می‌کنیم
+  }
+
+  // چسباندن
+  for (let y = 0; y < clipboardSize.value.height; y++) {
+    for (let x = 0; x < clipboardSize.value.width; x++) {
+      const targetX = pasteX + x;
+      const targetY = pasteY + y;
+
+      // بررسی محدوده
+      if (
+        targetX >= 0 &&
+        targetX < rows.value &&
+        targetY >= 0 &&
+        targetY < cols.value
+      ) {
+        // از rows و cols استفاده می‌کنیم
+        const targetIdx = targetY * rows.value + targetX; // از rows استفاده می‌کنیم
+        if (clipboard.value[y] && clipboard.value[y][x]) {
+          grid.value[targetIdx] = clipboard.value[y][x];
+        }
+      }
+    }
+  }
+
+  saveHistory();
+}
+
+function clearSelection() {
+  selection.value = [];
+  isSelecting = false;
+}
+
+function pasteAtCenter() {
+  if (!hasClipboardContent()) {
+    showError('خطا', 'هیچ چیزی برای چسباندن وجود ندارد');
+    return;
+  }
+
+  // در وسط صفحه قرار بده
+  const pasteX = Math.floor((rows.value - clipboardSize.value.width) / 2); // از rows استفاده می‌کنیم
+  const pasteY = Math.floor((cols.value - clipboardSize.value.height) / 2); // از cols استفاده می‌کنیم
+
+  // چسباندن
+  for (let y = 0; y < clipboardSize.value.height; y++) {
+    for (let x = 0; x < clipboardSize.value.width; x++) {
+      const targetX = pasteX + x;
+      const targetY = pasteY + y;
+
+      // بررسی محدوده
+      if (
+        targetX >= 0 &&
+        targetX < rows.value &&
+        targetY >= 0 &&
+        targetY < cols.value
+      ) {
+        // از rows و cols استفاده می‌کنیم
+        const targetIdx = targetY * rows.value + targetX; // از rows استفاده می‌کنیم
+        if (clipboard.value[y] && clipboard.value[y][x]) {
+          grid.value[targetIdx] = clipboard.value[y][x];
+        }
+      }
+    }
+  }
+
+  saveHistory();
+}
+
+function enablePasteMode() {
+  if (!hasClipboardContent()) {
+    showError('خطا', 'هیچ چیزی برای چسباندن وجود ندارد');
+    return;
+  }
+
+  isPasteMode.value = true;
+  tool.value = 'paste';
+  selection.value = [];
+  showInfo(
+    'انتخاب موقعیت',
+    'حالا روی صفحه کلیک کنید تا موقعیت چسباندن را انتخاب کنید',
+  );
+}
+
+function pasteAtPosition() {
+  if (!hasClipboardContent()) {
+    showError('خطا', 'هیچ چیزی برای چسباندن وجود ندارد');
+    return;
+  }
+
+  // چسباندن در موقعیت انتخاب شده
+  for (let y = 0; y < clipboardSize.value.height; y++) {
+    for (let x = 0; x < clipboardSize.value.width; x++) {
+      const targetX = pastePosition.value.x + x;
+      const targetY = pastePosition.value.y + y;
+
+      // بررسی محدوده
+      if (
+        targetX >= 0 &&
+        targetX < rows.value &&
+        targetY >= 0 &&
+        targetY < cols.value
+      ) {
+        const targetIdx = targetY * rows.value + targetX;
+        if (clipboard.value[y] && clipboard.value[y][x]) {
+          grid.value[targetIdx] = clipboard.value[y][x];
+        }
+      }
+    }
+  }
+
+  saveHistory();
+
+  // خروج از حالت چسباندن
+  isPasteMode.value = false;
+  tool.value = 'paint';
+}
+
+function cancelPasteMode() {
+  isPasteMode.value = false;
+  tool.value = 'paint';
+  showInfo('لغو شد', 'حالت چسباندن لغو شد');
+}
+
+// خروجی عکس از شبکه
+function exportGridAsImage() {
+  // ایجاد canvas
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // تنظیم اندازه canvas بر اساس شبکه
+  const cellSize = 15; // اندازه هر سلول
+  const padding = 20; // حاشیه اطراف
+  const width = rows.value * cellSize + padding * 2;
+  const height = cols.value * cellSize + padding * 2;
+
+  canvas.width = width;
+  canvas.height = height;
+
+  // رنگ پس‌زمینه
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+
+  // رسم شبکه
+  for (let y = 0; y < cols.value; y++) {
+    for (let x = 0; x < rows.value; x++) {
+      const index = y * rows.value + x;
+      const color = grid.value[index];
+
+      if (color) {
+        ctx.fillStyle = color;
+        ctx.fillRect(
+          padding + x * cellSize,
+          padding + y * cellSize,
+          cellSize,
+          cellSize,
+        );
+
+        // اضافه کردن خطوط جداکننده
+        ctx.strokeStyle = '#e0e0e0';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(
+          padding + x * cellSize,
+          padding + y * cellSize,
+          cellSize,
+          cellSize,
+        );
+      }
+    }
+  }
+
+  // اضافه کردن عنوان
+  ctx.fillStyle = '#000000';
+  ctx.font = '16px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(
+    `Grid: ${rows.value}×${cols.value}`,
+    width / 2,
+    padding / 2 + 10,
+  );
+
+  // تبدیل به عکس و دانلود
+  canvas.toBlob((blob) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `grid_${rows.value}x${cols.value}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showSuccess('موفقیت', 'عکس با موفقیت دانلود شد!');
+  }, 'image/png');
+}
+
+// خروجی عکس با کیفیت بالا
+function exportGridAsHighQualityImage() {
+  // ایجاد canvas با کیفیت بالا
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // تنظیم اندازه canvas با کیفیت بالا (2x بزرگتر)
+  const cellSize = 30; // اندازه هر سلول (2x بزرگتر)
+  const padding = 40; // حاشیه اطراف (2x بزرگتر)
+  const width = rows.value * cellSize + padding * 2;
+  const height = cols.value * cellSize + padding * 2;
+
+  canvas.width = width;
+  canvas.height = height;
+
+  // رنگ پس‌زمینه
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+
+  // رسم شبکه با کیفیت بالا
+  for (let y = 0; y < cols.value; y++) {
+    for (let x = 0; x < rows.value; x++) {
+      const index = y * rows.value + x;
+      const color = grid.value[index];
+
+      if (color) {
+        ctx.fillStyle = color;
+        ctx.fillRect(
+          padding + x * cellSize,
+          padding + y * cellSize,
+          cellSize,
+          cellSize,
+        );
+
+        // اضافه کردن خطوط جداکننده با کیفیت بالا
+        ctx.strokeStyle = '#d0d0d0';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(
+          padding + x * cellSize,
+          padding + y * cellSize,
+          cellSize,
+          cellSize,
+        );
+      }
+    }
+  }
+
+  // اضافه کردن عنوان با کیفیت بالا
+  ctx.fillStyle = '#000000';
+  ctx.font = 'bold 24px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(
+    `Grid: ${rows.value}×${cols.value}`,
+    width / 2,
+    padding / 2 + 20,
+  );
+
+  // اضافه کردن تاریخ و زمان
+  ctx.font = '16px Arial';
+  ctx.fillStyle = '#666666';
+  const timestamp = new Date().toLocaleString('fa-IR');
+  ctx.fillText(timestamp, width / 2, height - padding / 2);
+
+  // تبدیل به عکس و دانلود
+  canvas.toBlob(
+    (blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `grid_HD_${rows.value}x${cols.value}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showSuccess('موفقیت', 'عکس HD با موفقیت دانلود شد!');
+    },
+    'image/png',
+    1.0,
+  ); // کیفیت 100%
+}
+
+// خروجی به صورت ماتریس برای 3D
+function getGridMatrix() {
+  const matrix = [];
+  // چون gridTemplateColumns از rows استفاده می‌کنه،
+  // پس شبکه حالا rows ستون و cols ردیف داره
+  for (let y = 0; y < cols.value; y++) {
+    const row = [];
+    for (let x = 0; x < rows.value; x++) {
+      row.push(grid.value[y * rows.value + x]);
+    }
+    matrix.push(row);
+  }
+  return matrix;
+}
+
+function handleImageUpload(e) {
+  const file = e.target.files[0];
+  selectedImage.value = URL.createObjectURL(file);
+}
+
+async function clearSavedGrid() {
+  const result = await showConfirm(
+    'پاک کردن داده‌های ذخیره شده',
+    'آیا مطمئن هستید که می‌خواهید تمام داده‌های ذخیره شده پاک شوند؟ این عملیات غیرقابل برگشت است.',
+  );
+  if (result.isConfirmed) {
+    localStorage.removeItem('gridEditorData');
+    showSuccess('پاک شد', 'داده‌های ذخیره شده پاک شدند.');
+    grid.value = Array(rows.value * cols.value).fill('#ffffff'); // ریست کردن گرید
+    selection.value = [];
+    clipboard.value = [];
+    clipboardSize.value = { width: 0, height: 0 };
+    pastePosition.value = { x: 0, y: 0 };
+    isPasteMode.value = false;
+    history.stacks = [];
+    history.index = -1;
+    saveHistory();
+    lastSavedTime.value = null;
+  }
+}
+
+// تابع فرمت کردن زمان آخرین ذخیره
+function formatLastSavedTime(timestamp) {
+  try {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) {
+      return 'همین الان';
+    } else if (diffMins < 60) {
+      return `${diffMins} دقیقه پیش`;
+    } else if (diffHours < 24) {
+      return `${diffHours} ساعت پیش`;
+    } else if (diffDays < 7) {
+      return `${diffDays} روز پیش`;
+    } else {
+      return date.toLocaleDateString('fa-IR');
+    }
+  } catch {
+    return 'نامشخص';
+  }
+}
+</script>
+
+<style scoped>
+.editor-container {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.controls-panel {
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 280px;
+  height: 100%;
+  background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+  border-left: 2px solid #dee2e6;
+  z-index: 1000;
+  overflow-y: auto;
+  padding: 20px;
+  box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
+  scrollbar-width: thin;
+  scrollbar-color: #adb5bd #f8f9fa;
+}
+
+.controls-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.controls-panel::-webkit-scrollbar-track {
+  background: #f8f9fa;
+}
+
+.controls-panel::-webkit-scrollbar-thumb {
+  background: #adb5bd;
+  border-radius: 4px;
+}
+
+.controls-panel::-webkit-scrollbar-thumb:hover {
+  background: #6c757d;
+}
+.controls-header {
+  text-align: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #dee2e6;
+}
+.controls-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.dimensions-section,
+.color-section,
+.recent-colors-section,
+.tools-section,
+.export-section {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border: 2px solid #dee2e6;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.dimensions-section:hover,
+.color-section:hover,
+.recent-colors-section:hover,
+.tools-section:hover,
+.export-section:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+}
+.dimension-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 5px;
+}
+.dimension-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.dimension-text {
+  font-size: 14px;
+  color: #555;
+}
+.dimension-input {
+  width: 80px;
+  color: #495057;
+  padding: 8px 12px;
+  border: 2px solid #dee2e6;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #ffffff;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.dimension-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  transform: translateY(-1px);
+}
+
+.dimension-input:hover {
+  border-color: #adb5bd;
+  transform: translateY(-1px);
+}
+.color-picker-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 5px;
+}
+.color-picker {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid #dee2e6;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.color-picker:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+.color-value {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+  background: #f8f9fa;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+  min-width: 80px;
+  text-align: center;
+}
+.recent-colors-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.clear-colors-btn {
+  background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  box-shadow: 0 2px 8px rgba(255, 71, 87, 0.3);
+}
+.clear-colors-btn:hover {
+  background-color: #d32f2f;
+}
+.recent-colors-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(35px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.color-swatch {
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  cursor: pointer;
+  position: relative;
+  border: 2px solid #dee2e6;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.color-swatch:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.remove-color-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  border: 2px solid white;
+  padding: 0;
+  line-height: 1;
+  opacity: 0;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(255, 71, 87, 0.4);
+}
+.color-swatch:hover .remove-color-btn {
+  opacity: 1;
+}
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+.tool-btn {
+  padding: 12px 8px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.tool-btn:hover {
+  background-color: #e0e0e0;
+  border-color: #ccc;
+}
+.tool-btn.active {
+  background-color: #4caf50;
+  color: white;
+  border-color: #4caf50;
+}
+.tool-btn.primary {
+  background-color: #4caf50;
+  color: white;
+  border-color: #4caf50;
+}
+.tool-btn.primary:hover {
+  background-color: #388e3c;
+  border-color: #388e3c;
+}
+.tool-btn.secondary {
+  background-color: #2196f3;
+  color: white;
+  border-color: #2196f3;
+}
+.tool-btn.secondary:hover {
+  background-color: #1976d2;
+  border-color: #1976d2;
+}
+.tool-btn.danger {
+  background-color: #f44336;
+  color: white;
+  border-color: #f44336;
+}
+.tool-btn.danger:hover {
+  background-color: #d32f2f;
+  border-color: #d32f2f;
+}
+.tool-btn.success {
+  background-color: #4caf50;
+  color: white;
+  border-color: #4caf50;
+}
+.tool-btn.success:hover {
+  background-color: #388e3c;
+  border-color: #388e3c;
+}
+.tool-btn.info {
+  background-color: #2196f3;
+  color: white;
+  border-color: #2196f3;
+}
+.tool-btn.info:hover {
+  background-color: #1976d2;
+  border-color: #1976d2;
+}
+.export-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+}
+.export-btn {
+  padding: 15px 12px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+.export-btn:hover {
+  background-color: #e0e0e0;
+  border-color: #ccc;
+}
+.export-btn.primary {
+  background-color: #4caf50;
+  color: white;
+  border-color: #4caf50;
+}
+.export-btn.primary:hover {
+  background-color: #388e3c;
+  border-color: #388e3c;
+}
+.export-btn.success {
+  background-color: #4caf50;
+  color: white;
+  border-color: #4caf50;
+}
+.export-btn.success:hover {
+  background-color: #388e3c;
+  border-color: #388e3c;
+}
+.export-btn.info {
+  background-color: #2196f3;
+  color: white;
+  border-color: #2196f3;
+}
+.export-btn.info:hover {
+  background-color: #1976d2;
+  border-color: #1976d2;
+}
+.grid-container {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  margin-right: 300px;
+  flex: 1;
+  user-select: none;
+}
+.image-section {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border: 2px solid #dee2e6;
+  border-radius: 12px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+}
+.upload-section {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 10px;
+}
+.upload-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 15px 25px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+  box-sizing: border-box;
+  color: white;
+  font-weight: 500;
+}
+
+.upload-label:hover {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+.upload-text {
+  font-size: 14px;
+  color: #333;
+}
+.upload-input {
+  display: none;
+}
+.image-preview {
+  width: 100%;
+  height: auto;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 2px solid #dee2e6;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  margin-top: 15px;
+}
+.preview-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.grid-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border: 2px solid #dee2e6;
+  border-radius: 12px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+  padding: 20px;
+  min-height: 400px;
+}
+.grid {
+  display: grid;
+  gap: 1px;
+  width: fit-content;
+  height: fit-content;
+  background: #f8f9fa;
+  border: 2px solid #dee2e6;
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  margin: 0 auto;
+  grid-template-columns: repeat(16, 15px);
+  grid-auto-rows: 15px;
+}
+.cell {
+  width: 15px;
+  height: 15px;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  position: relative;
+  min-width: 15px;
+  min-height: 15px;
+}
+
+.cell:hover {
+  transform: scale(1.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 1;
+}
+
+.cell:active {
+  transform: scale(0.95);
+}
+.center-marker {
+  font-size: 12px;
+  color: #ff4757;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+}
+
+/* استایل دکمه‌های ذخیره و بارگذاری */
+.save-load-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.save-load-buttons .export-btn {
+  flex: 1;
+  min-width: 120px;
+}
+
+/* بهبود استایل دکمه‌های export */
+.export-section .export-btn {
+  margin-bottom: 8px;
+  transition: all 0.3s ease;
+}
+
+.export-section .export-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+/* استایل نمایش آخرین زمان ذخیره */
+.last-saved-info {
+  text-align: center;
+  padding: 8px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  margin-bottom: 15px;
+}
+
+.last-saved-info small {
+  font-size: 12px;
+  color: #6c757d;
+}
+</style>
