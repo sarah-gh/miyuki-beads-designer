@@ -1,191 +1,172 @@
-# Project Setup
+# Miyuki Beads Designer 🎨
 
-```sh
-npm install
-```
+A comprehensive web-based application for designing and creating beautiful bead patterns, specifically designed for Miyuki beads and weaving projects.
 
-## Compile and Hot-Reload for Development
+## ✨ Features
 
-```sh
-npm run dev
-```
+### 🎯 **Flat Grid Designer**
+- Create 2D bead patterns with customizable dimensions
+- Intuitive grid-based interface for pattern design
+- Color palette management with recent colors
+- Export and import pattern designs
 
-## Compile and Minify for Production
+### 🧵 **Weaving Grid Editor**
+- Advanced weaving pattern creation tools
+- Customizable grid dimensions (8-160 columns, 8-400 rows)
+- Adjustable bead sizes (6-28px)
+- Professional weaving design interface
 
-```sh
-npm run build
-```
+### 🔮 **3D Visualization**
+- Real-time 3D preview of bead patterns
+- Interactive 3D view with orbit controls
+- Realistic bead rendering using Three.js
+- Responsive 3D canvas
 
-## Run Unit Tests with [Vitest](https://vitest.dev/)
+### 🎨 **Design Tools**
+- Color picker with hex color support
+- Recent colors management
+- Multiple drawing tools (brush, fill, line, etc.)
+- Pattern symmetry and mirroring options
 
-```sh
-npm run test:unit
-```
+## 🚀 Getting Started
 
-## Run End-to-End Tests with [Playwright](https://playwright.dev)
+### Prerequisites
+- Node.js v20 or higher
+- NPM v10 or higher
 
-```sh
-# Install browsers for the first run
-npx playwright install
+### Installation
 
-# When testing on CI, must build the project first
-npm run build
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yourusername/miyuki-beads-designer.git
+   cd miyuki-beads-designer
+   ```
 
-# Runs the end-to-end tests
-npm run test:e2e
-# Runs the tests only on Chromium
-npm run test:e2e -- --project=chromium
-# Runs the tests of a specific file
-npm run test:e2e -- tests/example.spec.ts
-# Runs the tests in debug mode
-npm run test:e2e -- --debug
-```
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-## Lint with [ESLint](https://eslint.org/)
+3. **Start development server**
+   ```bash
+   npm run dev
+   ```
 
-```sh
-npm run lint
-```
+4. **Open your browser**
+   Navigate to `http://localhost:5173`
 
-# Front-end Projects Guideline
+## 🛠️ Available Scripts
 
-## Essential Tools
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server with hot-reload |
+| `npm run build` | Build for production |
+| `npm run preview` | Preview production build |
+| `npm run test:unit` | Run unit tests with Vitest |
+| `npm run test:e2e` | Run end-to-end tests with Playwright |
+| `npm run lint` | Lint code with ESLint |
+| `npm run format` | Format code with Prettier |
 
-- Node.js v20 and NPM v10
-- Vue.js 3
-- Vite.js for scaffolding a project.
-- Vue Router for front-end routing.
-- Pinina for front-end state management.
-- Axios as the HTTP client.
-- Tanstack Query for server-side state management.
-- TailwindCSS for styling.
-- ESLint for code linting and error prevention.
-- Prettier for code formatting.
-- Editor config for cross-editor consistency.
-- Vuelidate for form validation.
-- Vueuse for custom composables.
-- Vitest or Jest for unit testing.
-- Husky and line-staged for a good quality codebase.
-- Reka UI as the UI component library.
-
-## Recommended Files and Folders Structure
+## 🏗️ Project Structure
 
 ```
 src/
-├── assets/          # Static assets (images, global CSS, fonts)
-│   └── images/
-│   └── fonts/
-│   └── styles/
-├── components/      # Shared components
-│   └── base/       # Base/UI components
-│   └── common/     # Common business components
-│   └── page/     # Page-specific components
-│   └── icons/     # SVG icons as Vue components
-├── composables/    # Shared composable functions
-├── services/    # API callings
-├── directives/    # Custom Vue directives
-├── layouts/        # Layout components
-├── lib/            # Utilities and helpers
-│   └── utils/          # Utility functions and constants
-├── views/          # Route components
-├── stores/         # Pinia stores
-public/  # Static assets (favicon, images, videos, etc.)
+├── components/
+│   ├── flat/           # Flat grid designer components
+│   │   ├── MiyukiBeads.vue      # 3D bead visualization
+│   │   ├── GridEditor.vue       # 2D grid editor
+│   │   └── BraceletPreview.vue  # Bracelet preview
+│   ├── weaving/        # Weaving grid editor components
+│   │   └── WeavingGridEditor.vue # Advanced weaving tools
+│   └── icons/          # SVG icon components
+├── views/               # Route components
+│   ├── HomeView.vue     # Flat grid designer page
+│   ├── WeavingGrid.vue  # Weaving grid editor page
+│   └── AboutView.vue    # About page
+├── stores/              # Pinia state management
+├── services/            # API services
+├── lib/                 # Utilities and helpers
+└── assets/              # Styles and static assets
 ```
 
-## Recommended Rules: Naming Files and Folders
+## 🎨 Usage Guide
 
-### Folders
+### Creating a Flat Pattern
+1. Navigate to the **Flat Grid** tab
+2. Use the grid editor to place beads
+3. Select colors from the color picker
+4. Use drawing tools to create your pattern
+5. Preview in 3D using the 3D view
 
-- kebab-case
+### Creating a Weaving Pattern
+1. Navigate to the **Weaving Grid** tab
+2. Adjust grid dimensions using the sliders
+3. Choose your bead size
+4. Use the drawing tools to create your weaving pattern
+5. Save and export your design
 
-### Vue components
+## 🧪 Testing
 
-- PascalCase
+### Unit Tests
+```bash
+npm run test:unit
+```
 
-### Composables, stores, services and utilities
+### End-to-End Tests
+```bash
+# Install Playwright browsers
+npx playwright install
 
-- camelCase
+# Run E2E tests
+npm run test:e2e
+```
 
-### Custom directives
+## 🚀 Deployment
 
-- kebab-case
+### Build for Production
+```bash
+npm run build
+```
 
-### Additional Rules
+### Preview Production Build
+```bash
+npm run preview
+```
 
-- Use multi-word names for all components.
-- Use the "View" keyword at the end of all page components.
-- Use the ".service" extension for all service files.
-- Use the ".store" keyword at the end of all Pinia store files.
+## 🛠️ Tech Stack
 
-## Recommended Rules: Naming/Usage Variables
+- **Frontend Framework**: Vue.js 3 with Composition API
+- **Build Tool**: Vite
+- **3D Graphics**: Three.js
+- **Styling**: TailwindCSS
+- **State Management**: Pinia
+- **Routing**: Vue Router
+- **Testing**: Vitest (Unit) + Playwright (E2E)
+- **Code Quality**: ESLint + Prettier + Husky
 
-### Booleans
+## 🤝 Contributing
 
-- is/has/should/can + Adjective/Noun
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-### Functions
+## 📝 License
 
-- Multi-word name that must start with a verb
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-### Vue props (defining)
+## 🙏 Acknowledgments
 
-- camelCase
+- **Miyuki** for their high-quality beads
+- **Three.js** community for 3D graphics capabilities
+- **Vue.js** team for the amazing framework
+- **TailwindCSS** for the utility-first CSS framework
 
-### Vue props (using in template)
+## 📞 Support
 
-- kebab-case
+If you have any questions or need help with the application, please open an issue on GitHub.
 
-### Vue components (using in template)
+---
 
-- PascalCase
-
-### Event emitters
-
-- kebab-case
-
-### Constants
-
-- SCREAMING_SNAKE_CASE
-
-## Common Files Rules
-
-- There must not be any logs in production code.
-
-## Vue Components Rules
-
-- tags order: (template, script, style).
-- Always use Composition API and script setup.
-- The number of lines in a component should not exceed 300 lines.
-- Extract logic into composables if it gets too complex.
-- Use TailwindCSS classes and custom class syntax instead of using style tag as much as possible.
-- Do not use TailwindCSS classes with arbitrary values when it's already defined in predefined classes.
-- Properly type all of the component props (using type, required, default, validator).
-- Do not import Vue macros like defineProps and defineEmits (they are auto available).
-- Avoid global mixins
-
-## Pinia Store Rules
-
-- Always use setup store syntax.
-
-## Git Workflow
-
-### Branch naming conventions:
-
-- feature/feature-name
-- bugfix/bug-name
-- hotfix/force-bugfix-name
-- chore/task-name
-
-### Commit messages conventions:
-
-- The commit message must use the imperative tense.
-- The commit message must be structured as follows:
-  ```
-  <type>: <title>
-  ```
-- Use these for type: fix, feat, chore, style, refactor.
-- The type "feat" must be used when a commit adds a new feature to the application.
-- The type "fix" must be used when a commit represents a bug fix for your application.
-- The type "chore" must be used when routine tasks that don't modify the source code or tests, like updating dependencies or configurations are done.
-- The type "style" must be used when the changes don't affect functionality but improve formatting, whitespace, linting, etc.
-- The type "refactor" must be used when code changes neither fix a bug nor add a feature but improve code structure.
+**Designed with ❤️ for the beading community**
