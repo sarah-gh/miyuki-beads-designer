@@ -86,7 +86,7 @@
 
 <script setup>
 import { ref } from 'vue';
-import WeavingGridEditor from '@/components/flat/WeavingGridEditor.vue';
+import WeavingGridEditor from '@/components/weaving/WeavingGridEditor.vue';
 import MiyukiBeads from '@/components/flat/MiyukiBeads.vue';
 import BraceletPreview from '@/components/flat/BraceletPreview.vue';
 import WorkingPage from '@/components/flat/WorkingPage.vue';

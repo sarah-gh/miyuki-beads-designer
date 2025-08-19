@@ -148,6 +148,13 @@
             </button>
             <button
               class="tool-btn secondary"
+              @click="mirrorSelection"
+              :disabled="selection.length === 0"
+            >
+              🔄 Mirror Selection
+            </button>
+            <button
+              class="tool-btn secondary"
               @click="undo"
             >
               ↩️ Undo
@@ -158,6 +165,25 @@
             >
               ↪️ Redo
             </button>
+          </div>
+          
+          <!-- دکمه تغییر رنگ تمام مهره‌ها -->
+          <div class="background-color-section mt-4">
+            <h4 class="mb-2 text-sm font-semibold text-gray-700">🎨 رنگ پس‌زمینه</h4>
+            <div class="background-color-controls">
+              <input
+                v-model="backgroundColor"
+                type="color"
+                class="color-picker"
+                title="انتخاب رنگ پس‌زمینه"
+              />
+              <button
+                class="tool-btn success"
+                @click="changeAllBeadsToColor"
+              >
+                🎨 تغییر تمام مهره‌ها
+              </button>
+            </div>
           </div>
         </div>
 
@@ -216,6 +242,13 @@
             @click="exportGridAsHighQualityImage"
           >
             🖼️ خروجی HD
+          </button>
+
+          <button
+            class="export-btn warning"
+            @click="exportGridAsTxt"
+          >
+            📄 خروجی TXT
           </button>
         </div>
       </div>
@@ -298,7 +331,7 @@ import {
   showInfo,
 } from '@/lib/utils/sweetalert';
 
-defineEmits(['update-grid']);
+const emit = defineEmits(['update-grid']);
 
 const rows = ref(16);
 const cols = ref(80);
@@ -860,7 +893,9 @@ function loadGridFromLocalStorage() {
         history.index = -1;
         saveHistory();
 
-        showSuccess('بارگذاری شد', 'گرید با موفقیت بارگذاری شد');
+        emit('update-grid', getGridMatrix())
+
+        // showSuccess('بارگذاری شد', 'گرید با موفقیت بارگذاری شد');
         return true;
       } else {
         // داده‌های نامعتبر، حذف از localStorage
@@ -1075,20 +1110,56 @@ async function clearRecentColors() {
   }
 }
 
-// Fill
+// Fill - در طرح عمودی: rows = تعداد ستون‌ها، cols = تعداد ردیف‌ها
 function bucketFill(startIndex, targetColor, newColor) {
   if (targetColor === newColor) return;
+  
   const stack = [startIndex];
+  const visited = new Set();
+  
   while (stack.length) {
     const idx = stack.pop();
-    if (grid.value[idx] === targetColor) {
-      grid.value[idx] = newColor;
-      const x = idx % cols.value;
-      const y = Math.floor(idx / cols.value);
-      if (x > 0) stack.push(idx - 1);
-      if (x < cols.value - 1) stack.push(idx + 1);
-      if (y > 0) stack.push(idx - cols.value);
-      if (y < rows.value - 1) stack.push(idx + cols.value);
+    
+    if (visited.has(idx) || grid.value[idx] !== targetColor) continue;
+    
+    visited.add(idx);
+    grid.value[idx] = newColor;
+    
+    // در طرح عمودی: x از rows می‌آید، y از cols می‌آید
+    const x = idx % rows.value; // x از rows
+    const y = Math.floor(idx / rows.value); // y از rows
+    
+    // بررسی همسایه‌ها
+    // چپ
+    if (x > 0) {
+      const leftIdx = idx - 1;
+      if (!visited.has(leftIdx) && grid.value[leftIdx] === targetColor) {
+        stack.push(leftIdx);
+      }
+    }
+    
+    // راست
+    if (x < rows.value - 1) {
+      const rightIdx = idx + 1;
+      if (!visited.has(rightIdx) && grid.value[rightIdx] === targetColor) {
+        stack.push(rightIdx);
+      }
+    }
+    
+    // بالا
+    if (y > 0) {
+      const upIdx = idx - rows.value;
+      if (!visited.has(upIdx) && grid.value[upIdx] === targetColor) {
+        stack.push(upIdx);
+      }
+    }
+    
+    // پایین
+    if (y < cols.value - 1) {
+      const downIdx = idx + rows.value;
+      if (!visited.has(downIdx) && grid.value[downIdx] === targetColor) {
+        stack.push(downIdx);
+      }
     }
   }
 
@@ -1117,7 +1188,11 @@ function getSelectionRect(startIdx, endIdx) {
   const selected = [];
   for (let y = minY; y <= maxY; y++) {
     for (let x = minX; x <= maxX; x++) {
-      selected.push(y * rows.value + x); // از rows استفاده می‌کنیم
+      const idx = y * rows.value + x;
+      // بررسی محدوده
+      if (idx >= 0 && idx < grid.value.length) {
+        selected.push(idx);
+      }
     }
   }
   return selected;
@@ -1233,6 +1308,60 @@ function pasteSelection() {
 function clearSelection() {
   selection.value = [];
   isSelecting = false;
+}
+
+// آینه کردن طرح انتخاب شده
+function mirrorSelection() {
+  if (selection.value.length === 0) {
+    showError('خطا', 'ابتدا یک ناحیه انتخاب کنید');
+    return;
+  }
+
+  try {
+    // محاسبه محدوده انتخاب
+    const selCols = rows.value; // از rows استفاده می‌کنیم
+    const minX = Math.min(...selection.value.map((i) => i % selCols));
+    const maxX = Math.max(...selection.value.map((i) => i % selCols));
+    const minY = Math.min(...selection.value.map((i) => Math.floor(i / selCols)));
+    const maxY = Math.max(...selection.value.map((i) => Math.floor(i / selCols)));
+
+    const width = maxX - minX + 1;
+    const height = maxY - minY + 1;
+
+    // ایجاد کپی موقت از ناحیه انتخاب شده
+    const tempSelection = [];
+    for (let y = 0; y < height; y++) {
+      const row = [];
+      for (let x = 0; x < width; x++) {
+        const idx = (minY + y) * selCols + (minX + x);
+        if (selection.value.includes(idx)) {
+          row.push(grid.value[idx]);
+        } else {
+          row.push('#ffffff'); // رنگ خالی برای سلول‌های غیر انتخاب شده
+        }
+      }
+      tempSelection.push(row);
+    }
+
+    // آینه کردن هر ردیف (از چپ به راست)
+    const mirroredSelection = tempSelection.map(row => row.reverse());
+
+    // اعمال تغییرات آینه شده به گرید
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = (minY + y) * selCols + (minX + x);
+        if (selection.value.includes(idx)) {
+          grid.value[idx] = mirroredSelection[y][x];
+        }
+      }
+    }
+
+    saveHistory();
+    showSuccess('آینه شد', 'طرح انتخاب شده با موفقیت آینه شد');
+  } catch (error) {
+    showError('خطا در آینه کردن', 'خطا در آینه کردن طرح: ' + error.message);
+    console.error('Error mirroring selection:', error);
+  }
 }
 
 function pasteAtCenter() {
@@ -1479,6 +1608,38 @@ function exportGridAsHighQualityImage() {
   ); // کیفیت 100%
 }
 
+// خروجی txt از متغیر grid
+function exportGridAsTxt() {
+  try {
+    // تبدیل آرایه grid به رشته JSON
+    const gridData = JSON.stringify(grid.value, null, 2);
+    
+    // ایجاد Blob از داده‌ها
+    const blob = new Blob([gridData], { type: 'text/plain;charset=utf-8' });
+    
+    // ایجاد URL برای دانلود
+    const url = URL.createObjectURL(blob);
+    
+    // ایجاد لینک دانلود
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `grid_${rows.value}x${cols.value}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+    
+    // اضافه کردن لینک به صفحه و کلیک روی آن
+    document.body.appendChild(a);
+    a.click();
+    
+    // پاک کردن لینک و URL
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showSuccess('موفقیت', 'فایل TXT با موفقیت دانلود شد!');
+  } catch (error) {
+    showError('خطا در خروجی', 'خطا در ایجاد فایل TXT: ' + error.message);
+    console.error('Error exporting grid as TXT:', error);
+  }
+}
+
 // خروجی به صورت ماتریس برای 3D
 function getGridMatrix() {
   const matrix = [];
@@ -1545,6 +1706,27 @@ function formatLastSavedTime(timestamp) {
     return 'نامشخص';
   }
 }
+
+// تغییر رنگ تمام مهره‌ها
+const backgroundColor = ref('#ffffff');
+async function changeAllBeadsToColor() {
+  const newColor = backgroundColor.value;
+  const result = await showConfirm(
+    'تغییر رنگ تمام مهره‌ها',
+    `آیا می‌خواهید تمام مهره‌ها به رنگ ${newColor} تغییر یابند؟ این عملیات غیرقابل برگشت است.`
+  );
+  
+  if (result.isConfirmed) {
+    const totalCells = rows.value * cols.value;
+    for (let i = 0; i < totalCells; i++) {
+      grid.value[i] = newColor;
+    }
+    saveHistory();
+    addToRecentColors(newColor);
+    showSuccess('تغییر رنگ', `تمام مهره‌ها به رنگ ${newColor} تغییر یافتند`);
+  }
+}
+
 </script>
 
 <style scoped>
@@ -1881,6 +2063,17 @@ function formatLastSavedTime(timestamp) {
   background-color: #1976d2;
   border-color: #1976d2;
 }
+
+.export-btn.warning {
+  background-color: #ff9800;
+  color: white;
+  border-color: #ff9800;
+}
+
+.export-btn.warning:hover {
+  background-color: #f57c00;
+  border-color: #f57c00;
+}
 .grid-container {
   display: flex;
   flex-direction: row;
@@ -2063,5 +2256,48 @@ function formatLastSavedTime(timestamp) {
 .last-saved-info small {
   font-size: 12px;
   color: #6c757d;
+}
+
+/* استایل دکمه‌های رنگ پس‌زمینه */
+.background-color-section {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border: 2px solid #dee2e6;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.background-color-section:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+}
+
+.background-color-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.background-color-controls .color-picker {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid #dee2e6;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.background-color-controls .color-picker:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.background-color-controls .tool-btn {
+  flex: 1;
+  min-width: 120px;
 }
 </style>
