@@ -2,30 +2,27 @@
   <div class="home-container">
     <header class="app-header flex items-start justify-between mb-3!">
       <div class="header-content">
-        <div class="logo-section">
-          <h1 class="app-title text-2xl">🎨 Miyuki Beads Designer - Flat Style</h1>
-        </div>
         <div class="header-actions mt-3! flex items-center gap-2">
           <button
-            class="rounded-md bg-cyan-950 px-4! py-2! text-[18px] text-white"
+            class="rounded-md bg-cyan-950 px-4! py-1! text-[14px] text-white"
             @click="toggleGridEditor"
           >
             ویرایشگر شبکه
           </button>
           <button
-            class="rounded-md bg-blue-900 px-4! py-2! text-[18px] text-white"
+            class="rounded-md bg-blue-900 px-4! py-1! text-[14px] text-white"
             @click="toggleMiyukiBeads"
           >
             نمایش مهره‌ها
           </button>
           <button
-            class="rounded-md bg-emerald-900 px-4! py-2! text-[18px] text-white"
+            class="rounded-md bg-emerald-900 px-4! py-1! text-[14px] text-white"
             @click="toggleBraceletPreview"
           >
             پیش‌نمایش دستبند
           </button>
           <button
-            class="rounded-md bg-emerald-900 px-4! py-2! text-[18px] text-white"
+            class="rounded-md bg-emerald-900 px-4! py-1! text-[14px] text-white"
             @click="startWorking"
           >
             مراحل اجرا
@@ -57,26 +54,26 @@
     <!-- Content Area -->
     <div class="content-container">
       <GridEditor
-        v-show="isGridEditorVisible"
+        v-if="isGridEditorVisible"
         class="content-component"
         @update-grid="handleUpdateGrid"
       />
       <MiyukiBeads
-        v-show="isMiyukiBeadsVisible"
+        v-if="isMiyukiBeadsVisible"
         :pattern="pattern"
         :rows="rows"
         :cols="cols"
         class="content-component"
       />
       <BraceletPreview
-        v-show="isBraceletPreviewVisible"
+        v-if="isBraceletPreviewVisible"
         :pattern="pattern"
         :rows="rows"
         :cols="cols"
         class="content-component"
       />
       <WorkingPage
-        v-show="isWorking"
+        v-if="isWorking"
         :pattern="pattern"
         :rows="rows"
         :cols="cols"
@@ -150,181 +147,18 @@ function handleUpdateGrid(matrix) {
   padding: 20px;
 }
 
-/* Hero Section */
-.hero-section {
-  text-align: center;
-  padding: 60px 20px;
-  margin-bottom: 40px;
-}
-
-.hero-content {
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.hero-icon {
-  font-size: 4rem;
-  margin-bottom: 20px;
-  animation: bounce 2s infinite;
-}
-
-.hero-title {
-  font-size: 1rem;
-  font-weight: bold;
-  color: white;
-  margin-bottom: 20px;
-  text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-}
-
-.hero-subtitle {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.9);
-  margin-bottom: 30px;
-  line-height: 1.6;
-}
-
-.hero-description {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border-radius: 20px;
-  padding: 30px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.hero-description p {
-  color: white;
-  font-size: 1.1rem;
-  margin-bottom: 15px;
-  font-weight: 500;
-}
-
-.hero-description ul {
-  list-style: none;
-  padding: 0;
-  text-align: right;
-}
-
-.hero-description li {
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 1rem;
-  margin-bottom: 8px;
-  padding: 8px 0;
-}
-
-/* Navigation Section */
-.navigation-section {
-  margin-bottom: 40px;
-}
-
-.section-title {
-  text-align: center;
-  font-size: 2rem;
-  font-weight: bold;
-  color: white;
-  margin-bottom: 30px;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.cards-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 25px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.nav-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border-radius: 20px;
-  padding: 30px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 2px solid transparent;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-  position: relative;
-  overflow: hidden;
-}
-
-.nav-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  z-index: 1;
-}
-
-.nav-card:hover::before {
-  opacity: 0.05;
-}
-
-.nav-card:hover {
-  transform: translateY(-10px);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-  border-color: #667eea;
-}
-
-.nav-card.active {
-  border-color: #667eea;
-  background: linear-gradient(135deg, #f0f4ff 0%, #e8f0ff 100%);
-  transform: translateY(-5px);
-}
-
-.card-icon {
-  font-size: 3rem;
-  margin-bottom: 20px;
-  position: relative;
-  z-index: 2;
-}
-
-.card-title {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #2d3748;
-  margin-bottom: 15px;
-  position: relative;
-  z-index: 2;
-}
-
-.card-description {
-  color: #4a5568;
-  line-height: 1.6;
-  margin-bottom: 20px;
-  position: relative;
-  z-index: 2;
-}
-
-.card-features {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-  position: relative;
-  z-index: 2;
-}
-
-.feature {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 500;
-}
-
 /* Stats Section */
 .stats-section {
   display: flex;
+  flex-direction: row;
   justify-content: center;
-  gap: 40px;
+  gap: 10px;
 }
 
 .stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   text-align: center;
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
@@ -335,7 +169,7 @@ function handleUpdateGrid(matrix) {
 }
 
 .stat-number {
-  font-size: 1.2rem;
+  font-size: .8rem;
   font-weight: bold;
   color: white;
   margin-bottom: 5px;
@@ -356,7 +190,7 @@ function handleUpdateGrid(matrix) {
 }
 
 .content-component {
-  min-height: 600px;
+  min-height: 500px;
 }
 
 /* Animations */

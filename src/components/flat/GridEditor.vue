@@ -1,5 +1,5 @@
 <template>
-  <div class="editor-container">
+  <div class="editor-container h-screen overflow-auto">
     <!-- ابزارها - Fixed on the right side -->
     <div class="controls-panel">
       <div class="controls-header">
@@ -155,6 +155,13 @@
             </button>
             <button
               class="tool-btn secondary"
+              @click="mirrorSelectionVertical"
+              :disabled="selection.length === 0"
+            >
+              ↕️ Mirror Selection Vertical
+            </button>
+            <button
+              class="tool-btn secondary"
               @click="undo"
             >
               ↩️ Undo
@@ -168,7 +175,7 @@
           </div>
           
           <!-- دکمه تغییر رنگ تمام مهره‌ها -->
-          <div class="background-color-section mt-4">
+          <div class="background-color-section !mt-4">
             <h4 class="mb-2 text-sm font-semibold text-gray-700">🎨 رنگ پس‌زمینه</h4>
             <div class="background-color-controls">
               <input
@@ -205,25 +212,9 @@
             >
               📂 بارگذاری اخرین ذخیره
             </button>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
             <button
-              class="export-btn danger"
-              @click="clearSavedGrid"
-            >
-              🗑️ پاک کردن ذخیره
-            </button>
-          </div>
-
-          <!-- نمایش آخرین زمان ذخیره -->
-          <div
-            v-if="lastSavedTime"
-            class="last-saved-info"
-          >
-            <small class="text-gray-600">
-              آخرین ذخیره: {{ formatLastSavedTime(lastSavedTime) }}
-            </small>
-          </div>
-
-          <button
             class="export-btn primary"
             @click="$emit('update-grid', getGridMatrix())"
           >
@@ -250,6 +241,8 @@
           >
             📄 خروجی TXT
           </button>
+          </div>
+          
         </div>
       </div>
     </div>
@@ -291,7 +284,7 @@
 
       <div class="grid-wrapper">
         <div
-          class="grid"
+          class="grid-item"
           :style="{ gridTemplateColumns: `repeat(${rows}, 15px)` }"
           @mousedown="startDrawing"
           @mouseup="stopDrawing"
@@ -302,6 +295,9 @@
             v-for="(cell, i) in grid"
             :key="i"
             class="cell"
+            :class="{
+              '!border-red-200': i == Math.floor((rows * cols) / 2),
+            }"
             :style="{
               backgroundColor: cell,
               border: selection.includes(i)
@@ -310,11 +306,6 @@
             }"
             @click="handleCellClick(i)"
           >
-            <span
-              v-if="i == (rows * cols) / 2"
-              class="center-marker"
-              >•</span
-            >
           </div>
         </div>
       </div>
@@ -323,7 +314,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch, onMounted } from 'vue';
+import { ref, reactive, watch, onMounted, nextTick } from 'vue';
 import {
   showError,
   showSuccess,
@@ -341,506 +332,7 @@ const lastSavedTime = ref(null);
 
 const selectedImage = ref(null);
 
-const grid = ref([
-  '#08a1b6',
-  '#08a1b6',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#f6ee21',
-  '#f6ee21',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#f6ee21',
-  '#08a1b6',
-  '#08a1b6',
-  '#f6ee21',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#f6ee21',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#f6ee21',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#f6ee21',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#f6ee21',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#f6ee21',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#f6ee21',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#f6ee21',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#f6ee21',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#f6ee21',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#f6ee21',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#f6ee21',
-  '#ffffff',
-  '#f6ee21',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#f6ee21',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#f6ee21',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#f6ee21',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#182163',
-  '#182163',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#c9131f',
-  '#c9131f',
-  '#c9131f',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#c9131f',
-  '#c9131f',
-  '#c9131f',
-  '#d97e7d',
-  '#f6ee21',
-  '#d97e7d',
-  '#c9131f',
-  '#c9131f',
-  '#c9131f',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#c9131f',
-  '#c9131f',
-  '#d97e7d',
-  '#d97e7d',
-  '#d97e7d',
-  '#c9131f',
-  '#c9131f',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#c9131f',
-  '#c9131f',
-  '#c9131f',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#c9131f',
-  '#c9131f',
-  '#c9131f',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#c9131f',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#f6ee21',
-  '#f6ee21',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#f6ee21',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#f6ee21',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#f6ee21',
-  '#f6ee21',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#f6ee21',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#182163',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#f6ee21',
-  '#ffffff',
-  '#f6ee21',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#182163',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#182163',
-  '#182163',
-  '#f6ee21',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#f6ee21',
-  '#08a1b6',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#f6ee21',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#f6ee21',
-  '#08a1b6',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#f6ee21',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#f6ee21',
-  '#182163',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#f6ee21',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#f6ee21',
-  '#182163',
-  '#08a1b6',
-  '#08a1b6',
-  '#08a1b6',
-  '#f6ee21',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#f6ee21',
-  '#08a1b6',
-  '#08a1b6',
-  '#f6ee21',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#08a1b6',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#f6ee21',
-  '#f6ee21',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-  '#ffffff',
-]);
+const grid = ref([]);
 
 // توابع ذخیره و بارگذاری grid در localStorage
 function saveGridToLocalStorage() {
@@ -958,23 +450,78 @@ function handleTxtUpload(e) {
     reader.onload = (e) => {
       try {
         const content = e.target.result.trim();
-        // Parse the JSON array format from the text file
-        const colors = JSON.parse(content);
+        const parsedContent = JSON.parse(content);
 
-        // Validate that it's an array of color strings
-        if (
-          Array.isArray(colors) &&
-          colors.every(
-            (color) =>
-              typeof color === 'string' && color.match(/^#[0-9A-Fa-f]{6}$/),
-          )
-        ) {
-          grid.value = colors;
-          saveHistory();
+        // بررسی فرمت جدید (شامل rows و cols)
+        if (parsedContent.grid && parsedContent.rows && parsedContent.cols) {
+          // فرمت جدید: شامل ابعاد
+          const { grid: colors, rows: fileRows, cols: fileCols } = parsedContent;
+          
+          // بررسی اعتبار آرایه رنگ‌ها
+          if (
+            Array.isArray(colors) &&
+            colors.every(
+              (color) =>
+                typeof color === 'string' && color.match(/^#[0-9A-Fa-f]{6}$/),
+            )
+          ) {
+            // بررسی تطابق تعداد سلول‌ها با ابعاد
+            if (colors.length === fileRows * fileCols) {
+              // ابتدا ابعاد را تغییر بده
+              rows.value = fileRows;
+              cols.value = fileCols;
+              
+              // منتظر بمان تا watcher اجرا شود
+              nextTick(() => {
+                // حالا گرید را تنظیم کن
+                grid.value = [...colors];
+                saveHistory();
+                showSuccess('بارگذاری شد', `گرید ${fileRows}×${fileCols} با موفقیت بارگذاری شد`);
+              });
+            } else {
+              showError(
+                'خطا در ابعاد',
+                `تعداد سلول‌ها (${colors.length}) با ابعاد اعلام شده (${fileRows}×${fileCols}) مطابقت ندارد`
+              );
+            }
+          } else {
+            showError(
+              'خطا در فرمت فایل',
+              'فایل باید شامل آرایه‌ای معتبر از رنگ‌ها باشد'
+            );
+          }
+        } else if (Array.isArray(parsedContent)) {
+          // فرمت قدیمی: فقط آرایه رنگ‌ها
+          const colors = parsedContent;
+          
+          // بررسی اعتبار آرایه رنگ‌ها
+          if (
+            colors.every(
+              (color) =>
+                typeof color === 'string' && color.match(/^#[0-9A-Fa-f]{6}$/),
+            )
+          ) {
+            // استفاده از ابعاد فعلی سایت
+            if (colors.length === rows.value * cols.value) {
+              grid.value = [...colors];
+              saveHistory();
+              showSuccess('بارگذاری شد', `گرید با ابعاد فعلی (${rows.value}×${cols.value}) بارگذاری شد`);
+            } else {
+              showError(
+                'خطا در ابعاد',
+                `تعداد سلول‌ها (${colors.length}) با ابعاد فعلی (${rows.value}×${cols.value}) مطابقت ندارد. لطفاً ابعاد را تنظیم کنید یا از فایل با فرمت جدید استفاده کنید.`
+              );
+            }
+          } else {
+            showError(
+              'خطا در فرمت فایل',
+              'فایل باید شامل آرایه‌ای معتبر از رنگ‌ها باشد'
+            );
+          }
         } else {
           showError(
             'خطا در فرمت فایل',
-            'فایل باید شامل آرایه‌ای از رنگ‌ها باشد (مثل ["#08a1b6","#ffffff",...])',
+            'فرمت فایل نامعتبر است. فایل باید شامل آرایه‌ای از رنگ‌ها یا آبجکتی با grid، rows و cols باشد.'
           );
         }
       } catch (error) {
@@ -987,13 +534,17 @@ function handleTxtUpload(e) {
 }
 
 watch([rows, cols], () => {
-  grid.value = Array(rows.value * cols.value).fill('#ffffff');
-  // ریست کردن clipboard و selection
-  clipboard.value = [];
-  clipboardSize.value = { width: 0, height: 0 };
-  selection.value = [];
-  isPasteMode.value = false;
-  saveHistory();
+  // فقط اگر تعداد سلول‌ها تغییر کرده باشد، گرید را ریست کن
+  const newSize = rows.value * cols.value;
+  if (grid.value.length !== newSize) {
+    grid.value = Array(newSize).fill('#ffffff');
+    // ریست کردن clipboard و selection
+    clipboard.value = [];
+    clipboardSize.value = { width: 0, height: 0 };
+    selection.value = [];
+    isPasteMode.value = false;
+    saveHistory();
+  }
 });
 
 // ذخیره خودکار گرید در localStorage هنگام تغییر
@@ -1364,6 +915,60 @@ function mirrorSelection() {
   }
 }
 
+// آینه کردن عمودی طرح انتخاب شده (از بالا به پایین)
+function mirrorSelectionVertical() {
+  if (selection.value.length === 0) {
+    showError('خطا', 'ابتدا یک ناحیه انتخاب کنید');
+    return;
+  }
+
+  try {
+    // محاسبه محدوده انتخاب
+    const selCols = rows.value; // از rows استفاده می‌کنیم
+    const minX = Math.min(...selection.value.map((i) => i % selCols));
+    const maxX = Math.max(...selection.value.map((i) => i % selCols));
+    const minY = Math.min(...selection.value.map((i) => Math.floor(i / selCols)));
+    const maxY = Math.max(...selection.value.map((i) => Math.floor(i / selCols)));
+
+    const width = maxX - minX + 1;
+    const height = maxY - minY + 1;
+
+    // ایجاد کپی موقت از ناحیه انتخاب شده
+    const tempSelection = [];
+    for (let y = 0; y < height; y++) {
+      const row = [];
+      for (let x = 0; x < width; x++) {
+        const idx = (minY + y) * selCols + (minX + x);
+        if (selection.value.includes(idx)) {
+          row.push(grid.value[idx]);
+        } else {
+          row.push('#ffffff'); // رنگ خالی برای سلول‌های غیر انتخاب شده
+        }
+      }
+      tempSelection.push(row);
+    }
+
+    // آینه کردن عمودی (از بالا به پایین) - معکوس کردن ترتیب ردیف‌ها
+    const mirroredSelection = tempSelection.reverse();
+
+    // اعمال تغییرات آینه شده به گرید
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = (minY + y) * selCols + (minX + x);
+        if (selection.value.includes(idx)) {
+          grid.value[idx] = mirroredSelection[y][x];
+        }
+      }
+    }
+
+    saveHistory();
+    showSuccess('آینه عمودی شد', 'طرح انتخاب شده با موفقیت به صورت عمودی آینه شد');
+  } catch (error) {
+    showError('خطا در آینه عمودی', 'خطا در آینه عمودی کردن طرح: ' + error.message);
+    console.error('Error vertical mirroring selection:', error);
+  }
+}
+
 function pasteAtCenter() {
   if (!hasClipboardContent()) {
     showError('خطا', 'هیچ چیزی برای چسباندن وجود ندارد');
@@ -1611,11 +1216,19 @@ function exportGridAsHighQualityImage() {
 // خروجی txt از متغیر grid
 function exportGridAsTxt() {
   try {
-    // تبدیل آرایه grid به رشته JSON
-    const gridData = JSON.stringify(grid.value, null, 2);
+    // ایجاد آبجکت شامل grid و ابعاد
+    const gridData = {
+      grid: grid.value,
+      rows: rows.value,
+      cols: cols.value,
+      timestamp: new Date().toISOString()
+    };
+    
+    // تبدیل به رشته JSON
+    const gridDataString = JSON.stringify(gridData, null, 2);
     
     // ایجاد Blob از داده‌ها
-    const blob = new Blob([gridData], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob([gridDataString], { type: 'text/plain;charset=utf-8' });
     
     // ایجاد URL برای دانلود
     const url = URL.createObjectURL(blob);
@@ -1660,53 +1273,6 @@ function handleImageUpload(e) {
   selectedImage.value = URL.createObjectURL(file);
 }
 
-async function clearSavedGrid() {
-  const result = await showConfirm(
-    'پاک کردن داده‌های ذخیره شده',
-    'آیا مطمئن هستید که می‌خواهید تمام داده‌های ذخیره شده پاک شوند؟ این عملیات غیرقابل برگشت است.',
-  );
-  if (result.isConfirmed) {
-    localStorage.removeItem('gridEditorData');
-    showSuccess('پاک شد', 'داده‌های ذخیره شده پاک شدند.');
-    grid.value = Array(rows.value * cols.value).fill('#ffffff'); // ریست کردن گرید
-    selection.value = [];
-    clipboard.value = [];
-    clipboardSize.value = { width: 0, height: 0 };
-    pastePosition.value = { x: 0, y: 0 };
-    isPasteMode.value = false;
-    history.stacks = [];
-    history.index = -1;
-    saveHistory();
-    lastSavedTime.value = null;
-  }
-}
-
-// تابع فرمت کردن زمان آخرین ذخیره
-function formatLastSavedTime(timestamp) {
-  try {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) {
-      return 'همین الان';
-    } else if (diffMins < 60) {
-      return `${diffMins} دقیقه پیش`;
-    } else if (diffHours < 24) {
-      return `${diffHours} ساعت پیش`;
-    } else if (diffDays < 7) {
-      return `${diffDays} روز پیش`;
-    } else {
-      return date.toLocaleDateString('fa-IR');
-    }
-  } catch {
-    return 'نامشخص';
-  }
-}
-
 // تغییر رنگ تمام مهره‌ها
 const backgroundColor = ref('#ffffff');
 async function changeAllBeadsToColor() {
@@ -1744,20 +1310,20 @@ async function changeAllBeadsToColor() {
   position: fixed;
   top: 0;
   right: 0;
-  width: 280px;
-  height: 100%;
+  width: 260px;
+  height: 100vh;
   background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
-  border-left: 2px solid #dee2e6;
+  border-left: 1px solid #dee2e6;
   z-index: 1000;
   overflow-y: auto;
-  padding: 20px;
-  box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
+  padding: 12px;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.08);
   scrollbar-width: thin;
   scrollbar-color: #adb5bd #f8f9fa;
 }
 
 .controls-panel::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 .controls-panel::-webkit-scrollbar-track {
@@ -1766,34 +1332,44 @@ async function changeAllBeadsToColor() {
 
 .controls-panel::-webkit-scrollbar-thumb {
   background: #adb5bd;
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 .controls-panel::-webkit-scrollbar-thumb:hover {
   background: #6c757d;
 }
+
 .controls-header {
   text-align: center;
-  margin-bottom: 20px;
-  padding-bottom: 15px;
-  border-bottom: 2px solid #dee2e6;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #dee2e6;
 }
+
+.controls-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #495057;
+}
+
 .controls-content {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
 }
+
 .dimensions-section,
 .color-section,
 .recent-colors-section,
 .tools-section,
 .export-section {
   background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 2px solid #dee2e6;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-  transition: all 0.3s ease;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
 }
 
 .dimensions-section:hover,
@@ -1801,264 +1377,322 @@ async function changeAllBeadsToColor() {
 .recent-colors-section:hover,
 .tools-section:hover,
 .export-section:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
+
+.dimensions-section h4,
+.color-section h4,
+.tools-section h4,
+.export-section h4 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #495057;
+}
+
 .dimension-inputs {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-top: 5px;
+  gap: 6px;
+  margin-top: 4px;
 }
+
 .dimension-label {
   display: flex;
   align-items: center;
-  gap: 5px;
+  justify-content: space-between;
+  gap: 8px;
 }
+
 .dimension-text {
-  font-size: 14px;
-  color: #555;
+  font-size: 12px;
+  color: #6c757d;
+  font-weight: 500;
 }
+
 .dimension-input {
-  width: 80px;
+  width: 60px;
   color: #495057;
-  padding: 8px 12px;
-  border: 2px solid #dee2e6;
-  border-radius: 8px;
-  font-size: 14px;
+  padding: 6px 8px;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  font-size: 12px;
   background: #ffffff;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .dimension-input:focus {
   outline: none;
   border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-  transform: translateY(-1px);
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
 }
 
 .dimension-input:hover {
   border-color: #adb5bd;
-  transform: translateY(-1px);
 }
+
 .color-picker-container {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 5px;
+  gap: 8px;
+  margin-top: 4px;
 }
+
 .color-picker {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  border: 3px solid #dee2e6;
+  border: 2px solid #dee2e6;
   cursor: pointer;
   padding: 0;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 .color-picker:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  transform: scale(1.05);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
 }
+
 .color-value {
-  font-size: 14px;
-  color: #333;
+  font-size: 12px;
+  color: #495057;
   font-weight: 500;
   background: #f8f9fa;
-  padding: 5px 10px;
-  border-radius: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
   border: 1px solid #dee2e6;
-  min-width: 80px;
+  min-width: 60px;
   text-align: center;
 }
+
 .recent-colors-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
+
+.recent-colors-header h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #495057;
+}
+
 .clear-colors-btn {
   background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
   color: white;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s ease;
   border: none;
-  box-shadow: 0 2px 8px rgba(255, 71, 87, 0.3);
+  box-shadow: 0 2px 6px rgba(255, 71, 87, 0.3);
 }
+
 .clear-colors-btn:hover {
   background-color: #d32f2f;
+  transform: translateY(-1px);
 }
+
 .recent-colors-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(35px, 1fr));
-  gap: 8px;
-  margin-top: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(28px, 1fr));
+  gap: 6px;
+  margin-top: 8px;
 }
+
 .color-swatch {
-  width: 35px;
-  height: 35px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   cursor: pointer;
   position: relative;
-  border: 2px solid #dee2e6;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #dee2e6;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
+
 .color-swatch:hover {
   transform: scale(1.1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
+
 .remove-color-btn {
   position: absolute;
-  top: -8px;
-  right: -8px;
+  top: -6px;
+  right: -6px;
   background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
   color: white;
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: bold;
   cursor: pointer;
-  border: 2px solid white;
+  border: 1px solid white;
   padding: 0;
   line-height: 1;
   opacity: 0;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(255, 71, 87, 0.4);
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 4px rgba(255, 71, 87, 0.4);
 }
+
 .color-swatch:hover .remove-color-btn {
   opacity: 1;
 }
+
 .tools-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  margin-top: 10px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 8px;
 }
+
 .tool-btn {
-  padding: 12px 8px;
-  border: 2px solid transparent;
-  border-radius: 10px;
+  padding: 8px 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 500;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
+
 .tool-btn:hover {
   background-color: #e0e0e0;
   border-color: #ccc;
+  transform: translateY(-1px);
 }
+
 .tool-btn.active {
   background-color: #4caf50;
   color: white;
   border-color: #4caf50;
 }
+
 .tool-btn.primary {
   background-color: #4caf50;
   color: white;
   border-color: #4caf50;
 }
+
 .tool-btn.primary:hover {
   background-color: #388e3c;
   border-color: #388e3c;
 }
+
 .tool-btn.secondary {
   background-color: #2196f3;
   color: white;
   border-color: #2196f3;
 }
+
 .tool-btn.secondary:hover {
   background-color: #1976d2;
   border-color: #1976d2;
 }
+
 .tool-btn.danger {
   background-color: #f44336;
   color: white;
   border-color: #f44336;
 }
+
 .tool-btn.danger:hover {
   background-color: #d32f2f;
   border-color: #d32f2f;
 }
+
 .tool-btn.success {
   background-color: #4caf50;
   color: white;
   border-color: #4caf50;
 }
+
 .tool-btn.success:hover {
   background-color: #388e3c;
   border-color: #388e3c;
 }
+
 .tool-btn.info {
   background-color: #2196f3;
   color: white;
   border-color: #2196f3;
 }
+
 .tool-btn.info:hover {
   background-color: #1976d2;
   border-color: #1976d2;
 }
+
 .export-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 10px;
+  gap: 8px;
+  margin-top: 8px;
 }
+
 .export-btn {
-  padding: 15px 12px;
-  border: 2px solid transparent;
-  border-radius: 12px;
+  padding: 10px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
+
 .export-btn:hover {
   background-color: #e0e0e0;
   border-color: #ccc;
+  transform: translateY(-1px);
 }
+
 .export-btn.primary {
   background-color: #4caf50;
   color: white;
   border-color: #4caf50;
 }
+
 .export-btn.primary:hover {
   background-color: #388e3c;
   border-color: #388e3c;
 }
+
 .export-btn.success {
   background-color: #4caf50;
   color: white;
   border-color: #4caf50;
 }
+
 .export-btn.success:hover {
   background-color: #388e3c;
   border-color: #388e3c;
 }
+
 .export-btn.info {
   background-color: #2196f3;
   color: white;
   border-color: #2196f3;
 }
+
 .export-btn.info:hover {
   background-color: #1976d2;
   border-color: #1976d2;
@@ -2074,14 +1708,98 @@ async function changeAllBeadsToColor() {
   background-color: #f57c00;
   border-color: #f57c00;
 }
+
 .grid-container {
   display: flex;
   flex-direction: row;
   gap: 20px;
-  margin-right: 300px;
+  margin-right: 250px;
+  height: 100%;
   flex: 1;
   user-select: none;
 }
+
+/* استایل دکمه‌های ذخیره و بارگذاری */
+.save-load-buttons {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.save-load-buttons .export-btn {
+  flex: 1;
+  min-width: 100px;
+}
+
+/* بهبود استایل دکمه‌های export */
+.export-section .export-btn {
+  margin-bottom: 6px;
+  transition: all 0.2s ease;
+}
+
+.export-section .export-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* استایل نمایش آخرین زمان ذخیره */
+.last-saved-info {
+  text-align: center;
+  padding: 6px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+  margin-bottom: 10px;
+}
+
+.last-saved-info small {
+  font-size: 11px;
+  color: #6c757d;
+}
+
+/* استایل دکمه‌های رنگ پس‌زمینه */
+.background-color-section {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+}
+
+.background-color-section:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.background-color-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.background-color-controls .color-picker {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #dee2e6;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.background-color-controls .color-picker:hover {
+  transform: scale(1.05);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+}
+
+.background-color-controls .tool-btn {
+  flex: 1;
+  min-width: 100px;
+}
+
 .image-section {
   flex-grow: 1;
   display: flex;
@@ -2093,6 +1811,7 @@ async function changeAllBeadsToColor() {
   border-radius: 12px;
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(10px);
+  height: 100%;
 }
 .upload-section {
   width: 100%;
@@ -2158,8 +1877,9 @@ async function changeAllBeadsToColor() {
   backdrop-filter: blur(10px);
   padding: 20px;
   min-height: 400px;
+  height: fit-content;
 }
-.grid {
+.grid-item {
   display: grid;
   gap: 1px;
   width: fit-content;
@@ -2175,7 +1895,7 @@ async function changeAllBeadsToColor() {
 }
 .cell {
   width: 15px;
-  height: 15px;
+  height: 16.5px;
   box-sizing: border-box;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -2198,106 +1918,9 @@ async function changeAllBeadsToColor() {
   transform: scale(0.95);
 }
 .center-marker {
-  font-size: 12px;
+  font-size: 16px;
   color: #ff4757;
   font-weight: bold;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    opacity: 0.7;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.2);
-  }
-  100% {
-    opacity: 0.7;
-    transform: scale(1);
-  }
-}
-
-/* استایل دکمه‌های ذخیره و بارگذاری */
-.save-load-buttons {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.save-load-buttons .export-btn {
-  flex: 1;
-  min-width: 120px;
-}
-
-/* بهبود استایل دکمه‌های export */
-.export-section .export-btn {
-  margin-bottom: 8px;
-  transition: all 0.3s ease;
-}
-
-.export-section .export-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-}
-
-/* استایل نمایش آخرین زمان ذخیره */
-.last-saved-info {
-  text-align: center;
-  padding: 8px;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  border-radius: 8px;
-  border: 1px solid #dee2e6;
-  margin-bottom: 15px;
-}
-
-.last-saved-info small {
-  font-size: 12px;
-  color: #6c757d;
-}
-
-/* استایل دکمه‌های رنگ پس‌زمینه */
-.background-color-section {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 2px solid #dee2e6;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-  transition: all 0.3s ease;
-}
-
-.background-color-section:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
-}
-
-.background-color-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.background-color-controls .color-picker {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 3px solid #dee2e6;
-  cursor: pointer;
-  padding: 0;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-}
-
-.background-color-controls .color-picker:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-}
-
-.background-color-controls .tool-btn {
-  flex: 1;
-  min-width: 120px;
 }
 </style>

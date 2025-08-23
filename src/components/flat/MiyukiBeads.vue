@@ -24,7 +24,7 @@ let scene,
   beads = [];
 
 function createBeads() {
-  const beadGeometry = new THREE.CylinderGeometry(0.7, 0.7, 0.9, 32);
+  const beadGeometry = new THREE.CylinderGeometry(0.7, 0.7, 1.1, 32);
   const halfCols = (props.cols - 1) / 2;
   const halfRows = (props.rows - 1) / 2;
 

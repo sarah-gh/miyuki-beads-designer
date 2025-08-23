@@ -16,13 +16,6 @@
     <main class="main-content">
       <RouterView />
     </main>
-
-    <!-- Footer -->
-    <footer class="app-footer">
-      <div class="footer-content">
-        <p>&copy; 2024 Miyuki Beads Designer. طراحی شده با ❤️</p>
-      </div>
-    </footer>
   </div>
 </template>
 
@@ -54,7 +47,7 @@ onMounted(() => {
 .app-header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-  padding: 20px 0;
+  padding: 10px 0;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   position: sticky;
   top: 0;
@@ -75,7 +68,7 @@ onMounted(() => {
 }
 
 .app-title {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: bold;
   margin-bottom: 5px;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
