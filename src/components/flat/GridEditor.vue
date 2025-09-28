@@ -148,15 +148,15 @@
             </button>
             <button
               class="tool-btn secondary"
-              @click="mirrorSelection"
               :disabled="selection.length === 0"
+              @click="mirrorSelection"
             >
               🔄 Mirror Selection
             </button>
             <button
               class="tool-btn secondary"
-              @click="mirrorSelectionVertical"
               :disabled="selection.length === 0"
+              @click="mirrorSelectionVertical"
             >
               ↕️ Mirror Selection Vertical
             </button>
@@ -250,8 +250,8 @@
     <!-- صفحه شطرنجی -->
     <div class="grid-container">
       <div class="image-section">
-        <div class="upload-section">
-          <label class="upload-label mb-2!">
+        <div class="upload-section grid grid-cols-2 gap-2">
+          <label class="upload-label">
             <span class="upload-text">📁 آپلود فایل txt grid</span>
             <input
               type="file"
@@ -1877,11 +1877,12 @@ async function changeAllBeadsToColor() {
   backdrop-filter: blur(10px);
   padding: 20px;
   min-height: 400px;
-  height: fit-content;
+  height: 100%;
+  overflow-y: auto;
 }
 .grid-item {
   display: grid;
-  gap: 1px;
+  gap: 0.5px;
   width: fit-content;
   height: fit-content;
   background: #f8f9fa;
@@ -1895,14 +1896,14 @@ async function changeAllBeadsToColor() {
 }
 .cell {
   width: 15px;
-  height: 16.5px;
+  height: 17px;
   box-sizing: border-box;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 0.5px solid rgba(255, 255, 255, 0.3);
   position: relative;
   min-width: 15px;
   min-height: 15px;

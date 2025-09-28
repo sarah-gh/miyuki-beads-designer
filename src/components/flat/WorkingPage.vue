@@ -85,6 +85,35 @@
           </div>
         </div>
       </div>
+
+      <div class="control-group">
+        <h3>🎨 مدیریت رنگ‌ها</h3>
+        <div class="color-management">
+          <div class="color-list-management">
+            <h4>رنگ‌های استفاده شده در طرح:</h4>
+            <div class="all-colors-list">
+              <div
+                v-for="(color, index) in allUsedColors"
+                :key="color"
+                class="color-management-item"
+              >
+                <div
+                  class="color-swatch-large"
+                  :style="{ backgroundColor: color }"
+                ></div>
+                <input
+                  v-model="colorNames[color]"
+                  type="text"
+                  :placeholder="`نام رنگ ${index + 1}`"
+                  class="color-name-input"
+                  @input="updateColorName(color, $event.target.value)"
+                />
+                <span class="color-code">{{ color }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Pattern Display -->
@@ -123,6 +152,7 @@
                 :key="index"
                 class="sequence-item"
                 :style="{ backgroundColor: color }"
+                :title="getColorDisplayName(color)"
               ></div>
             </div>
           </div>
@@ -191,6 +221,7 @@ const props = defineProps({
 const startRow = ref(0); // شروع از ردیف (ارتفاع)
 const direction = ref('forward'); // forward: بالا به پایین، backward: پایین به بالا
 const currentStepIndex = ref(0);
+const colorNames = ref({}); // Store color names
 
 // Generate grid data from props pattern
 const generateGridFromPattern = () => {
@@ -272,6 +303,16 @@ const currentRowPattern = computed(() => {
   return pattern;
 });
 
+const allUsedColors = computed(() => {
+  const colors = new Set();
+  for (let i = 0; i < props.pattern.length; i++) {
+    if (props.pattern[i]) {
+      colors.add(props.pattern[i]);
+    }
+  }
+  return Array.from(colors).sort();
+});
+
 // Methods
 const isInCurrentRow = (index) => {
   const row = Math.floor(index / props.cols);
@@ -311,6 +352,15 @@ const getColorCount = (color) => {
     }
   }
   return count;
+};
+
+const updateColorName = (color, name) => {
+  colorNames.value[color] = name;
+};
+
+const getColorDisplayName = (color) => {
+  const name = colorNames.value[color];
+  return name ? `${name} (${color})` : color;
 };
 
 const nextStep = () => {
@@ -700,6 +750,88 @@ watch(
   height: 16px;
   border-radius: 2px;
   border: 1px solid rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.sequence-item:hover {
+  transform: scale(1.1);
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Color Management Styles */
+.color-management {
+  margin-top: 10px;
+}
+
+.color-list-management h4 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 1rem;
+  border-bottom: 1px solid #667eea;
+  padding-bottom: 8px;
+}
+
+.all-colors-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 5px;
+}
+
+.color-management-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  transition: all 0.3s ease;
+}
+
+.color-management-item:hover {
+  background: #e9ecef;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.color-swatch-large {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+.color-name-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 2px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.3s ease;
+  background: white;
+}
+
+.color-name-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.color-code {
+  font-family: monospace;
+  font-size: 12px;
+  color: #666;
+  background: #e9ecef;
+  padding: 4px 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
 }
 
 .shortcuts-info {

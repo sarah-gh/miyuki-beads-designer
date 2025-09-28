@@ -9,6 +9,7 @@
         <div class="header-actions">
           <RouterLink to="/">Flat Grid</RouterLink>
           <RouterLink to="/weaving-grid">Weaving Grid</RouterLink>
+          <RouterLink to="/beadwork-pattern">Beadwork Pattern</RouterLink>
         </div>
       </div>
     </header>

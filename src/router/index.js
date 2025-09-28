@@ -27,6 +27,11 @@ const router = createRouter({
       name: 'weaving-grid',
       component: () => import('../views/WeavingGrid.vue'),
     },
+    {
+      path: '/beadwork-pattern',
+      name: 'beadwork-pattern',
+      component: () => import('../views/BeadworkPattern.vue'),
+    },
   ],
 });
 
