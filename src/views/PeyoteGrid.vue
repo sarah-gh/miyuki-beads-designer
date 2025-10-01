@@ -86,8 +86,8 @@
   <script setup>
   import { ref } from 'vue';
   import GridEditor from '@/components/peyote/PeyoteGridEditor.vue';
-  import MiyukiBeads from '@/components/flat/MiyukiBeads.vue';
-  import BraceletPreview from '@/components/flat/BraceletPreview.vue';
+  import MiyukiBeads from '@/components/peyote/MiyukiBeads.vue';
+  import BraceletPreview from '@/components/peyote/BraceletPreview.vue';
   import WorkingPage from '@/components/flat/WorkingPage.vue';
   
   const rows = ref(16);
