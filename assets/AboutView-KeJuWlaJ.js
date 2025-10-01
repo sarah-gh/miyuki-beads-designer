@@ -1,0 +1,1 @@
+import{_ as t,c as o,a as n,F as s,o as l}from"./index-CMNLpwHO.js";const r={};function a(u,e){return l(),o(s,null,[e[0]||(e[0]=n("main",null,"This is AboutView",-1)),e[1]||(e[1]=n("ul",null,null,-1))],64)}const c=t(r,[["render",a]]);export{c as default};
