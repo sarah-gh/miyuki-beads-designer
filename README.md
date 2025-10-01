@@ -133,6 +133,10 @@ npm run build
 npm run preview
 ```
 
+### deploy
+npm run build
+npm run deploy
+
 ## 🛠️ Tech Stack
 
 - **Frontend Framework**: Vue.js 3 with Composition API

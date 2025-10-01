@@ -430,7 +430,7 @@
   </template>
   
   <script setup>
-  import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue';
+  import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
   
   const emit = defineEmits(['update-grid']);
   
@@ -614,8 +614,6 @@
   }
   
   // توابع
-  
-  
   function addToRecentColors(color) {
     // Don't add background color to recent colors
     if (color === backgroundColor.value) return;
@@ -1165,7 +1163,6 @@
     }
   }
   
-  
   async function exportGridAsImage() {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -1294,27 +1291,40 @@
   }
   
   function exportGridAsTxt() {
-    let txt = `Peyote Grid - ${cols.value}x${rows.value}\n`;
-    txt += '='.repeat(cols.value * 2) + '\n';
-    
-    for (let r = 0; r < rows.value; r++) {
-      let row = '';
-      for (let c = 0; c < cols.value; c++) {
-        const color = grid[r][c] || backgroundColor.value;
-        row += color === backgroundColor.value ? '  ' : '██';
+    try {
+      // Convert 2D grid to 1D array for consistency with other components
+      const colors = [];
+      for (let r = 0; r < rows.value; r++) {
+        for (let c = 0; c < cols.value; c++) {
+          const color = grid[r][c] || backgroundColor.value;
+          colors.push(color);
+        }
       }
-      txt += row + '\n';
+      
+      // Create JSON object with grid data and dimensions
+      const gridData = {
+        grid: colors,
+        rows: rows.value,
+        cols: cols.value,
+        type: 'peyote',
+        timestamp: new Date().toISOString()
+      };
+      
+      // Convert to JSON string
+      const gridDataString = JSON.stringify(gridData, null, 2);
+      
+      // Create blob and download
+      const blob = new Blob([gridDataString], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `peyote_grid_${rows.value}x${cols.value}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error exporting TXT file:', error);
     }
-    
-    const blob = new Blob([txt], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'peyote-grid.txt';
-    link.click();
-    URL.revokeObjectURL(url);
   }
-  
   
   function handleTxtUpload(event) {
     const file = event.target.files[0];
@@ -1322,10 +1332,103 @@
     
     const reader = new FileReader();
     reader.onload = (e) => {
-      const content = e.target.result;
-      // Parse TXT content and update grid
-      // This is a placeholder - you can implement TXT parsing logic here
-      console.info('TXT file content:', content);
+      try {
+        const content = e.target.result.trim();
+        console.info('TXT file content:', content);
+        const lines = content.split('\n');
+        
+        // Check if it's the new JSON format
+        if (content.startsWith('{')) {
+          const parsedContent = JSON.parse(content);
+          if (parsedContent.grid && parsedContent.rows && parsedContent.cols) {
+            // New format: JSON with dimensions
+            const { grid: colors, rows: fileRows, cols: fileCols } = parsedContent;
+            
+            console.info('Parsed colors:', colors.slice(0, 10), '...', 'Length:', colors.length);
+            console.info('Expected length:', fileRows * fileCols, 'Rows:', fileRows, 'Cols:', fileCols);
+            
+            if (Array.isArray(colors) && colors.every(color => 
+              color === null || color === backgroundColor.value || 
+              (typeof color === 'string' && color.match(/^#[0-9A-Fa-f]{6}$/))
+            )) {
+              console.info('Color validation passed');
+              if (colors.length === fileRows * fileCols) {
+                console.info('Length validation passed, updating grid...');
+                // Update dimensions first
+                cols.value = fileCols;
+                rows.value = fileRows;
+                
+                // Wait for watcher to execute, then update grid
+                nextTick(() => {
+                  // Convert 1D array to 2D grid
+                  const gridData = [];
+                  for (let r = 0; r < fileRows; r++) {
+                    const row = [];
+                    for (let c = 0; c < fileCols; c++) {
+                      const index = r * fileCols + c;
+                      const color = colors[index];
+                      // Use the color if it exists, otherwise use background color
+                      row.push(color !== null && color !== undefined ? color : backgroundColor.value);
+                    }
+                    gridData.push(row);
+                  }
+                  grid.splice(0, grid.length, ...gridData);
+                  console.info('Grid loaded from TXT:', { rows: fileRows, cols: fileCols, gridData });
+
+                });
+                return;
+              } else {
+                console.error('Length mismatch:', colors.length, 'expected', fileRows * fileCols);
+              }
+            } else {
+              console.error('Color validation failed');
+            }
+          } else {
+            console.error('Missing required fields in JSON');
+          }
+        }
+        
+        // Legacy format: text with ██ characters
+        if (lines.length > 2 && lines[0].includes('Peyote Grid')) {
+          // Parse header to get dimensions
+          const headerMatch = lines[0].match(/(\d+)x(\d+)/);
+          if (headerMatch) {
+            const fileCols = parseInt(headerMatch[1]);
+            const fileRows = parseInt(headerMatch[2]);
+            
+            // Update dimensions
+            cols.value = fileCols;
+            rows.value = fileRows;
+            
+            // Wait for watcher, then parse grid
+            nextTick(() => {
+              const gridData = [];
+              for (let r = 2; r < lines.length && r - 2 < fileRows; r++) {
+                const row = [];
+                const line = lines[r];
+                for (let c = 0; c < fileCols; c++) {
+                  const charIndex = c * 2;
+                  if (charIndex + 1 < line.length) {
+                    const cell = line.substring(charIndex, charIndex + 2);
+                    // For now, set all non-empty cells to a default color
+                    // In a real implementation, you'd need to map characters to colors
+                    row.push(cell === '██' ? '#FF0000' : backgroundColor.value);
+                  } else {
+                    row.push(backgroundColor.value);
+                  }
+                }
+                gridData.push(row);
+              }
+              grid.splice(0, grid.length, ...gridData);
+            });
+            return;
+          }
+        }
+        
+        console.error('Unsupported TXT format');
+      } catch (error) {
+        console.error('Error parsing TXT file:', error);
+      }
     };
     reader.readAsText(file);
   }
