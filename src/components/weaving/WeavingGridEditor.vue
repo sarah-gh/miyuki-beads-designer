@@ -224,9 +224,9 @@ import { ref, reactive, watch, onMounted, onBeforeUnmount } from 'vue';
 defineEmits(['update-grid']);
 
 // 기본 تنظیمات
-const cols = ref(40); // ستون‌ها — در حالت عمودی این عرض الگو است
-const rows = ref(120); // ردیف‌ها — طول الگو (بلندی)
-const beadSize = ref(10);
+const cols = ref(80); // ستون‌ها — در حالت عمودی این عرض الگو است
+const rows = ref(10); // ردیف‌ها — طول الگو (بلندی)
+const beadSize = ref(20);
 const brickMode = ref(true);
 const tool = ref('paint');
 
@@ -543,18 +543,19 @@ onBeforeUnmount(() => {
   display: flex;
   gap: 20px;
   padding: 20px;
+  padding-top: 0px;
   min-height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .controls-panel {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   position: fixed;
   top: 0;
   right: 0;
-  width: 280px;
-  height: 100%;
+  width: 100%;
+  height: 200px;
   background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
   border-left: 2px solid #dee2e6;
   z-index: 1000;
@@ -591,8 +592,18 @@ onBeforeUnmount(() => {
 
 .controls-content {
   display: flex;
-  flex-direction: column;
+  width: 100%;
+  flex-direction: row;
   gap: 20px;
+}
+
+.dimensions-section {
+  display: flex;
+}
+
+.dimension-inputs {
+  display: flex;
+  flex-direction: row;
 }
 
 .dimensions-section,
@@ -887,7 +898,7 @@ onBeforeUnmount(() => {
 
 .grid-container {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   gap: 20px;
   margin-right: 300px;
   flex: 1;

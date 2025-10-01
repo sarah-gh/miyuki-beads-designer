@@ -10,6 +10,7 @@
           <RouterLink to="/">Flat Grid</RouterLink>
           <RouterLink to="/weaving-grid">Weaving Grid</RouterLink>
           <RouterLink to="/beadwork-pattern">Beadwork Pattern</RouterLink>
+          <RouterLink to="/peyote-grid">Peyote Grid</RouterLink>
         </div>
       </div>
     </header>

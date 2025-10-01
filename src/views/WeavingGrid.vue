@@ -14,6 +14,12 @@
           </button>
           <button
             class="rounded-md bg-blue-900 px-4! py-2! text-[18px] text-white"
+            @click="togglePeyoteGridEditor"
+          >
+            ویرایشگر شبکه پیچ
+          </button>
+          <button
+            class="rounded-md bg-blue-900 px-4! py-2! text-[18px] text-white"
             @click="toggleMiyukiBeads"
           >
             نمایش مهره‌ها
@@ -54,6 +60,11 @@
 
     <!-- Content Area -->
     <div class="content-container">
+      <PeyoteGridEditor
+        v-show="isPeyoteGridEditorVisible"
+        class="content-component"
+        @update-grid="handleUpdateGrid"
+      />
       <WeavingGridEditor
         v-show="isGridEditorVisible"
         class="content-component"
@@ -90,6 +101,7 @@ import WeavingGridEditor from '@/components/weaving/WeavingGridEditor.vue';
 import MiyukiBeads from '@/components/flat/MiyukiBeads.vue';
 import BraceletPreview from '@/components/flat/BraceletPreview.vue';
 import WorkingPage from '@/components/flat/WorkingPage.vue';
+import PeyoteGridEditor from '@/components/peyote/PeyoteGridEditor.vue';
 
 const rows = ref(16);
 const cols = ref(80);
@@ -98,9 +110,19 @@ const isGridEditorVisible = ref(true);
 const isMiyukiBeadsVisible = ref(false);
 const isBraceletPreviewVisible = ref(false);
 const isWorking = ref(false);
+const isPeyoteGridEditorVisible = ref(false);
 
 function toggleGridEditor() {
   isGridEditorVisible.value = true;
+  isMiyukiBeadsVisible.value = false;
+  isBraceletPreviewVisible.value = false;
+  isWorking.value = false;
+  isPeyoteGridEditorVisible.value = false;
+}
+
+function togglePeyoteGridEditor() {
+  isPeyoteGridEditorVisible.value = true;
+  isGridEditorVisible.value = false;
   isMiyukiBeadsVisible.value = false;
   isBraceletPreviewVisible.value = false;
   isWorking.value = false;
@@ -111,6 +133,7 @@ function toggleMiyukiBeads() {
   isGridEditorVisible.value = false;
   isBraceletPreviewVisible.value = false;
   isWorking.value = false;
+  isPeyoteGridEditorVisible.value = false;
 }
 
 function toggleBraceletPreview() {
@@ -118,6 +141,7 @@ function toggleBraceletPreview() {
   isMiyukiBeadsVisible.value = false;
   isGridEditorVisible.value = false;
   isWorking.value = false;
+  isPeyoteGridEditorVisible.value = false;
 }
 
 function startWorking() {
@@ -125,6 +149,7 @@ function startWorking() {
   isGridEditorVisible.value = false;
   isMiyukiBeadsVisible.value = false;
   isBraceletPreviewVisible.value = false;
+  isPeyoteGridEditorVisible.value = false;
 }
 
 function handleUpdateGrid(matrix) {

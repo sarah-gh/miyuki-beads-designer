@@ -32,6 +32,11 @@ const router = createRouter({
       name: 'beadwork-pattern',
       component: () => import('../views/BeadworkPattern.vue'),
     },
+    {
+      path: '/peyote-grid',
+      name: 'peyote-grid',
+      component: () => import('../views/PeyoteGrid.vue'),
+    },
   ],
 });
 
