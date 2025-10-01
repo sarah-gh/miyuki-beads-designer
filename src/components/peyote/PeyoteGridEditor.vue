@@ -132,13 +132,7 @@
                 class="dimension-input"
               />
             </label>
-            <button 
-              class="test-btn"
-              style="margin-top: 10px; padding: 5px 10px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;"
-              @click="testDimensions"
-            >
-              Test Dimensions
-            </button>
+
           </div>
         </div>
 
@@ -147,13 +141,34 @@
           <h4 class="mb-2 text-sm font-semibold text-gray-700">
             🎨 انتخاب رنگ
           </h4>
+          <div class="selection-mode-indicator">
+            <span class="mode-text">حالت فعلی: {{ selectionMode === 'color' ? 'رنگ' : 'تصویر' }}</span>
+          </div>
           <div class="color-picker-container">
             <input
               v-model="selectedColor"
               type="color"
               class="color-picker"
+              @change="setColorMode"
             />
             <span class="color-value">{{ selectedColor }}</span>
+          </div>
+          <div class="mode-switch-buttons">
+            <button
+              class="mode-btn"
+              :class="{ active: selectionMode === 'color' }"
+              @click="setColorMode"
+            >
+              🎨 رنگ
+            </button>
+            <button
+              class="mode-btn"
+              :class="{ active: selectionMode === 'image' }"
+              :disabled="!selectedImage"
+              @click="setImageMode"
+            >
+              🖼️ تصویر
+            </button>
           </div>
           <div class="recent-colors-header mt-3!">
             <h4 class="text-sm font-semibold text-gray-700">🔄 رنگ‌های اخیر</h4>
@@ -178,6 +193,69 @@
               <button
                 class="remove-color-btn"
                 @click.stop="removeRecentColor(color)"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- انتخاب تصویر -->
+        <div class="image-section">
+          <h4 class="mb-2 text-sm font-semibold text-gray-700">
+            🖼️ انتخاب تصویر
+          </h4>
+          <div class="image-upload-container">
+            <label class="image-upload-label">
+              <span class="image-upload-text">📁 آپلود تصویر</span>
+              <input
+                type="file"
+                accept="image/*"
+                class="image-upload-input"
+                @change="handleImageUpload"
+              />
+            </label>
+          </div>
+          <div v-if="selectedImage" class="selected-image-preview">
+            <img
+              :src="selectedImage"
+              alt="تصویر انتخاب شده"
+              class="preview-image-small"
+            />
+            <button
+              title="حذف تصویر"
+              class="remove-image-btn"
+              @click="clearSelectedImage"
+            >
+              ×
+            </button>
+          </div>
+          <div v-if="recentImages.length > 0" class="recent-images-header mt-3!">
+            <h4 class="text-sm font-semibold text-gray-700">🔄 تصاویر اخیر</h4>
+            <button
+              class="clear-images-btn"
+              title="پاک کردن تمام تصاویر"
+              @click="clearRecentImages"
+            >
+              🗑️ پاک کردن
+            </button>
+          </div>
+          <div v-if="recentImages.length > 0" class="recent-images-grid">
+            <div
+              v-for="image in recentImages"
+              :key="image"
+              class="image-swatch"
+              :class="{ active: selectedImage === image }"
+              @click="selectedImage = image; setImageMode()"
+            >
+              <img
+                :src="image"
+                alt="تصویر اخیر"
+                class="image-swatch-img"
+              />
+              <button
+                class="remove-image-btn-small"
+                @click.stop="removeRecentImage(image)"
               >
                 ×
               </button>
@@ -358,6 +436,8 @@
   
   // File upload state
   const selectedImage = ref(null);
+  const recentImages = ref([]);
+  const selectionMode = ref('color'); // 'color' or 'image'
   
   // تنظیمات — این مقادیر را مطابق نیازت تغییر بده
   const cols = ref(12);     // طول (تعداد ستون‌ها)
@@ -565,6 +645,49 @@
   function clearRecentColors() {
     recentColors.value = [];
   }
+
+  // Image management functions
+  function addToRecentImages(imageDataUrl) {
+    // Remove image if it already exists to avoid duplicates
+    const index = recentImages.value.indexOf(imageDataUrl);
+    if (index > -1) {
+      recentImages.value.splice(index, 1);
+    }
+    
+    // Add image to the beginning of the array
+    recentImages.value.unshift(imageDataUrl);
+    
+    // Limit to maximum 10 recent images
+    if (recentImages.value.length > 10) {
+      recentImages.value = recentImages.value.slice(0, 10);
+    }
+  }
+
+  function removeRecentImage(imageDataUrl) {
+    const index = recentImages.value.indexOf(imageDataUrl);
+    if (index > -1) {
+      recentImages.value.splice(index, 1);
+    }
+  }
+
+  function clearRecentImages() {
+    recentImages.value = [];
+  }
+
+  function clearSelectedImage() {
+    selectedImage.value = null;
+    selectionMode.value = 'color'; // Switch back to color mode when image is cleared
+  }
+
+  function setColorMode() {
+    selectionMode.value = 'color';
+  }
+
+  function setImageMode() {
+    if (selectedImage.value) {
+      selectionMode.value = 'image';
+    }
+  }
   
   function setTool(newTool) {
     tool.value = newTool;
@@ -626,19 +749,32 @@
   
   function toggleCell(r, c) {
     if (grid[r] && grid[r][c] !== undefined) {
-      grid[r][c] = grid[r][c] === selectedColor.value ? backgroundColor.value : selectedColor.value;
-      // Add color to recent colors when painting
+      const currentValue = grid[r][c];
+      const newValue = selectionMode.value === 'image' ? selectedImage.value : selectedColor.value;
+      
+      // Toggle between current value and selected value (color or image)
+      grid[r][c] = currentValue === newValue ? backgroundColor.value : newValue;
+      
+      // Add to recent colors/images when painting
       if (grid[r][c] === selectedColor.value) {
         addToRecentColors(selectedColor.value);
+      } else if (grid[r][c] === selectedImage.value) {
+        addToRecentImages(selectedImage.value);
       }
     }
   }
   
   function paintCell(r, c) {
     if (grid[r] && grid[r][c] !== undefined) {
-      grid[r][c] = selectedColor.value;
-      // Add color to recent colors when painting
-      addToRecentColors(selectedColor.value);
+      const newValue = selectionMode.value === 'image' ? selectedImage.value : selectedColor.value;
+      grid[r][c] = newValue;
+      
+      // Add to recent colors/images when painting
+      if (newValue === selectedColor.value) {
+        addToRecentColors(selectedColor.value);
+      } else if (newValue === selectedImage.value) {
+        addToRecentImages(selectedImage.value);
+      }
     }
   }
   
@@ -646,10 +782,10 @@
   function fillArea(startR, startC) {
     if (!grid[startR] || grid[startR][startC] === undefined) return;
     
-    const targetColor = grid[startR][startC];
-    const fillColor = selectedColor.value;
+    const targetValue = grid[startR][startC];
+    const fillValue = selectionMode.value === 'image' ? selectedImage.value : selectedColor.value;
     
-    if (targetColor === fillColor) return;
+    if (targetValue === fillValue) return;
     
     const visited = new Set();
     const stack = [[startR, startC]];
@@ -662,19 +798,23 @@
         continue;
       }
       
-      if (!grid[r] || grid[r][c] !== targetColor) {
+      if (!grid[r] || grid[r][c] !== targetValue) {
         continue;
       }
       
       visited.add(key);
-      grid[r][c] = fillColor;
+      grid[r][c] = fillValue;
       
       // Add neighbors
       stack.push([r + 1, c], [r - 1, c], [r, c + 1], [r, c - 1]);
     }
     
-    // Add color to recent colors when filling
-    addToRecentColors(fillColor);
+    // Add to recent colors/images when filling
+    if (fillValue === selectedColor.value) {
+      addToRecentColors(fillValue);
+    } else if (fillValue === selectedImage.value) {
+      addToRecentImages(fillValue);
+    }
   }
   
   function toggleSelection(r, c) {
@@ -1026,7 +1166,7 @@
   }
   
   
-  function exportGridAsImage() {
+  async function exportGridAsImage() {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
@@ -1037,12 +1177,48 @@
     ctx.fillStyle = backgroundColor.value;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Draw cells
+    // Collect all image promises
+    const imagePromises = [];
+    const imageCells = [];
+    
+    // First pass: collect all image cells
     for (let r = 0; r < rows.value; r++) {
       for (let c = 0; c < cols.value; c++) {
-        const color = grid[r][c] || backgroundColor.value;
-        ctx.fillStyle = color;
-        ctx.fillRect(c * cellWidth.value, r * cellHeight.value, cellWidth.value, cellHeight.value);
+        const cellValue = grid[r][c] || backgroundColor.value;
+        
+        if (cellValue && cellValue.startsWith('data:image/')) {
+          const promise = new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve({ img, r, c });
+            img.src = cellValue;
+          });
+          imagePromises.push(promise);
+          imageCells.push({ r, c });
+        }
+      }
+    }
+    
+    // Wait for all images to load
+    const loadedImages = await Promise.all(imagePromises);
+    
+    // Draw all cells
+    for (let r = 0; r < rows.value; r++) {
+      for (let c = 0; c < cols.value; c++) {
+        const cellValue = grid[r][c] || backgroundColor.value;
+        const x = c * cellWidth.value;
+        const y = r * cellHeight.value;
+        
+        if (cellValue && cellValue.startsWith('data:image/')) {
+          // Find the loaded image for this cell
+          const loadedImage = loadedImages.find(img => img.r === r && img.c === c);
+          if (loadedImage) {
+            ctx.drawImage(loadedImage.img, x, y, cellWidth.value, cellHeight.value);
+          }
+        } else {
+          // Draw color
+          ctx.fillStyle = cellValue;
+          ctx.fillRect(x, y, cellWidth.value, cellHeight.value);
+        }
       }
     }
     
@@ -1053,7 +1229,7 @@
     link.click();
   }
   
-  function exportGridAsHighQualityImage() {
+  async function exportGridAsHighQualityImage() {
     const scale = 4;
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -1065,12 +1241,48 @@
     ctx.fillStyle = backgroundColor.value;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Draw cells
+    // Collect all image promises
+    const imagePromises = [];
+    
+    // First pass: collect all image cells
     for (let r = 0; r < rows.value; r++) {
       for (let c = 0; c < cols.value; c++) {
-        const color = grid[r][c] || backgroundColor.value;
-        ctx.fillStyle = color;
-        ctx.fillRect(c * cellWidth.value * scale, r * cellHeight.value * scale, cellWidth.value * scale, cellHeight.value * scale);
+        const cellValue = grid[r][c] || backgroundColor.value;
+        
+        if (cellValue && cellValue.startsWith('data:image/')) {
+          const promise = new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve({ img, r, c });
+            img.src = cellValue;
+          });
+          imagePromises.push(promise);
+        }
+      }
+    }
+    
+    // Wait for all images to load
+    const loadedImages = await Promise.all(imagePromises);
+    
+    // Draw all cells
+    for (let r = 0; r < rows.value; r++) {
+      for (let c = 0; c < cols.value; c++) {
+        const cellValue = grid[r][c] || backgroundColor.value;
+        const x = c * cellWidth.value * scale;
+        const y = r * cellHeight.value * scale;
+        const width = cellWidth.value * scale;
+        const height = cellHeight.value * scale;
+        
+        if (cellValue && cellValue.startsWith('data:image/')) {
+          // Find the loaded image for this cell
+          const loadedImage = loadedImages.find(img => img.r === r && img.c === c);
+          if (loadedImage) {
+            ctx.drawImage(loadedImage.img, x, y, width, height);
+          }
+        } else {
+          // Draw color
+          ctx.fillStyle = cellValue;
+          ctx.fillRect(x, y, width, height);
+        }
       }
     }
     
@@ -1124,15 +1336,12 @@
     
     const reader = new FileReader();
     reader.onload = (e) => {
-      selectedImage.value = e.target.result;
+      const imageDataUrl = e.target.result;
+      selectedImage.value = imageDataUrl;
+      addToRecentImages(imageDataUrl);
+      setImageMode(); // Automatically switch to image mode when image is uploaded
     };
     reader.readAsDataURL(file);
-  }
-  
-  function testDimensions() {
-    console.info('Current dimensions:', { rows: rows.value, cols: cols.value });
-    console.info('Grid dimensions:', { gridRows: grid.length, gridCols: grid[0]?.length || 0 });
-    console.info('Computed arrays:', { rowsArr: rowsArr.value.length, colsArr: colsArr.value.length });
   }
   
   // محاسبه‌ی شیفت برای ستون c (0-based): ستون‌های فرد را نیم‌سل پایین می‌بریم
@@ -1148,12 +1357,14 @@
   
   // استایل هر سل (درج رنگ و اندازه)
   function cellStyle(r, c) {
-    const color = grid[r]?.[c] || backgroundColor.value;
+    const cellValue = grid[r]?.[c] || backgroundColor.value;
     const isSelected = selection.value.includes(`${r},${c}`);
     const isPasteTarget = isPasteMode.value;
     
-    return {
-      background: color,
+    // Check if the cell value is an image (data URL) or a color
+    const isImage = cellValue && cellValue.startsWith('data:image/');
+    
+    const baseStyle = {
       width: `${cellWidth.value}px`,
       height: `${cellHeight.value}px`,
       boxSizing: 'border-box',
@@ -1161,6 +1372,21 @@
       cursor: isPasteTarget ? 'crosshair' : 'pointer',
       opacity: isPasteTarget ? 0.9 : 1
     };
+    
+    if (isImage) {
+      return {
+        ...baseStyle,
+        backgroundImage: `url(${cellValue})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      };
+    } else {
+      return {
+        ...baseStyle,
+        background: cellValue
+      };
+    }
   }
   
   // مثال نمونه در mount (اختیاری)
@@ -1903,6 +2129,206 @@
     padding: 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     transition: all 0.2s ease;
+  }
+
+  /* Image section styles */
+  .image-section {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .image-upload-container {
+    margin-bottom: 10px;
+  }
+
+  .image-upload-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 15px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: 2px dashed rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: white;
+    font-weight: 500;
+    font-size: 12px;
+  }
+
+  .image-upload-label:hover {
+    background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-1px);
+  }
+
+  .image-upload-input {
+    display: none;
+  }
+
+  .selected-image-preview {
+    position: relative;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid #dee2e6;
+    background: #f8f9fa;
+  }
+
+  .preview-image-small {
+    width: 100%;
+    height: 60px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .remove-image-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 20px;
+    height: 20px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+  }
+
+  .recent-images-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .clear-images-btn {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .recent-images-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+  }
+
+  .image-swatch {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid #e5e7eb;
+    overflow: hidden;
+    transition: all 0.2s ease;
+  }
+
+  .image-swatch:hover {
+    transform: scale(1.05);
+    border-color: #3b82f6;
+  }
+
+  .image-swatch.active {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  }
+
+  .image-swatch-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .remove-image-btn-small {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 16px;
+    height: 16px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all 0.2s ease;
+  }
+
+  .image-swatch:hover .remove-image-btn-small {
+    opacity: 1;
+  }
+
+  /* Selection mode styles */
+  .selection-mode-indicator {
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border-radius: 6px;
+    border: 1px solid #90caf9;
+  }
+
+  .mode-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1976d2;
+  }
+
+  .mode-switch-buttons {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .mode-btn {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: white;
+    color: #374151;
+  }
+
+  .mode-btn:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+  }
+
+  .mode-btn.active {
+    background: #3b82f6;
+    color: white;
+    border-color: #3b82f6;
+  }
+
+  .mode-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .mode-btn:disabled:hover {
+    background: white;
+    border-color: #d1d5db;
   }
   </style>
   
