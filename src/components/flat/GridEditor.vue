@@ -32,6 +32,51 @@
               />
             </label>
           </div>
+          
+          <!-- اندازه سلول -->
+          <div class="cell-size-section !mt-4">
+            <h4 class="mb-2 text-sm font-semibold text-gray-700">
+              📏 اندازه سلول
+            </h4>
+            <div class="dimension-inputs">
+              <label class="dimension-label">
+                <span class="dimension-text">عرض:</span>
+                <input
+                  v-model.number="cellWidth"
+                  type="number"
+                  min="5"
+                  max="50"
+                  class="dimension-input"
+                />
+              </label>
+              <label class="dimension-label">
+                <span class="dimension-text">ارتفاع:</span>
+                <input
+                  v-model.number="cellHeight"
+                  type="number"
+                  min="5"
+                  max="50"
+                  class="dimension-input"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- انتخاب جهت -->
+        <div class="direction-section">
+          <h4 class="mb-2 text-sm font-semibold text-gray-700">
+            🔄 جهت
+          </h4>
+          <div class="direction-toggle">
+            <button
+              class="direction-btn"
+              :class="{ active: isVertical }"
+              @click="isVertical = !isVertical"
+            >
+              {{ isVertical ? 'عمودی' : 'افقی' }}
+            </button>
+          </div>
         </div>
 
         <!-- انتخاب رنگ -->
@@ -73,6 +118,89 @@
               >
                 ×
               </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- انتخاب حالت رنگ یا تصویر -->
+        <div class="mode-section">
+          <h4 class="mb-2 text-sm font-semibold text-gray-700">
+            🎨 حالت طراحی
+          </h4>
+          <div class="mode-toggle">
+            <button
+              class="mode-btn"
+              :class="{ active: paintMode === 'color' }"
+              @click="paintMode = 'color'"
+            >
+              🎨 رنگ
+            </button>
+            <button
+              class="mode-btn"
+              :class="{ active: paintMode === 'image' }"
+              @click="paintMode = 'image'"
+            >
+              🖼️ تصویر
+            </button>
+          </div>
+        </div>
+
+        <!-- انتخاب تصویر مهره -->
+        <div v-if="paintMode === 'image'" class="image-section">
+          <h4 class="mb-2 text-sm font-semibold text-gray-700">
+            🖼️ انتخاب تصویر مهره
+          </h4>
+          <div class="image-picker-container">
+            <div class="available-images-grid">
+              <div
+                v-for="image in availableImages"
+                :key="image.name"
+                class="image-item"
+                :class="{ selected: selectedBeadImage?.url === image.url }"
+                @click="selectBeadImage(image)"
+              >
+                <img
+                  :src="image.url"
+                  :alt="image.displayName"
+                  class="bead-image"
+                />
+                <span class="image-name">{{ image.displayName }}</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- تصاویر اخیر -->
+          <div v-if="recentImages.length > 0" class="recent-images-section">
+            <div class="recent-images-header">
+              <h4 class="text-sm font-semibold text-gray-700">🔄 تصاویر اخیر</h4>
+              <button
+                class="clear-images-btn"
+                title="پاک کردن تمام تصاویر"
+                @click="clearRecentImages"
+              >
+                🗑️ پاک کردن
+              </button>
+            </div>
+            <div class="recent-images-grid">
+              <div
+                v-for="image in recentImages"
+                :key="image.url"
+                class="recent-image-item"
+                :class="{ selected: selectedBeadImage?.url === image.url }"
+                @click="selectBeadImage(image)"
+              >
+                <img
+                  :src="image.url"
+                  :alt="image.displayName"
+                  class="recent-bead-image"
+                />
+                <button
+                  class="remove-image-btn"
+                  @click.stop="removeRecentImage(image)"
+                >
+                  ×
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -176,8 +304,28 @@
           
           <!-- دکمه تغییر رنگ تمام مهره‌ها -->
           <div class="background-color-section !mt-4">
-            <h4 class="mb-2 text-sm font-semibold text-gray-700">🎨 رنگ پس‌زمینه</h4>
-            <div class="background-color-controls">
+            <h4 class="mb-2 text-sm font-semibold text-gray-700">🎨 پس‌زمینه</h4>
+            
+            <!-- انتخاب حالت پس‌زمینه -->
+            <div class="background-mode-toggle">
+              <button
+                class="mode-btn"
+                :class="{ active: backgroundMode === 'color' }"
+                @click="backgroundMode = 'color'"
+              >
+                🎨 رنگ
+              </button>
+              <button
+                class="mode-btn"
+                :class="{ active: backgroundMode === 'image' }"
+                @click="backgroundMode = 'image'"
+              >
+                🖼️ تصویر
+              </button>
+            </div>
+            
+            <!-- انتخاب رنگ -->
+            <div v-if="backgroundMode === 'color'" class="background-color-controls">
               <input
                 v-model="backgroundColor"
                 type="color"
@@ -189,6 +337,35 @@
                 @click="changeAllBeadsToColor"
               >
                 🎨 تغییر تمام مهره‌ها
+              </button>
+            </div>
+            
+            <!-- انتخاب تصویر -->
+            <div v-if="backgroundMode === 'image'" class="background-image-controls">
+              <div class="background-image-picker">
+                <div class="background-images-grid">
+                  <div
+                    v-for="image in availableImages"
+                    :key="image.name"
+                    class="background-image-item"
+                    :class="{ selected: selectedBackgroundImage?.url === image.url }"
+                    @click="selectedBackgroundImage = image"
+                  >
+                    <img
+                      :src="image.url"
+                      :alt="image.displayName"
+                      class="background-bead-image"
+                    />
+                    <span class="background-image-name">{{ image.displayName }}</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                class="tool-btn success"
+                :disabled="!selectedBackgroundImage"
+                @click="changeAllBeadsToColor"
+              >
+                🖼️ تغییر تمام مهره‌ها
               </button>
             </div>
           </div>
@@ -223,14 +400,14 @@
 
           <button
             class="export-btn success"
-            @click="exportGridAsImage"
+            @click="() => exportGridAsImage()"
           >
             📷 خروجی عکس
           </button>
 
           <button
             class="export-btn info"
-            @click="exportGridAsHighQualityImage"
+            @click="() => exportGridAsHighQualityImage()"
           >
             🖼️ خروجی HD
           </button>
@@ -248,7 +425,7 @@
     </div>
 
     <!-- صفحه شطرنجی -->
-    <div class="grid-container">
+    <div class="grid-container" :class="{ '!flex-row': isVertical, '!flex-col-reverse': !isVertical }">
       <div class="image-section">
         <div class="upload-section grid grid-cols-2 gap-2">
           <label class="upload-label">
@@ -285,7 +462,10 @@
       <div class="grid-wrapper">
         <div
           class="grid-item"
-          :style="{ gridTemplateColumns: `repeat(${rows}, 15px)` }"
+          :style="{ 
+            gridTemplateColumns: `repeat(${rows}, ${cellWidth}px)`,
+            gridAutoRows: `${cellHeight}px`
+          }"
           @mousedown="startDrawing"
           @mouseup="stopDrawing"
           @mouseleave="stopDrawing"
@@ -299,10 +479,17 @@
               '!border-red-200': i == Math.floor((rows * cols) / 2),
             }"
             :style="{
-              backgroundColor: cell,
+              backgroundColor: cell.startsWith('/miyuki-beads-designer/beads/') ? 'transparent' : cell,
+              backgroundImage: cell.startsWith('/miyuki-beads-designer/beads/') ? `url(${cell})` : 'none',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
               border: selection.includes(i)
                 ? '2px dashed #ff4757'
                 : '1px solid #ddd',
+              width: `${cellWidth}px`,
+              height: `${cellHeight}px`,
+              minWidth: `${cellWidth}px`,
+              minHeight: `${cellHeight}px`
             }"
             @click="handleCellClick(i)"
           >
@@ -326,11 +513,18 @@ const emit = defineEmits(['update-grid']);
 
 const rows = ref(16);
 const cols = ref(80);
+const cellWidth = ref(15);
+const cellHeight = ref(15);
 const selectedColor = ref('#ff0000');
 const recentColors = ref([]);
 const lastSavedTime = ref(null);
+const isVertical = ref(true);
 
 const selectedImage = ref(null);
+const paintMode = ref('color'); // 'color' or 'image'
+const selectedBeadImage = ref(null);
+const recentImages = ref([]);
+const availableImages = ref([]);
 
 const grid = ref([]);
 
@@ -342,6 +536,7 @@ function saveGridToLocalStorage() {
       rows: rows.value,
       cols: cols.value,
       recentColors: recentColors.value,
+      recentImages: recentImages.value,
       timestamp: new Date().toISOString(),
     };
     localStorage.setItem('gridEditorData', JSON.stringify(gridData));
@@ -377,6 +572,11 @@ function loadGridFromLocalStorage() {
           recentColors.value = [...gridData.recentColors];
         }
 
+        // بارگذاری تصاویر اخیر (اگر موجود باشد)
+        if (gridData.recentImages && Array.isArray(gridData.recentImages)) {
+          recentImages.value = [...gridData.recentImages];
+        }
+
         // تنظیم زمان آخرین ذخیره
         lastSavedTime.value = gridData.timestamp;
 
@@ -409,7 +609,22 @@ function loadGridFromLocalStorage() {
 // بارگذاری خودکار گرید در هنگام شروع
 onMounted(() => {
   loadGridFromLocalStorage();
+  loadAvailableImages();
 });
+
+// بارگذاری تصاویر موجود در پوشه beads
+function loadAvailableImages() {
+  const imageFiles = [
+    '310.jpg', '1130.jpg', '1135.jpg', '2116.jpg', '2131.jpg', '2132.jpg', '725.jpg', '877.jpg',
+    'f111.jpg', 'f222.jpg', 'f333.jpg', 'f444.jpg', 'f555.jpg', 'f666.jpg', 'f777.jpg', 'f888.jpg', 'f999.jpg'
+  ];
+  
+  availableImages.value = imageFiles.map(filename => ({
+    name: filename,
+    url: `/miyuki-beads-designer/beads/${filename}`,
+    displayName: filename.replace('.jpg', '')
+  }));
+}
 
 const selection = ref([]);
 const clipboard = ref([]);
@@ -457,12 +672,15 @@ function handleTxtUpload(e) {
           // فرمت جدید: شامل ابعاد
           const { grid: colors, rows: fileRows, cols: fileCols } = parsedContent;
           
-          // بررسی اعتبار آرایه رنگ‌ها
+          // بررسی اعتبار آرایه رنگ‌ها و تصاویر
           if (
             Array.isArray(colors) &&
             colors.every(
-              (color) =>
-                typeof color === 'string' && color.match(/^#[0-9A-Fa-f]{6}$/),
+              (cell) =>
+                typeof cell === 'string' && (
+                  cell.match(/^#[0-9A-Fa-f]{6}$/) || // رنگ‌های hex
+                  cell.startsWith('/miyuki-beads-designer/beads/') // تصاویر مهره
+                ),
             )
           ) {
             // بررسی تطابق تعداد سلول‌ها با ابعاد
@@ -487,18 +705,21 @@ function handleTxtUpload(e) {
           } else {
             showError(
               'خطا در فرمت فایل',
-              'فایل باید شامل آرایه‌ای معتبر از رنگ‌ها باشد'
+              'فایل باید شامل آرایه‌ای معتبر از رنگ‌ها یا تصاویر باشد'
             );
           }
         } else if (Array.isArray(parsedContent)) {
           // فرمت قدیمی: فقط آرایه رنگ‌ها
           const colors = parsedContent;
           
-          // بررسی اعتبار آرایه رنگ‌ها
+          // بررسی اعتبار آرایه رنگ‌ها و تصاویر
           if (
             colors.every(
-              (color) =>
-                typeof color === 'string' && color.match(/^#[0-9A-Fa-f]{6}$/),
+              (cell) =>
+                typeof cell === 'string' && (
+                  cell.match(/^#[0-9A-Fa-f]{6}$/) || // رنگ‌های hex
+                  cell.startsWith('/miyuki-beads-designer/beads/') // تصاویر مهره
+                ),
             )
           ) {
             // استفاده از ابعاد فعلی سایت
@@ -515,13 +736,13 @@ function handleTxtUpload(e) {
           } else {
             showError(
               'خطا در فرمت فایل',
-              'فایل باید شامل آرایه‌ای معتبر از رنگ‌ها باشد'
+              'فایل باید شامل آرایه‌ای معتبر از رنگ‌ها یا تصاویر باشد'
             );
           }
         } else {
           showError(
             'خطا در فرمت فایل',
-            'فرمت فایل نامعتبر است. فایل باید شامل آرایه‌ای از رنگ‌ها یا آبجکتی با grid، rows و cols باشد.'
+            'فرمت فایل نامعتبر است. فایل باید شامل آرایه‌ای از رنگ‌ها/تصاویر یا آبجکتی با grid، rows و cols باشد.'
           );
         }
       } catch (error) {
@@ -559,6 +780,7 @@ watch(
           rows: rows.value,
           cols: cols.value,
           recentColors: recentColors.value,
+          recentImages: recentImages.value,
           timestamp: new Date().toISOString(),
         };
         localStorage.setItem('gridEditorData', JSON.stringify(gridData));
@@ -621,8 +843,13 @@ function drawMove(e) {
 
 // ابزار Paint
 function paintCell(i) {
-  grid.value[i] = selectedColor.value;
-  addToRecentColors(selectedColor.value);
+  if (paintMode.value === 'color') {
+    grid.value[i] = selectedColor.value;
+    addToRecentColors(selectedColor.value);
+  } else if (paintMode.value === 'image' && selectedBeadImage.value) {
+    grid.value[i] = selectedBeadImage.value.url;
+    addToRecentImages(selectedBeadImage.value);
+  }
 }
 
 // اضافه کردن رنگ به لیست رنگ‌های اخیر
@@ -639,6 +866,48 @@ function addToRecentColors(color) {
   // حداکثر 10 رنگ نگه دار
   if (recentColors.value.length > 10) {
     recentColors.value = recentColors.value.slice(0, 10);
+  }
+}
+
+// اضافه کردن تصویر به لیست تصاویر اخیر
+function addToRecentImages(image) {
+  // اگر تصویر قبلاً وجود دارد، آن را حذف کن
+  const index = recentImages.value.findIndex(img => img.url === image.url);
+  if (index > -1) {
+    recentImages.value.splice(index, 1);
+  }
+
+  // تصویر جدید را در ابتدا اضافه کن
+  recentImages.value.unshift(image);
+
+  // حداکثر 10 تصویر نگه دار
+  if (recentImages.value.length > 10) {
+    recentImages.value = recentImages.value.slice(0, 10);
+  }
+}
+
+// انتخاب تصویر مهره
+function selectBeadImage(image) {
+  selectedBeadImage.value = image;
+  addToRecentImages(image);
+}
+
+// حذف تصویر از لیست تصاویر اخیر
+function removeRecentImage(image) {
+  const index = recentImages.value.findIndex(img => img.url === image.url);
+  if (index > -1) {
+    recentImages.value.splice(index, 1);
+  }
+}
+
+// پاک کردن تمام تصاویر اخیر
+async function clearRecentImages() {
+  const result = await showConfirm(
+    'پاک کردن تصاویر',
+    'آیا می‌خواهید تمام تصاویر اخیر پاک شوند؟',
+  );
+  if (result.isConfirmed) {
+    recentImages.value = [];
   }
 }
 
@@ -1059,17 +1328,45 @@ function cancelPasteMode() {
   showInfo('لغو شد', 'حالت چسباندن لغو شد');
 }
 
+// تابع کمکی برای رسم سلول (رنگ یا تصویر)
+async function drawCell(ctx, x, y, cellWidth, cellHeight, cellValue) {
+  if (cellValue.startsWith('/miyuki-beads-designer/beads/')) {
+    // رسم تصویر
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = cellValue;
+      });
+      ctx.drawImage(img, x, y, cellWidth, cellHeight);
+    } catch (error) {
+      // در صورت خطا، یک مستطیل خاکستری رسم کن
+      console.warn('Failed to load image:', cellValue, error);
+      ctx.fillStyle = '#cccccc';
+      ctx.fillRect(x, y, cellWidth, cellHeight);
+    }
+  } else {
+    // رسم رنگ
+    ctx.fillStyle = cellValue;
+    ctx.fillRect(x, y, cellWidth, cellHeight);
+  }
+}
+
 // خروجی عکس از شبکه
-function exportGridAsImage() {
-  // ایجاد canvas
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
+async function exportGridAsImage() {
+  try {
+    showInfo('در حال پردازش...', 'لطفاً صبر کنید، در حال ایجاد عکس...');
+    
+    // ایجاد canvas
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
 
   // تنظیم اندازه canvas بر اساس شبکه
-  const cellSize = 15; // اندازه هر سلول
   const padding = 20; // حاشیه اطراف
-  const width = rows.value * cellSize + padding * 2;
-  const height = cols.value * cellSize + padding * 2;
+  const width = rows.value * cellWidth.value + padding * 2;
+  const height = cols.value * cellHeight.value + padding * 2;
 
   canvas.width = width;
   canvas.height = height;
@@ -1082,26 +1379,19 @@ function exportGridAsImage() {
   for (let y = 0; y < cols.value; y++) {
     for (let x = 0; x < rows.value; x++) {
       const index = y * rows.value + x;
-      const color = grid.value[index];
+      const cellValue = grid.value[index];
 
-      if (color) {
-        ctx.fillStyle = color;
-        ctx.fillRect(
-          padding + x * cellSize,
-          padding + y * cellSize,
-          cellSize,
-          cellSize,
-        );
+      if (cellValue) {
+        const cellX = padding + x * cellWidth.value;
+        const cellY = padding + y * cellHeight.value;
+        
+        // رسم سلول (رنگ یا تصویر)
+        await drawCell(ctx, cellX, cellY, cellWidth.value, cellHeight.value, cellValue);
 
         // اضافه کردن خطوط جداکننده
         ctx.strokeStyle = '#e0e0e0';
         ctx.lineWidth = 0.5;
-        ctx.strokeRect(
-          padding + x * cellSize,
-          padding + y * cellSize,
-          cellSize,
-          cellSize,
-        );
+        ctx.strokeRect(cellX, cellY, cellWidth.value, cellHeight.value);
       }
     }
   }
@@ -1129,19 +1419,27 @@ function exportGridAsImage() {
 
     showSuccess('موفقیت', 'عکس با موفقیت دانلود شد!');
   }, 'image/png');
+  } catch (error) {
+    showError('خطا در خروجی', 'خطا در ایجاد عکس: ' + error.message);
+    console.error('Error exporting grid as image:', error);
+  }
 }
 
 // خروجی عکس با کیفیت بالا
-function exportGridAsHighQualityImage() {
-  // ایجاد canvas با کیفیت بالا
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
+async function exportGridAsHighQualityImage() {
+  try {
+    showInfo('در حال پردازش...', 'لطفاً صبر کنید، در حال ایجاد عکس HD...');
+    
+    // ایجاد canvas با کیفیت بالا
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
 
   // تنظیم اندازه canvas با کیفیت بالا (2x بزرگتر)
-  const cellSize = 30; // اندازه هر سلول (2x بزرگتر)
+  const cellSizeWidth = cellWidth.value * 2; // عرض سلول (2x بزرگتر)
+  const cellSizeHeight = cellHeight.value * 2; // ارتفاع سلول (2x بزرگتر)
   const padding = 40; // حاشیه اطراف (2x بزرگتر)
-  const width = rows.value * cellSize + padding * 2;
-  const height = cols.value * cellSize + padding * 2;
+  const width = rows.value * cellSizeWidth + padding * 2;
+  const height = cols.value * cellSizeHeight + padding * 2;
 
   canvas.width = width;
   canvas.height = height;
@@ -1154,26 +1452,19 @@ function exportGridAsHighQualityImage() {
   for (let y = 0; y < cols.value; y++) {
     for (let x = 0; x < rows.value; x++) {
       const index = y * rows.value + x;
-      const color = grid.value[index];
+      const cellValue = grid.value[index];
 
-      if (color) {
-        ctx.fillStyle = color;
-        ctx.fillRect(
-          padding + x * cellSize,
-          padding + y * cellSize,
-          cellSize,
-          cellSize,
-        );
+      if (cellValue) {
+        const cellX = padding + x * cellSizeWidth;
+        const cellY = padding + y * cellSizeHeight;
+        
+        // رسم سلول (رنگ یا تصویر)
+        await drawCell(ctx, cellX, cellY, cellSizeWidth, cellSizeHeight, cellValue);
 
         // اضافه کردن خطوط جداکننده با کیفیت بالا
         ctx.strokeStyle = '#d0d0d0';
         ctx.lineWidth = 1;
-        ctx.strokeRect(
-          padding + x * cellSize,
-          padding + y * cellSize,
-          cellSize,
-          cellSize,
-        );
+        ctx.strokeRect(cellX, cellY, cellSizeWidth, cellSizeHeight);
       }
     }
   }
@@ -1211,6 +1502,10 @@ function exportGridAsHighQualityImage() {
     'image/png',
     1.0,
   ); // کیفیت 100%
+  } catch (error) {
+    showError('خطا در خروجی', 'خطا در ایجاد عکس HD: ' + error.message);
+    console.error('Error exporting grid as high quality image:', error);
+  }
 }
 
 // خروجی txt از متغیر grid
@@ -1275,21 +1570,42 @@ function handleImageUpload(e) {
 
 // تغییر رنگ تمام مهره‌ها
 const backgroundColor = ref('#ffffff');
+const backgroundMode = ref('color'); // 'color' or 'image'
+const selectedBackgroundImage = ref(null);
 async function changeAllBeadsToColor() {
-  const newColor = backgroundColor.value;
+  let newValue;
+  let confirmMessage;
+  
+  if (backgroundMode.value === 'color') {
+    newValue = backgroundColor.value;
+    confirmMessage = `آیا می‌خواهید تمام مهره‌ها به رنگ ${newValue} تغییر یابند؟ این عملیات غیرقابل برگشت است.`;
+  } else if (backgroundMode.value === 'image' && selectedBackgroundImage.value) {
+    newValue = selectedBackgroundImage.value.url;
+    confirmMessage = `آیا می‌خواهید تمام مهره‌ها به تصویر ${selectedBackgroundImage.value.displayName} تغییر یابند؟ این عملیات غیرقابل برگشت است.`;
+  } else {
+    showError('خطا', 'لطفاً یک رنگ یا تصویر انتخاب کنید');
+    return;
+  }
+  
   const result = await showConfirm(
-    'تغییر رنگ تمام مهره‌ها',
-    `آیا می‌خواهید تمام مهره‌ها به رنگ ${newColor} تغییر یابند؟ این عملیات غیرقابل برگشت است.`
+    'تغییر تمام مهره‌ها',
+    confirmMessage
   );
   
   if (result.isConfirmed) {
     const totalCells = rows.value * cols.value;
     for (let i = 0; i < totalCells; i++) {
-      grid.value[i] = newColor;
+      grid.value[i] = newValue;
     }
     saveHistory();
-    addToRecentColors(newColor);
-    showSuccess('تغییر رنگ', `تمام مهره‌ها به رنگ ${newColor} تغییر یافتند`);
+    
+    if (backgroundMode.value === 'color') {
+      addToRecentColors(newValue);
+      showSuccess('تغییر رنگ', `تمام مهره‌ها به رنگ ${newValue} تغییر یافتند`);
+    } else {
+      addToRecentImages(selectedBackgroundImage.value);
+      showSuccess('تغییر تصویر', `تمام مهره‌ها به تصویر ${selectedBackgroundImage.value.displayName} تغییر یافتند`);
+    }
   }
 }
 
@@ -1360,8 +1676,11 @@ async function changeAllBeadsToColor() {
 }
 
 .dimensions-section,
+.cell-size-section,
 .color-section,
 .recent-colors-section,
+.mode-section,
+.image-section,
 .tools-section,
 .export-section {
   background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
@@ -1373,8 +1692,11 @@ async function changeAllBeadsToColor() {
 }
 
 .dimensions-section:hover,
+.cell-size-section:hover,
 .color-section:hover,
 .recent-colors-section:hover,
+.mode-section:hover,
+.image-section:hover,
 .tools-section:hover,
 .export-section:hover {
   transform: translateY(-1px);
@@ -1382,7 +1704,10 @@ async function changeAllBeadsToColor() {
 }
 
 .dimensions-section h4,
+.cell-size-section h4,
 .color-section h4,
+.mode-section h4,
+.image-section h4,
 .tools-section h4,
 .export-section h4 {
   margin: 0 0 8px 0;
@@ -1891,12 +2216,8 @@ async function changeAllBeadsToColor() {
   padding: 10px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
   margin: 0 auto;
-  grid-template-columns: repeat(16, 15px);
-  grid-auto-rows: 15px;
 }
 .cell {
-  width: 15px;
-  height: 17px;
   box-sizing: border-box;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -1905,8 +2226,6 @@ async function changeAllBeadsToColor() {
   justify-content: center;
   border: 0.5px solid rgba(255, 255, 255, 0.3);
   position: relative;
-  min-width: 15px;
-  min-height: 15px;
 }
 
 .cell:hover {
@@ -1923,5 +2242,267 @@ async function changeAllBeadsToColor() {
   color: #ff4757;
   font-weight: bold;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* استایل‌های انتخابگر تصویر */
+.mode-toggle {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.mode-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #495057;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.mode-btn:hover {
+  background: #f8f9fa;
+  border-color: #adb5bd;
+  transform: translateY(-1px);
+}
+
+.mode-btn.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: #667eea;
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+}
+
+.image-picker-container {
+  margin-top: 8px;
+}
+
+.available-images-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  background: #f8f9fa;
+}
+
+.image-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.image-item:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.image-item.selected {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #f8f9ff 0%, #e6f0ff 100%);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.bead-image {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
+}
+
+.image-name {
+  font-size: 10px;
+  color: #6c757d;
+  margin-top: 4px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.recent-images-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e9ecef;
+}
+
+.recent-images-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.recent-images-header h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.clear-images-btn {
+  background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  box-shadow: 0 1px 4px rgba(255, 71, 87, 0.3);
+}
+
+.clear-images-btn:hover {
+  background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+  transform: translateY(-1px);
+}
+
+.recent-images-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+  gap: 6px;
+}
+
+.recent-image-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.recent-image-item:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.recent-image-item.selected {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #f8f9ff 0%, #e6f0ff 100%);
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+}
+
+.recent-bead-image {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid #dee2e6;
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+  color: white;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+  cursor: pointer;
+  border: 1px solid white;
+  padding: 0;
+  line-height: 1;
+  opacity: 0;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(255, 71, 87, 0.4);
+}
+
+.recent-image-item:hover .remove-image-btn {
+  opacity: 1;
+}
+
+/* استایل‌های انتخابگر تصویر پس‌زمینه */
+.background-mode-toggle {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.background-image-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.background-image-picker {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  background: #f8f9fa;
+  padding: 8px;
+}
+
+.background-images-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+  gap: 6px;
+}
+
+.background-image-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.background-image-item:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.background-image-item.selected {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #f8f9ff 0%, #e6f0ff 100%);
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+}
+
+.background-bead-image {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid #dee2e6;
+}
+
+.background-image-name {
+  font-size: 9px;
+  color: #6c757d;
+  margin-top: 2px;
+  text-align: center;
+  font-weight: 500;
 }
 </style>
