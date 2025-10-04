@@ -518,7 +518,7 @@ const cellHeight = ref(15);
 const selectedColor = ref('#ff0000');
 const recentColors = ref([]);
 const lastSavedTime = ref(null);
-const isVertical = ref(true);
+const isVertical = ref(false);
 
 const selectedImage = ref(null);
 const paintMode = ref('color'); // 'color' or 'image'
