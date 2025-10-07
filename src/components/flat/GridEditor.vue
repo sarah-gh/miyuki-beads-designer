@@ -1298,7 +1298,7 @@
 
     <!-- صفحه شطرنجی -->
      <!--  -->
-    <div class="grid-container" :class="{ '!flex-row': isVertical, '!flex-col-reverse': !isVertical, 'pinned-active': pinnedSection }" >
+    <div class="grid-container md:max-h-[calc(100vh_-_200px)]" :class="{ '!flex-row': isVertical, '!flex-col-reverse': !isVertical, 'pinned-active': pinnedSection }" >
       <div class="image-section max-h-[70%]">
         <div class="upload-section grid grid-cols-2 gap-2">
           <label class="upload-label">
