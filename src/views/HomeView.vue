@@ -1,5 +1,6 @@
 <template>
   <div class="home-container">
+    <!-- Desktop Header -->
     <header class="app-header max-md:hidden flex items-start justify-between mb-3!">
       <div class="header-content">
         <div class="header-actions mt-3! flex items-center gap-2">
@@ -49,6 +50,62 @@
       </div>
     </header>
 
+    <!-- Mobile Header Panel -->
+    <div 
+      class="mobile-header-panel md:hidden"
+      :class="{ 'open': props.isMobileHeaderOpen }"
+    >
+      <div class="mobile-header-content">
+        <!-- Mobile Action Buttons -->
+        <div class="mobile-actions">
+          <button
+            class="mobile-action-btn bg-cyan-950"
+            @click="toggleGridEditor"
+          >
+            ویرایشگر شبکه
+          </button>
+          <button
+            class="mobile-action-btn bg-blue-900"
+            @click="toggleMiyukiBeads"
+          >
+            نمایش مهره‌ها
+          </button>
+          <button
+            class="mobile-action-btn bg-emerald-900"
+            @click="toggleBraceletPreview"
+          >
+            پیش‌نمایش دستبند
+          </button>
+          <button
+            class="mobile-action-btn bg-emerald-900"
+            @click="startWorking"
+          >
+            مراحل اجرا
+          </button>
+        </div>
+        
+        <!-- Mobile Stats -->
+        <div class="mobile-stats">
+          <div class="mobile-stat-item">
+            <div class="mobile-stat-number">{{ rows }}</div>
+            <div class="mobile-stat-label">ردیف</div>
+          </div>
+          <div class="mobile-stat-item">
+            <div class="mobile-stat-number">{{ cols }}</div>
+            <div class="mobile-stat-label">ستون</div>
+          </div>
+          <div class="mobile-stat-item">
+            <div class="mobile-stat-number">{{ pattern.length }}</div>
+            <div class="mobile-stat-label">مهره</div>
+          </div>
+          <div class="mobile-stat-item">
+            <div class="mobile-stat-number">{{ (pattern.length / 190).toFixed(2) }}</div>
+            <div class="mobile-stat-label">گرم</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Quick Stats -->
 
     <!-- Content Area -->
@@ -89,6 +146,14 @@ import GridEditor from '@/components/flat/GridEditor.vue';
 import MiyukiBeads from '@/components/flat/MiyukiBeads.vue';
 import BraceletPreview from '@/components/flat/BraceletPreview.vue';
 import WorkingPage from '@/components/flat/WorkingPage.vue';
+
+// Props
+const props = defineProps({
+  isMobileHeaderOpen: {
+    type: Boolean,
+    default: false
+  }
+});
 
 const rows = ref(16);
 const cols = ref(80);
@@ -195,6 +260,7 @@ function handleUpdateGrid(matrix) {
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   overflow: hidden;
+  min-height: calc(100vh - 160px);
 }
 
 .content-component {
@@ -203,7 +269,7 @@ function handleUpdateGrid(matrix) {
 
 @media (max-width: 768px) {
   .content-container {
-    min-height: auto;
+    min-height: calc(100vh - 60px);
     max-height: auto;
     overflow-y: auto;
   }
@@ -252,6 +318,82 @@ function handleUpdateGrid(matrix) {
   }
 }
 
+/* Mobile Header Panel */
+.mobile-header-panel {
+  position: fixed;
+  top: 78px;
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  transform: translateY(-100%);
+  transition: transform 0.3s ease-in-out;
+  z-index: 999;
+  max-height: 0;
+  overflow: hidden;
+}
+
+.mobile-header-panel.open {
+  transform: translateY(0);
+  max-height: 300px;
+}
+
+.mobile-header-content {
+  padding: 15px 20px;
+}
+
+.mobile-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.mobile-action-btn {
+  padding: 10px 15px;
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-align: center;
+}
+
+.mobile-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.mobile-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.mobile-stat-item {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.mobile-stat-number {
+  font-size: 16px;
+  font-weight: bold;
+  color: black;
+  margin-bottom: 4px;
+}
+
+.mobile-stat-label {
+  color: rgba(0, 0, 0, 0.8);
+  font-size: 12px;
+}
+
 @media (max-width: 480px) {
   .home-container {
     padding: 10px;
@@ -263,6 +405,27 @@ function handleUpdateGrid(matrix) {
 
   .hero-title {
     font-size: 1.8rem;
+  }
+
+  .mobile-header-panel {
+    top: 52px;
+  }
+
+  .mobile-stats {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .mobile-stat-item {
+    padding: 8px;
+  }
+
+  .mobile-stat-number {
+    font-size: 14px;
+  }
+
+  .mobile-stat-label {
+    font-size: 10px;
   }
 }
 </style>

@@ -1298,7 +1298,7 @@
 
     <!-- صفحه شطرنجی -->
      <!--  -->
-    <div class="grid-container md:max-h-[calc(100vh_-_200px)]" :class="{ '!flex-row': isVertical, '!flex-col-reverse': !isVertical, 'pinned-active': pinnedSection }" >
+    <div class="grid-container md:max-h-[calc(100vh_-_200px)] max-md:min-h-[calc(100vh_-_310px)]" :class="{ '!flex-row': isVertical, '!flex-col-reverse': !isVertical, 'pinned-active': pinnedSection }" >
       <div class="image-section max-h-[70%]">
         <div class="upload-section grid grid-cols-2 gap-2">
           <label class="upload-label">
@@ -2637,7 +2637,7 @@ async function changeAllBeadsToColor() {
   top: 0;
   right: 0;
   width: 260px;
-  height: 100vh;
+  height: calc(100vh - 168px);
   background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
   border-left: 1px solid #dee2e6;
   z-index: 1000;
@@ -3519,7 +3519,7 @@ async function changeAllBeadsToColor() {
 /* Pinned Section Styles */
 .pinned-section {
   position: fixed;
-  top: 53px;
+  top: 50px;
   left: 0;
   right: 0;
   background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
@@ -3710,7 +3710,7 @@ async function changeAllBeadsToColor() {
   /* Mobile Dropdown Panel */
   .mobile-dropdown-panel {
     position: fixed;
-    top: 53px;
+    top: 50px;
     left: 0;
     right: 0;
     background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
@@ -3758,9 +3758,9 @@ async function changeAllBeadsToColor() {
   /* Make grid container full screen on mobile */
   .grid-container {
     margin-right: 0;
-    margin-top: 53px;
+    margin-top: 50px;
     padding: 10px;
-    height: calc(100vh - 53px);
+    height: calc(100vh - 50px);
     flex-direction: column;
     transition: margin-top 0.3s ease;
   }
