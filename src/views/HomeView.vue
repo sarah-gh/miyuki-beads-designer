@@ -1,6 +1,6 @@
 <template>
   <div class="home-container">
-    <header class="app-header flex items-start justify-between mb-3!">
+    <header class="app-header max-md:hidden flex items-start justify-between mb-3!">
       <div class="header-content">
         <div class="header-actions mt-3! flex items-center gap-2">
           <button
@@ -147,6 +147,14 @@ function handleUpdateGrid(matrix) {
   padding: 20px;
 }
 
+@media (max-width: 768px) {
+  .home-container {
+    min-height: auto;
+    max-height: calc(100vh - 38px);
+    overflow-y: auto;
+  }
+}
+
 /* Stats Section */
 .stats-section {
   display: flex;
@@ -191,6 +199,14 @@ function handleUpdateGrid(matrix) {
 
 .content-component {
   min-height: 500px;
+}
+
+@media (max-width: 768px) {
+  .content-container {
+    min-height: auto;
+    max-height: auto;
+    overflow-y: auto;
+  }
 }
 
 /* Animations */

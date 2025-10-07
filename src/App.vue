@@ -3,10 +3,10 @@
     <!-- Header -->
     <header class="app-header">
       <div class="header-content">
-        <div class="logo-section">
+        <div class="logo-section max-md:hidden">
           <h1 class="app-title">Miyuki Beads Designer</h1>
         </div>
-        <div class="header-actions">
+        <div class="header-actions max-md:text-[12px]">
           <RouterLink to="/">Flat Grid</RouterLink>
           <RouterLink to="/weaving-grid">Weaving Grid</RouterLink>
           <RouterLink to="/beadwork-pattern">Beadwork Pattern</RouterLink>

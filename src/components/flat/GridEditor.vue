@@ -1,6 +1,869 @@
 <template>
-  <div class="editor-container h-screen overflow-auto">
-    <!-- ابزارها - Fixed on the right side -->
+  <div class="editor-container overflow-auto">
+    <!-- Mobile Control Bar -->
+    <div class="mobile-control-bar">
+      <button 
+        class="mobile-menu-btn"
+        :class="{ active: isMobilePanelOpen }"
+        @click="toggleMobilePanel"
+      >
+        <span class="menu-icon">☰</span>
+        <span class="menu-text">منو</span>
+      </button>
+      <div class="mobile-title">🎨 ویرایشگر شبکه</div>
+    </div>
+
+    <!-- Pinned Section (Mobile Only) -->
+    <div v-if="pinnedSection" class="pinned-section">
+      <div class="pinned-section-header">
+        <h4 class="pinned-section-title">{{ getSectionTitle(pinnedSection) }}</h4>
+        <button class="unpin-btn" title="Unpin Section" @click="unpinSection">
+          ✕
+        </button>
+      </div>
+      <div class="pinned-section-content">
+        <!-- Dimensions Section -->
+        <div v-if="pinnedSection === 'dimensions'" class="pinned-dimensions">
+          <div class="dimension-inputs">
+            <label class="dimension-label">
+              <span class="dimension-text">ستون ها:</span>
+              <input
+                v-model.number="rows"
+                type="number"
+                min="1"
+                class="dimension-input"
+              />
+            </label>
+            <label class="dimension-label">
+              <span class="dimension-text">ردیف ها:</span>
+              <input
+                v-model.number="cols"
+                type="number"
+                min="1"
+                class="dimension-input"
+              />
+            </label>
+          </div>
+          <div class="cell-size-section">
+            <h4 class="mb-2 text-sm font-semibold text-gray-700">📏 اندازه سلول</h4>
+            <div class="dimension-inputs">
+              <label class="dimension-label">
+                <span class="dimension-text">عرض:</span>
+                <input
+                  v-model.number="cellWidth"
+                  type="number"
+                  min="5"
+                  max="50"
+                  class="dimension-input"
+                />
+              </label>
+              <label class="dimension-label">
+                <span class="dimension-text">ارتفاع:</span>
+                <input
+                  v-model.number="cellHeight"
+                  type="number"
+                  min="5"
+                  max="50"
+                  class="dimension-input"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Direction Section -->
+        <div v-if="pinnedSection === 'direction'" class="pinned-direction">
+          <div class="direction-toggle">
+            <button
+              class="direction-btn"
+              :class="{ active: isVertical }"
+              @click="isVertical = !isVertical"
+            >
+              {{ isVertical ? 'عمودی' : 'افقی' }}
+            </button>
+          </div>
+          <div class="direction-toggle">
+            <button
+              class="direction-btn"
+              :class="{ active: isVerticalGrid }"
+              @click="isVerticalGrid = !isVerticalGrid"
+            >
+              {{ isVerticalGrid ? 'گرید عمودی' : 'گرید افقی' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Color Section -->
+        <div v-if="pinnedSection === 'color'" class="pinned-color">
+          <div class="color-picker-container">
+            <input
+              v-model="selectedColor"
+              type="color"
+              class="color-picker"
+            />
+            <span class="color-value">{{ selectedColor }}</span>
+          </div>
+          <div class="recent-colors-header">
+            <h4 class="text-sm font-semibold text-gray-700">🔄 رنگ‌های اخیر</h4>
+            <button
+              v-if="recentColors.length > 0"
+              class="clear-colors-btn"
+              title="پاک کردن تمام رنگ‌ها"
+              @click="clearRecentColors"
+            >
+              🗑️ پاک کردن
+            </button>
+          </div>
+          <div class="recent-colors-grid">
+            <div
+              v-for="color in recentColors"
+              :key="color"
+              class="color-swatch"
+              :style="{ backgroundColor: color }"
+              :title="color"
+              @click="selectedColor = color"
+            >
+              <button
+                class="remove-color-btn"
+                @click.stop="removeRecentColor(color)"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mode Section -->
+        <div v-if="pinnedSection === 'mode'" class="pinned-mode">
+          <div class="mode-toggle">
+            <button
+              class="mode-btn"
+              :class="{ active: paintMode === 'color' }"
+              @click="paintMode = 'color'"
+            >
+              🎨 رنگ
+            </button>
+            <button
+              class="mode-btn"
+              :class="{ active: paintMode === 'image' }"
+              @click="paintMode = 'image'"
+            >
+              🖼️ تصویر
+            </button>
+          </div>
+        </div>
+
+        <!-- Image Section -->
+        <div v-if="pinnedSection === 'image'" class="pinned-image">
+          <div class="image-picker-container">
+            <div class="available-images-grid">
+              <div
+                v-for="image in availableImages"
+                :key="image.name"
+                class="image-item"
+                :class="{ selected: selectedBeadImage?.url === image.url }"
+                @click="selectBeadImage(image)"
+              >
+                <img
+                  :src="image.url"
+                  :alt="image.displayName"
+                  class="bead-image"
+                />
+                <span class="image-name">{{ image.displayName }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tools Section -->
+        <div v-if="pinnedSection === 'tools'" class="pinned-tools">
+          <div class="tools-grid">
+            <button
+              class="tool-btn primary"
+              :class="{ active: tool === 'paint' }"
+              @click="setTool('paint')"
+            >
+              🖌️ Paint
+            </button>
+            <button
+              class="tool-btn primary"
+              :class="{ active: tool === 'fill' }"
+              @click="setTool('fill')"
+            >
+              🪣 Fill
+            </button>
+            <button
+              class="tool-btn secondary"
+              :class="{ active: tool === 'select' }"
+              @click="setTool('select')"
+            >
+              📐 Select
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="copySelection"
+            >
+              📋 Copy
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="cutSelection"
+            >
+              ✂️ Cut
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="pasteSelection"
+            >
+              📥 Paste
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="pasteAtCenter"
+            >
+              📍 Paste at Center
+            </button>
+            <button
+              class="tool-btn secondary"
+              :disabled="!hasClipboardContent()"
+              @click="enablePasteMode"
+            >
+              🎯 Select Paste Position
+            </button>
+            <button
+              v-if="isPasteMode"
+              class="tool-btn danger"
+              @click="cancelPasteMode"
+            >
+              ❌ Cancel Paste
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="clearSelection"
+            >
+              🗑️ Clear Selection
+            </button>
+            <button
+              class="tool-btn secondary"
+              :disabled="selection.length === 0"
+              @click="mirrorSelection"
+            >
+              🔄 Mirror Selection
+            </button>
+            <button
+              class="tool-btn secondary"
+              :disabled="selection.length === 0"
+              @click="mirrorSelectionVertical"
+            >
+              ↕️ Mirror Selection Vertical
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="undo"
+            >
+              ↩️ Undo
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="redo"
+            >
+              ↪️ Redo
+            </button>
+          </div>
+        </div>
+
+        <!-- Export Section -->
+        <div v-if="pinnedSection === 'export'" class="pinned-export">
+          <div class="save-load-buttons">
+            <button
+              class="export-btn success"
+              @click="saveGridToLocalStorage"
+            >
+              💾 ذخیره گرید
+            </button>
+            <button
+              class="export-btn info"
+              @click="loadGridFromLocalStorage"
+            >
+              📂 بارگذاری اخرین ذخیره
+            </button>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              class="export-btn primary"
+              @click="$emit('update-grid', getGridMatrix())"
+            >
+              🚀 ارسال به 3D
+            </button>
+            <button
+              class="export-btn success"
+              @click="() => exportGridAsImage()"
+            >
+              📷 خروجی عکس
+            </button>
+            <button
+              class="export-btn info"
+              @click="() => exportGridAsHighQualityImage()"
+            >
+              🖼️ خروجی HD
+            </button>
+            <button
+              class="export-btn warning"
+              @click="exportGridAsTxt"
+            >
+              📄 خروجی TXT
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Dropdown Panel -->
+    <div 
+      class="mobile-dropdown-panel"
+      :class="{ open: isMobilePanelOpen }"
+    >
+      <div class="mobile-panel-content">
+        <!-- Image Section for Mobile -->
+        <div class="mobile-image-section">
+          <div class="upload-section grid grid-cols-2 gap-2">
+            <label class="upload-label">
+              <span class="upload-text">📁 آپلود فایل txt grid</span>
+              <input
+                type="file"
+                accept=".txt"
+                class="upload-input"
+                @change="handleTxtUpload"
+              />
+            </label>
+            <label class="upload-label">
+              <span class="upload-text">📁 آپلود تصویر</span>
+              <input
+                type="file"
+                accept="image/*"
+                class="upload-input"
+                @change="handleImageUpload"
+              />
+            </label>
+          </div>
+          <div
+            v-if="selectedImage"
+            class="image-preview"
+          >
+            <img
+              :src="selectedImage"
+              alt="تصویر انتخاب شده"
+              class="preview-image"
+            />
+          </div>
+        </div>
+
+        <!-- Controls Panel Content for Mobile -->
+        <div class="mobile-controls-content">
+          <div class="controls-header">
+            <h3 class="mb-4 text-lg font-bold text-gray-800">🎨 ابزارهای طراحی</h3>
+          </div>
+
+          <div class="controls-content">
+            <!-- تنظیمات ابعاد -->
+            <div class="dimensions-section">
+              <div class="section-header">
+                <h4 class="mb-2 text-sm font-semibold text-gray-700">
+                  📐 ابعاد شبکه
+                </h4>
+                <button 
+                  class="pin-btn"
+                  :class="{ pinned: pinnedSection === 'dimensions' }"
+                  :title="pinnedSection === 'dimensions' ? 'Unpin Section' : 'Pin Section'"
+                  @click="pinSection('dimensions')"
+                >
+                  {{ pinnedSection === 'dimensions' ? '📌' : '📌' }}
+                </button>
+              </div>
+              <div class="dimension-inputs">
+                <label class="dimension-label">
+                  <span class="dimension-text">ستون ها:</span>
+                  <input
+                    v-model.number="rows"
+                    type="number"
+                    min="1"
+                    class="dimension-input"
+                  />
+                </label>
+                <label class="dimension-label">
+                  <span class="dimension-text">ردیف ها:</span>
+                  <input
+                    v-model.number="cols"
+                    type="number"
+                    min="1"
+                    class="dimension-input"
+                  />
+                </label>
+              </div>
+              
+              <!-- اندازه سلول -->
+              <div class="cell-size-section !mt-4">
+                <h4 class="mb-2 text-sm font-semibold text-gray-700">
+                  📏 اندازه سلول
+                </h4>
+                <div class="dimension-inputs">
+                  <label class="dimension-label">
+                    <span class="dimension-text">عرض:</span>
+                    <input
+                      v-model.number="cellWidth"
+                      type="number"
+                      min="5"
+                      max="50"
+                      class="dimension-input"
+                    />
+                  </label>
+                  <label class="dimension-label">
+                    <span class="dimension-text">ارتفاع:</span>
+                    <input
+                      v-model.number="cellHeight"
+                      type="number"
+                      min="5"
+                      max="50"
+                      class="dimension-input"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- انتخاب جهت -->
+            <div class="direction-section">
+              <div class="section-header">
+                <h4 class="mb-2 text-sm font-semibold text-gray-700">
+                  🔄 جهت
+                </h4>
+                <button 
+                  class="pin-btn"
+                  :class="{ pinned: pinnedSection === 'direction' }"
+                  :title="pinnedSection === 'direction' ? 'Unpin Section' : 'Pin Section'"
+                  @click="pinSection('direction')"
+                >
+                  {{ pinnedSection === 'direction' ? '📌' : '📌' }}
+                </button>
+              </div>
+              <div class="direction-toggle">
+                <button
+                  class="direction-btn"
+                  :class="{ active: isVertical }"
+                  @click="isVertical = !isVertical"
+                >
+                  {{ isVertical ? 'عمودی' : 'افقی' }}
+                </button>
+              </div>
+              <div class="direction-toggle">
+                <button
+                  class="direction-btn"
+                  :class="{ active: isVerticalGrid }"
+                  @click="isVerticalGrid = !isVerticalGrid"
+                >
+                  {{ isVerticalGrid ? 'گرید عمودی' : 'گرید افقی' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- انتخاب رنگ -->
+            <div class="color-section">
+              <div class="section-header">
+                <h4 class="mb-2 text-sm font-semibold text-gray-700">
+                  🎨 انتخاب رنگ
+                </h4>
+                <button 
+                  class="pin-btn"
+                  :class="{ pinned: pinnedSection === 'color' }"
+                  :title="pinnedSection === 'color' ? 'Unpin Section' : 'Pin Section'"
+                  @click="pinSection('color')"
+                >
+                  {{ pinnedSection === 'color' ? '📌' : '📌' }}
+                </button>
+              </div>
+              <div class="color-picker-container">
+                <input
+                  v-model="selectedColor"
+                  type="color"
+                  class="color-picker"
+                />
+                <span class="color-value">{{ selectedColor }}</span>
+              </div>
+              <div class="recent-colors-header mt-3!">
+                <h4 class="text-sm font-semibold text-gray-700">🔄 رنگ‌های اخیر</h4>
+                <button
+                  v-if="recentColors.length > 0"
+                  class="clear-colors-btn"
+                  title="پاک کردن تمام رنگ‌ها"
+                  @click="clearRecentColors"
+                >
+                  🗑️ پاک کردن
+                </button>
+              </div>
+              <div class="recent-colors-grid">
+                <div
+                  v-for="color in recentColors"
+                  :key="color"
+                  class="color-swatch"
+                  :style="{ backgroundColor: color }"
+                  :title="color"
+                  @click="selectedColor = color"
+                >
+                  <button
+                    class="remove-color-btn"
+                    @click.stop="removeRecentColor(color)"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- انتخاب حالت رنگ یا تصویر -->
+            <div class="mode-section">
+              <div class="section-header">
+                <h4 class="mb-2 text-sm font-semibold text-gray-700">
+                  🎨 حالت طراحی
+                </h4>
+                <button 
+                  class="pin-btn"
+                  :class="{ pinned: pinnedSection === 'mode' }"
+                  :title="pinnedSection === 'mode' ? 'Unpin Section' : 'Pin Section'"
+                  @click="pinSection('mode')"
+                >
+                  {{ pinnedSection === 'mode' ? '📌' : '📌' }}
+                </button>
+              </div>
+              <div class="mode-toggle">
+                <button
+                  class="mode-btn"
+                  :class="{ active: paintMode === 'color' }"
+                  @click="paintMode = 'color'"
+                >
+                  🎨 رنگ
+                </button>
+                <button
+                  class="mode-btn"
+                  :class="{ active: paintMode === 'image' }"
+                  @click="paintMode = 'image'"
+                >
+                  🖼️ تصویر
+                </button>
+              </div>
+            </div>
+
+            <!-- انتخاب تصویر مهره -->
+            <div v-if="paintMode === 'image'" class="mode-section">
+              <div class="section-header">
+                <h4 class="mb-2 text-sm font-semibold text-gray-700">
+                  🖼️ انتخاب تصویر مهره
+                </h4>
+                <button 
+                  class="pin-btn"
+                  :class="{ pinned: pinnedSection === 'image' }"
+                  :title="pinnedSection === 'image' ? 'Unpin Section' : 'Pin Section'"
+                  @click="pinSection('image')"
+                >
+                  {{ pinnedSection === 'image' ? '📌' : '📌' }}
+                </button>
+              </div>
+              <div class="image-picker-container">
+                <div class="available-images-grid">
+                  <div
+                    v-for="image in availableImages"
+                    :key="image.name"
+                    class="image-item"
+                    :class="{ selected: selectedBeadImage?.url === image.url }"
+                    @click="selectBeadImage(image)"
+                  >
+                    <img
+                      :src="image.url"
+                      :alt="image.displayName"
+                      class="bead-image"
+                    />
+                    <span class="image-name">{{ image.displayName }}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- تصاویر اخیر -->
+              <div v-if="recentImages.length > 0" class="recent-images-section">
+                <div class="recent-images-header">
+                  <h4 class="text-sm font-semibold text-gray-700">🔄 تصاویر اخیر</h4>
+                  <button
+                    class="clear-images-btn"
+                    title="پاک کردن تمام تصاویر"
+                    @click="clearRecentImages"
+                  >
+                    🗑️ پاک کردن
+                  </button>
+                </div>
+                <div class="recent-images-grid">
+                  <div
+                    v-for="image in recentImages"
+                    :key="image.url"
+                    class="recent-image-item"
+                    :class="{ selected: selectedBeadImage?.url === image.url }"
+                    @click="selectBeadImage(image)"
+                  >
+                    <img
+                      :src="image.url"
+                      :alt="image.displayName"
+                      class="recent-bead-image"
+                    />
+                    <button
+                      class="remove-image-btn"
+                      @click.stop="removeRecentImage(image)"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ابزارهای اصلی -->
+            <div class="tools-section">
+              <div class="section-header">
+                <h4 class="mb-2 text-sm font-semibold text-gray-700">🛠️ ابزارها</h4>
+                <button 
+                  class="pin-btn"
+                  :class="{ pinned: pinnedSection === 'tools' }"
+                  :title="pinnedSection === 'tools' ? 'Unpin Section' : 'Pin Section'"
+                  @click="pinSection('tools')"
+                >
+                  {{ pinnedSection === 'tools' ? '📌' : '📌' }}
+                </button>
+              </div>
+              <div class="tools-grid">
+                <button
+                  class="tool-btn primary"
+                  :class="{ active: tool === 'paint' }"
+                  @click="setTool('paint')"
+                >
+                  🖌️ Paint
+                </button>
+                <button
+                  class="tool-btn primary"
+                  :class="{ active: tool === 'fill' }"
+                  @click="setTool('fill')"
+                >
+                  🪣 Fill
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  :class="{ active: tool === 'select' }"
+                  @click="setTool('select')"
+                >
+                  📐 Select
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  @click="copySelection"
+                >
+                  📋 Copy
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  @click="cutSelection"
+                >
+                  ✂️ Cut
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  @click="pasteSelection"
+                >
+                  📥 Paste
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  @click="pasteAtCenter"
+                >
+                  📍 Paste at Center
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  :disabled="!hasClipboardContent()"
+                  @click="enablePasteMode"
+                >
+                  🎯 Select Paste Position
+                </button>
+                <button
+                  v-if="isPasteMode"
+                  class="tool-btn danger"
+                  @click="cancelPasteMode"
+                >
+                  ❌ Cancel Paste
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  @click="clearSelection"
+                >
+                  🗑️ Clear Selection
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  :disabled="selection.length === 0"
+                  @click="mirrorSelection"
+                >
+                  🔄 Mirror Selection
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  :disabled="selection.length === 0"
+                  @click="mirrorSelectionVertical"
+                >
+                  ↕️ Mirror Selection Vertical
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  @click="undo"
+                >
+                  ↩️ Undo
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  @click="redo"
+                >
+                  ↪️ Redo
+                </button>
+              </div>
+              
+              <!-- دکمه تغییر رنگ تمام مهره‌ها -->
+              <div class="background-color-section !mt-4">
+                <h4 class="mb-2 text-sm font-semibold text-gray-700">🎨 پس‌زمینه</h4>
+                
+                <!-- انتخاب حالت پس‌زمینه -->
+                <div class="background-mode-toggle">
+                  <button
+                    class="mode-btn"
+                    :class="{ active: backgroundMode === 'color' }"
+                    @click="backgroundMode = 'color'"
+                  >
+                    🎨 رنگ
+                  </button>
+                  <button
+                    class="mode-btn"
+                    :class="{ active: backgroundMode === 'image' }"
+                    @click="backgroundMode = 'image'"
+                  >
+                    🖼️ تصویر
+                  </button>
+                </div>
+                
+                <!-- انتخاب رنگ -->
+                <div v-if="backgroundMode === 'color'" class="background-color-controls">
+                  <input
+                    v-model="backgroundColor"
+                    type="color"
+                    class="color-picker"
+                    title="انتخاب رنگ پس‌زمینه"
+                  />
+                  <button
+                    class="tool-btn success"
+                    @click="changeAllBeadsToColor"
+                  >
+                    🎨 تغییر تمام مهره‌ها
+                  </button>
+                </div>
+                
+                <!-- انتخاب تصویر -->
+                <div v-if="backgroundMode === 'image'" class="background-image-controls">
+                  <div class="background-image-picker">
+                    <div class="background-images-grid">
+                      <div
+                        v-for="image in availableImages"
+                        :key="image.name"
+                        class="background-image-item"
+                        :class="{ selected: selectedBackgroundImage?.url === image.url }"
+                        @click="selectedBackgroundImage = image"
+                      >
+                        <img
+                          :src="image.url"
+                          :alt="image.displayName"
+                          class="background-bead-image"
+                        />
+                        <span class="background-image-name">{{ image.displayName }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    class="tool-btn success"
+                    :disabled="!selectedBackgroundImage"
+                    @click="changeAllBeadsToColor"
+                  >
+                    🖼️ تغییر تمام مهره‌ها
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- دکمه‌های خروجی -->
+            <div class="export-section">
+              <div class="section-header">
+                <h4 class="mb-2 text-sm font-semibold text-gray-700">📤 خروجی</h4>
+                <button 
+                  class="pin-btn"
+                  :class="{ pinned: pinnedSection === 'export' }"
+                  :title="pinnedSection === 'export' ? 'Unpin Section' : 'Pin Section'"
+                  @click="pinSection('export')"
+                >
+                  {{ pinnedSection === 'export' ? '📌' : '📌' }}
+                </button>
+              </div>
+
+              <!-- دکمه‌های ذخیره و بارگذاری -->
+              <div class="save-load-buttons mb-3">
+                <button
+                  class="export-btn success"
+                  @click="saveGridToLocalStorage"
+                >
+                  💾 ذخیره گرید
+                </button>
+                <button
+                  class="export-btn info"
+                  @click="loadGridFromLocalStorage"
+                >
+                  📂 بارگذاری اخرین ذخیره
+                </button>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <button
+                class="export-btn primary"
+                @click="$emit('update-grid', getGridMatrix())"
+              >
+                🚀 ارسال به 3D
+              </button>
+
+              <button
+                class="export-btn success"
+                @click="() => exportGridAsImage()"
+              >
+                📷 خروجی عکس
+              </button>
+
+              <button
+                class="export-btn info"
+                @click="() => exportGridAsHighQualityImage()"
+              >
+                🖼️ خروجی HD
+              </button>
+
+              <button
+                class="export-btn warning"
+                @click="exportGridAsTxt"
+              >
+                📄 خروجی TXT
+              </button>
+              </div>
+              
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ابزارها - Fixed on the right side (Desktop) -->
     <div class="controls-panel">
       <div class="controls-header">
         <h3 class="mb-4 text-lg font-bold text-gray-800">🎨 ابزارهای طراحی</h3>
@@ -14,7 +877,7 @@
           </h4>
           <div class="dimension-inputs">
             <label class="dimension-label">
-              <span class="dimension-text">ردیف‌ها:</span>
+              <span class="dimension-text">ستون ها:</span>
               <input
                 v-model.number="rows"
                 type="number"
@@ -23,7 +886,7 @@
               />
             </label>
             <label class="dimension-label">
-              <span class="dimension-text">ستون‌ها:</span>
+              <span class="dimension-text">ردیف ها:</span>
               <input
                 v-model.number="cols"
                 type="number"
@@ -75,6 +938,15 @@
               @click="isVertical = !isVertical"
             >
               {{ isVertical ? 'عمودی' : 'افقی' }}
+            </button>
+          </div>
+          <div class="direction-toggle">
+            <button
+              class="direction-btn"
+              :class="{ active: isVerticalGrid }"
+              @click="isVerticalGrid = !isVerticalGrid"
+            >
+              {{ isVerticalGrid ? 'گرید عمودی' : 'گرید افقی' }}
             </button>
           </div>
         </div>
@@ -425,8 +1297,9 @@
     </div>
 
     <!-- صفحه شطرنجی -->
-    <div class="grid-container" :class="{ '!flex-row': isVertical, '!flex-col-reverse': !isVertical }">
-      <div class="image-section">
+     <!--  -->
+    <div class="grid-container" :class="{ '!flex-row': isVertical, '!flex-col-reverse': !isVertical, 'pinned-active': pinnedSection }" >
+      <div class="image-section max-h-[70%]">
         <div class="upload-section grid grid-cols-2 gap-2">
           <label class="upload-label">
             <span class="upload-text">📁 آپلود فایل txt grid</span>
@@ -458,8 +1331,7 @@
           />
         </div>
       </div>
-
-      <div class="grid-wrapper">
+      <div class="grid-wrapper" :class="{ 'rotate-none': isVerticalGrid, ' rotate-90 z-10 translate-x-[200%] min-h-fit! translate-y-[10%] h-fit! w-fit!': !isVerticalGrid }">
         <div
           class="grid-item"
           :style="{ 
@@ -470,6 +1342,10 @@
           @mouseup="stopDrawing"
           @mouseleave="stopDrawing"
           @mousemove="drawMove"
+          @touchstart="handleTouchStart"
+          @touchmove="handleTouchMove"
+          @touchend="handleTouchEnd"
+          @touchcancel="handleTouchEnd"
         >
           <div
             v-for="(cell, i) in grid"
@@ -514,17 +1390,60 @@ const emit = defineEmits(['update-grid']);
 const rows = ref(16);
 const cols = ref(80);
 const cellWidth = ref(15);
-const cellHeight = ref(15);
+const cellHeight = ref(17);
 const selectedColor = ref('#ff0000');
 const recentColors = ref([]);
 const lastSavedTime = ref(null);
-const isVertical = ref(false);
-
+const isVertical = ref(true);
+const isVerticalGrid = ref(true);
 const selectedImage = ref(null);
 const paintMode = ref('color'); // 'color' or 'image'
 const selectedBeadImage = ref(null);
 const recentImages = ref([]);
 const availableImages = ref([]);
+
+// Mobile panel state
+const isMobilePanelOpen = ref(false);
+
+// Pinning state
+const pinnedSection = ref(null);
+
+// Toggle mobile panel
+function toggleMobilePanel() {
+  isMobilePanelOpen.value = !isMobilePanelOpen.value;
+}
+
+// Pin/unpin section functions
+function pinSection(sectionName) {
+  if (pinnedSection.value === sectionName) {
+    // If already pinned, unpin it
+    pinnedSection.value = null;
+  } else {
+    // Pin the new section (this will automatically unpin the previous one)
+    pinnedSection.value = sectionName;
+    // Auto-close the mobile menu when pinning a section
+    isMobilePanelOpen.value = false;
+  }
+}
+
+function unpinSection() {
+  pinnedSection.value = null;
+}
+
+// Helper functions for pinned section
+function getSectionTitle(sectionName) {
+  const titles = {
+    'dimensions': '📐 ابعاد شبکه',
+    'direction': '🔄 جهت',
+    'color': '🎨 انتخاب رنگ',
+    'mode': '🎨 حالت طراحی',
+    'image': '🖼️ انتخاب تصویر مهره',
+    'tools': '🛠️ ابزارها',
+    'export': '📤 خروجی'
+  };
+  return titles[sectionName] || sectionName;
+}
+
 
 const grid = ref([]);
 
@@ -608,7 +1527,13 @@ function loadGridFromLocalStorage() {
 
 // بارگذاری خودکار گرید در هنگام شروع
 onMounted(() => {
-  loadGridFromLocalStorage();
+  const loaded = loadGridFromLocalStorage();
+  // اگر localStorage خالی بود، گرید را با مقادیر پیش‌فرض مقداردهی کن
+  if (!loaded) {
+    const initialSize = rows.value * cols.value;
+    grid.value = Array(initialSize).fill('#ffffff');
+    saveHistory();
+  }
   loadAvailableImages();
 });
 
@@ -636,6 +1561,11 @@ const tool = ref('paint');
 let isDrawing = false;
 let selectionStart = null;
 let isSelecting = false;
+
+// Touch event handling
+let isMultiTouch = false;
+let isPainting = false;
+let lastPaintedCell = -1;
 
 // تاریخچه Undo/Redo
 const history = reactive({ stacks: [], index: -1 });
@@ -766,7 +1696,7 @@ watch([rows, cols], () => {
     isPasteMode.value = false;
     saveHistory();
   }
-});
+}, { immediate: true });
 
 // ذخیره خودکار گرید در localStorage هنگام تغییر
 watch(
@@ -840,6 +1770,87 @@ function drawMove(e) {
     selection.value = getSelectionRect(selectionStart, index);
   }
 }
+
+// Touch event handlers
+function handleTouchStart(e) {
+  e.preventDefault();
+  
+  const touches = e.touches;
+  isMultiTouch = touches.length > 1;
+  
+  if (touches.length === 1) {
+    // Single touch - start painting
+    const touch = touches[0];
+    
+    // Get the cell element that was touched using elementFromPoint
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (element && element.classList.contains('cell')) {
+      const cellIndex = Array.from(element.parentNode.children).indexOf(element);
+      lastPaintedCell = cellIndex;
+      isPainting = true;
+      
+      if (tool.value === 'paint') {
+        paintCell(cellIndex);
+      } else if (tool.value === 'fill') {
+        bucketFill(cellIndex, grid.value[cellIndex], selectedColor.value);
+        saveHistory();
+      } else if (tool.value === 'select') {
+        selectionStart = cellIndex;
+        selection.value = [cellIndex];
+        isSelecting = true;
+      }
+    }
+  } else {
+    // Multi-touch - allow scrolling
+    isPainting = false;
+  }
+}
+
+function handleTouchMove(e) {
+  const touches = e.touches;
+  
+  if (touches.length === 1 && isPainting && !isMultiTouch) {
+    // Single touch painting
+    e.preventDefault();
+    const touch = touches[0];
+    // Get the cell element that was touched using elementFromPoint
+    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (element && element.classList.contains('cell')) {
+      const cellIndex = Array.from(element.parentNode.children).indexOf(element);
+      
+      if (cellIndex !== lastPaintedCell) {
+        lastPaintedCell = cellIndex;
+        
+        if (tool.value === 'paint') {
+          paintCell(cellIndex);
+        } else if (tool.value === 'select' && isSelecting) {
+          selection.value = getSelectionRect(selectionStart, cellIndex);
+        }
+      }
+    }
+  } else if (touches.length > 1) {
+    // Multi-touch - allow scrolling
+    isMultiTouch = true;
+    isPainting = false;
+  }
+}
+
+function handleTouchEnd() {
+  if (isPainting && !isMultiTouch) {
+    // Only save history if we were painting
+    if (tool.value === 'paint') {
+      saveHistory();
+    }
+  }
+  
+  // Reset touch state
+  isPainting = false;
+  isMultiTouch = false;
+  lastPaintedCell = -1;
+  selectionStart = null;
+  isSelecting = false;
+}
+
 
 // ابزار Paint
 function paintCell(i) {
@@ -1611,12 +2622,11 @@ async function changeAllBeadsToColor() {
 
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .editor-container {
   display: flex;
   gap: 20px;
   padding: 20px;
-  min-height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
@@ -2504,5 +3514,400 @@ async function changeAllBeadsToColor() {
   margin-top: 2px;
   text-align: center;
   font-weight: 500;
+}
+
+/* Pinned Section Styles */
+.pinned-section {
+  position: fixed;
+  top: 53px;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border-bottom: 2px solid #667eea;
+  z-index: 1800;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.pinned-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+.pinned-section-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.unpin-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+.unpin-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.pinned-section-content {
+  padding: 16px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* Section Header with Pin Button */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.pin-btn {
+  background: transparent;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  color: #6c757d;
+}
+
+.pin-btn:hover {
+  background: #f8f9fa;
+  border-color: #adb5bd;
+  transform: scale(1.1);
+}
+
+.pin-btn.pinned {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: #667eea;
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+}
+
+.pin-btn.pinned:hover {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  transform: scale(1.1);
+}
+
+/* Pinned Section Content Styles - inherit from parent sections */
+.pinned-section-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.pinned-section-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.pinned-section-content::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.pinned-section-content::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Ensure pinned section content doesn't exceed container */
+.pinned-section-content > * {
+  max-width: 100%;
+}
+
+/* Mobile Styles */
+@media (max-width: 768px) {
+  .editor-container {
+    flex-direction: column;
+    padding: 0;
+    gap: 0;
+  }
+
+  /* Mobile Control Bar */
+  .mobile-control-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 2000;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .mobile-menu-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    padding: 4px 8px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(10px);
+  }
+
+  .mobile-menu-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
+  }
+
+  .mobile-menu-btn.active {
+    background: rgba(255, 255, 255, 0.4);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  .menu-icon {
+    font-size: 18px;
+    font-weight: bold;
+  }
+
+  .menu-text {
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .mobile-title {
+    font-size: 16px;
+    font-weight: 600;
+    text-align: center;
+    flex: 1;
+  }
+
+  /* Mobile Dropdown Panel */
+  .mobile-dropdown-panel {
+    position: fixed;
+    top: 53px;
+    left: 0;
+    right: 0;
+    background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 1px solid #dee2e6;
+    z-index: 1500;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .mobile-dropdown-panel.open {
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  .mobile-panel-content {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .mobile-image-section {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  .mobile-controls-content {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  /* Hide desktop controls panel on mobile */
+  .controls-panel {
+    display: none;
+  }
+
+  /* Make grid container full screen on mobile */
+  .grid-container {
+    margin-right: 0;
+    margin-top: 53px;
+    padding: 10px;
+    height: calc(100vh - 53px);
+    flex-direction: column;
+    transition: margin-top 0.3s ease;
+  }
+
+  /* Adjust grid container when section is pinned */
+  .grid-container.pinned-active {
+    margin-top: 250px; /* 60px (mobile bar) + 150px (pinned section) */
+    .grid-wrapper {
+      max-height: calc(100vh - 370px);
+    }
+  }
+
+  .image-section {
+    display: none;
+  }
+
+  .grid-wrapper {
+    flex: 1;
+    min-height: 0;
+    padding: 12px;
+    max-height: calc(100vh - 182px);
+    /* Enable smooth scrolling for two-finger gestures */
+    -webkit-overflow-scrolling: touch;
+    overflow: auto;
+  }
+
+  /* Adjust grid item for mobile */
+  .grid-item {
+    max-width: 100%;
+    overflow: visible;
+    /* Prevent default touch behaviors during painting */
+    touch-action: manipulation;
+  }
+
+  /* Improve touch targets for cells */
+  .cell {
+    /* Increase touch target size */
+    min-width: 20px;
+    min-height: 20px;
+    /* Better touch feedback */
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+    /* Prevent text selection during touch */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  /* Mobile-specific adjustments for tools */
+  .tools-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .tool-btn {
+    padding: 10px 8px;
+    font-size: 12px;
+  }
+
+  /* Mobile-specific adjustments for export buttons */
+  .export-section .grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .export-btn {
+    padding: 12px 8px;
+    font-size: 13px;
+  }
+
+  /* Mobile-specific adjustments for color picker */
+  .color-picker-container {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .color-picker {
+    width: 40px;
+    height: 40px;
+  }
+
+  /* Mobile-specific adjustments for dimension inputs */
+  .dimension-inputs {
+    gap: 8px;
+  }
+
+  .dimension-label {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .dimension-input {
+    width: 100%;
+    max-width: 120px;
+  }
+
+  /* Mobile-specific adjustments for mode toggles */
+  .mode-toggle {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mode-btn {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  /* Mobile-specific adjustments for image grids */
+  .available-images-grid {
+    grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+    gap: 6px;
+    max-height: 150px;
+  }
+
+  .recent-images-grid {
+    grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+    gap: 4px;
+  }
+
+  /* Mobile-specific adjustments for background controls */
+  .background-color-controls {
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .background-image-controls {
+    gap: 8px;
+  }
+
+  .background-images-grid {
+    grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+    gap: 4px;
+  }
+}
+
+/* Desktop styles - ensure desktop layout is preserved */
+@media (min-width: 769px) {
+  .mobile-control-bar,
+  .mobile-dropdown-panel {
+    display: none;
+  }
+
+  .grid-container {
+    margin-top: 0;
+  }
 }
 </style>
