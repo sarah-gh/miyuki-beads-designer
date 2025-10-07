@@ -23,6 +23,63 @@ let scene,
   controls,
   beads = [];
 
+// Cache textures for image-based bead colors to avoid reloading
+const textureLoader = new THREE.TextureLoader();
+const textureCache = new Map(); // url -> THREE.Texture
+
+function isImageColor(value) {
+  return typeof value === 'string' && value.startsWith('/miyuki-beads-designer/beads/');
+}
+
+function getBeadMaterial(colorLike) {
+  // Image texture material
+  if (isImageColor(colorLike)) {
+    const url = colorLike;
+    let texture = textureCache.get(url);
+    if (!texture) {
+      texture = textureLoader.load(url, (loaded) => {
+        // Configure color space and anisotropy after load
+        loaded.colorSpace = THREE.SRGBColorSpace;
+        if (renderer) {
+          loaded.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        }
+      });
+      // Also set immediately for initial instance (will update once loaded)
+      texture.colorSpace = THREE.SRGBColorSpace;
+      textureCache.set(url, texture);
+    }
+    const material = new THREE.MeshPhysicalMaterial({
+      color: 0xffffff,
+      map: texture,
+      roughness: 0.1,
+      metalness: 0.1,
+      clearcoat: 0.5,
+      clearcoatRoughness: 0.1,
+    });
+    return material;
+  }
+
+  // Solid color material
+  return new THREE.MeshPhysicalMaterial({
+    color: colorLike,
+    roughness: 0.1,
+    metalness: 0.1,
+    clearcoat: 0.5,
+    clearcoatRoughness: 0.1,
+  });
+}
+
+function disposeBeads() {
+  beads.forEach((mesh) => {
+    scene.remove(mesh);
+    if (mesh.material) {
+      // Do not dispose cached textures; only dispose materials
+      mesh.material.dispose();
+    }
+  });
+  beads = [];
+}
+
 function createBeads() {
   const beadGeometry = new THREE.CylinderGeometry(0.7, 0.7, 1.1, 32);
   const halfCols = (props.cols - 1) / 2;
@@ -31,14 +88,8 @@ function createBeads() {
   for (let y = 0; y < props.rows; y++) {
     for (let x = 0; x < props.cols; x++) {
       const idx = y * props.cols + x;
-      const color = props.pattern[idx] || '#ffffff';
-      const beadMaterial = new THREE.MeshPhysicalMaterial({
-        color,
-        roughness: 0.1,
-        metalness: 0.1,
-        clearcoat: 0.5,
-        clearcoatRoughness: 0.1,
-      });
+      const colorOrUrl = props.pattern[idx] || '#ffffff';
+      const beadMaterial = getBeadMaterial(colorOrUrl);
       const bead = new THREE.Mesh(beadGeometry, beadMaterial);
       bead.position.set((x - halfCols) * 1.2, -(y - halfRows) * 1.2, 0);
       scene.add(bead);
@@ -104,8 +155,7 @@ onMounted(() => {
 watch(
   () => props.pattern,
   () => {
-    beads.forEach((b) => scene.remove(b));
-    beads = [];
+    disposeBeads();
     createBeads();
   },
   { deep: true },
@@ -120,7 +170,7 @@ onBeforeUnmount(() => {
   }
   if (controls) controls.dispose();
   if (renderer) renderer.dispose();
-  beads = [];
+  disposeBeads();
 });
 </script>
 

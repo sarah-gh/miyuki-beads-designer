@@ -21,7 +21,7 @@
               v-model.number="startRow"
               type="number"
               min="0"
-              :max="rows - 1"
+              :max="maxStartIndex"
               class="control-input"
             />
           </label>
@@ -76,7 +76,7 @@
           <div class="info-item">
             <span class="info-label">ردیف فعلی:</span>
             <span class="info-value"
-              >{{ currentRowIndex + 1 }} از {{ rows }}</span
+              >{{ currentRowIndex + 1 }} از {{ lineCount }}</span
             >
           </div>
           <div class="info-item">
@@ -99,7 +99,12 @@
               >
                 <div
                   class="color-swatch-large"
-                  :style="{ backgroundColor: color }"
+                  :style="{
+                    backgroundColor: color.startsWith('/miyuki-beads-designer/beads/') ? 'transparent' : color,
+                    backgroundImage: color.startsWith('/miyuki-beads-designer/beads/') ? `url(${color})` : 'none',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center'
+                  }"
                 ></div>
                 <input
                   v-model="colorNames[color]"
@@ -138,7 +143,12 @@
               >
                 <div
                   class="color-swatch"
-                  :style="{ backgroundColor: color }"
+                  :style="{
+                    backgroundColor: color.startsWith('/miyuki-beads-designer/beads/') ? 'transparent' : color,
+                    backgroundImage: color.startsWith('/miyuki-beads-designer/beads/') ? `url(${color})` : 'none',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center'
+                  }"
                 ></div>
                 <span class="color-count">{{ getColorCount(color) }}</span>
               </div>
@@ -151,7 +161,12 @@
                 v-for="(color, index) in currentRowPattern"
                 :key="index"
                 class="sequence-item"
-                :style="{ backgroundColor: color }"
+                :style="{
+                  backgroundColor: color.startsWith('/miyuki-beads-designer/beads/') ? 'transparent' : color,
+                  backgroundImage: color.startsWith('/miyuki-beads-designer/beads/') ? `url(${color})` : 'none',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center'
+                }"
                 :title="getColorDisplayName(color)"
               ></div>
             </div>
@@ -175,7 +190,10 @@
               'upcoming-row': isInUpcomingRow(index),
             }"
             :style="{
-              backgroundColor: cell.color,
+              backgroundColor: cell.color.startsWith('/miyuki-beads-designer/beads/') ? 'transparent' : cell.color,
+              backgroundImage: cell.color.startsWith('/miyuki-beads-designer/beads/') ? `url(${cell.color})` : 'none',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
               opacity: getCellOpacity(index),
             }"
             :title="`ردیف ${Math.floor(index / cols) + 1}, ستون ${(index % cols) + 1}: ${cell.color}`"
@@ -270,24 +288,39 @@ const generateGridFromPattern = () => {
 
 const gridCells = ref(generateGridFromPattern());
 
+// Orientation from editor settings (vertical=true means step by rows; false => step by columns)
+const isVertical = ref(true);
+
 // Computed properties
-const totalSteps = computed(() => props.rows); // مراحل بر اساس ردیف‌ها (ارتفاع)
+const lineCount = computed(() => (isVertical.value ? props.rows : props.cols));
+const maxStartIndex = computed(() => lineCount.value - 1);
+const totalSteps = computed(() => lineCount.value); // مراحل بر اساس جهت فعال
 
 const currentRowIndex = computed(() => {
-  if (direction.value === 'forward') {
-    return startRow.value + currentStepIndex.value;
-  } else {
-    return startRow.value - currentStepIndex.value;
-  }
+  const base =
+    direction.value === 'forward'
+      ? startRow.value + currentStepIndex.value
+      : startRow.value - currentStepIndex.value;
+  return Math.max(0, Math.min(lineCount.value - 1, base));
 });
 
 const currentRowColors = computed(() => {
   const colors = [];
-  for (let col = 0; col < props.cols; col++) {
-    const index = currentRowIndex.value * props.cols + col;
-    const color = props.pattern[index] || '#ffffff';
-    if (!colors.includes(color)) {
-      colors.push(color);
+  if (isVertical.value) {
+    for (let col = 0; col < props.cols; col++) {
+      const index = currentRowIndex.value * props.cols + col;
+      const color = props.pattern[index] || '#ffffff';
+      if (!colors.includes(color)) {
+        colors.push(color);
+      }
+    }
+  } else {
+    for (let row = 0; row < props.rows; row++) {
+      const index = row * props.cols + currentRowIndex.value;
+      const color = props.pattern[index] || '#ffffff';
+      if (!colors.includes(color)) {
+        colors.push(color);
+      }
     }
   }
   return colors;
@@ -295,10 +328,18 @@ const currentRowColors = computed(() => {
 
 const currentRowPattern = computed(() => {
   const pattern = [];
-  for (let col = 0; col < props.cols; col++) {
-    const index = currentRowIndex.value * props.cols + col;
-    const color = props.pattern[index] || '#ffffff';
-    pattern.push(color);
+  if (isVertical.value) {
+    for (let col = 0; col < props.cols; col++) {
+      const index = currentRowIndex.value * props.cols + col;
+      const color = props.pattern[index] || '#ffffff';
+      pattern.push(color);
+    }
+  } else {
+    for (let row = 0; row < props.rows; row++) {
+      const index = row * props.cols + currentRowIndex.value;
+      const color = props.pattern[index] || '#ffffff';
+      pattern.push(color);
+    }
   }
   return pattern;
 });
@@ -316,20 +357,23 @@ const allUsedColors = computed(() => {
 // Methods
 const isInCurrentRow = (index) => {
   const row = Math.floor(index / props.cols);
-  return row === currentRowIndex.value;
+  const col = index % props.cols;
+  return isVertical.value ? row === currentRowIndex.value : col === currentRowIndex.value;
 };
 
 const isInCompletedRow = (index) => {
   const row = Math.floor(index / props.cols);
-  return row == currentRowIndex.value;
+  const col = index % props.cols;
+  return isVertical.value ? row == currentRowIndex.value : col == currentRowIndex.value;
 };
 
 const isInUpcomingRow = (index) => {
   const row = Math.floor(index / props.cols);
+  const col = index % props.cols;
   if (direction.value === 'forward') {
-    return row > currentRowIndex.value;
+    return isVertical.value ? row > currentRowIndex.value : col > currentRowIndex.value;
   } else {
-    return row < currentRowIndex.value;
+    return isVertical.value ? row < currentRowIndex.value : col < currentRowIndex.value;
   }
 };
 
@@ -345,10 +389,19 @@ const getCellOpacity = (index) => {
 
 const getColorCount = (color) => {
   let count = 0;
-  for (let col = 0; col < props.cols; col++) {
-    const index = currentRowIndex.value * props.cols + col;
-    if (props.pattern[index] === color) {
-      count++;
+  if (isVertical.value) {
+    for (let col = 0; col < props.cols; col++) {
+      const index = currentRowIndex.value * props.cols + col;
+      if (props.pattern[index] === color) {
+        count++;
+      }
+    }
+  } else {
+    for (let row = 0; row < props.rows; row++) {
+      const index = row * props.cols + currentRowIndex.value;
+      if (props.pattern[index] === color) {
+        count++;
+      }
     }
   }
   return count;
@@ -360,6 +413,10 @@ const updateColorName = (color, name) => {
 
 const getColorDisplayName = (color) => {
   const name = colorNames.value[color];
+  if (color.startsWith('/miyuki-beads-designer/beads/')) {
+    const imageName = color.split('/').pop().replace('.jpg', '');
+    return name ? `${name} (${imageName})` : imageName;
+  }
   return name ? `${name} (${color})` : color;
 };
 
@@ -403,6 +460,13 @@ const handleKeydown = (event) => {
 
 // Lifecycle hooks
 onMounted(() => {
+  try {
+    const saved = localStorage.getItem('gridEditor_isVertical');
+    isVertical.value = saved !== null ? JSON.parse(saved) : true;
+  } catch (error) {
+    console.error('Failed to read gridEditor_isVertical from localStorage', error);
+    isVertical.value = true;
+  }
   document.addEventListener('keydown', handleKeydown);
 });
 
@@ -418,6 +482,14 @@ watch(direction, () => {
 // Watch for start row changes to reset step index
 watch(startRow, () => {
   currentStepIndex.value = 0;
+});
+
+// Watch for orientation changes from editor settings
+watch(isVertical, () => {
+  currentStepIndex.value = 0;
+  if (startRow.value > maxStartIndex.value) {
+    startRow.value = 0;
+  }
 });
 
 // Watch for pattern changes to update grid

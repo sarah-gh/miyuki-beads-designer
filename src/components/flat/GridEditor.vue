@@ -8,7 +8,7 @@
         @click="toggleMobilePanel"
       >
         <span class="menu-icon">☰</span>
-        <span class="menu-text">منو</span>
+        <span class="menu-text">ابزارها</span>
       </button>
       <div class="mobile-title">🎨 ویرایشگر شبکه</div>
     </div>
@@ -1394,7 +1394,15 @@ const cellHeight = ref(17);
 const selectedColor = ref('#ff0000');
 const recentColors = ref([]);
 const lastSavedTime = ref(null);
-const isVertical = ref(true);
+const isVertical = ref(() => {
+  try {
+    const saved = localStorage.getItem('gridEditor_isVertical');
+    console.log('saved', saved);
+    return saved !== null ? JSON.parse(saved) : true;
+  } catch {
+    return true;
+  }
+});
 const isVerticalGrid = ref(true);
 const selectedImage = ref(null);
 const paintMode = ref('color'); // 'color' or 'image'
@@ -1454,6 +1462,10 @@ function saveGridToLocalStorage() {
       grid: grid.value,
       rows: rows.value,
       cols: cols.value,
+      cellWidth: cellWidth.value,
+      cellHeight: cellHeight.value,
+      isVertical: isVertical.value,
+      isVerticalGrid: isVerticalGrid.value,
       recentColors: recentColors.value,
       recentImages: recentImages.value,
       timestamp: new Date().toISOString(),
@@ -1485,6 +1497,22 @@ function loadGridFromLocalStorage() {
         rows.value = gridData.rows;
         cols.value = gridData.cols;
         grid.value = [...gridData.grid];
+
+        // بارگذاری اندازه سلول (اگر موجود باشد)
+        if (gridData.cellWidth && typeof gridData.cellWidth === 'number') {
+          cellWidth.value = gridData.cellWidth;
+        }
+        if (gridData.cellHeight && typeof gridData.cellHeight === 'number') {
+          cellHeight.value = gridData.cellHeight;
+        }
+
+        // بارگذاری جهت (اگر موجود باشد)
+        if (typeof gridData.isVertical === 'boolean') {
+          isVertical.value = gridData.isVertical;
+        }
+        if (typeof gridData.isVerticalGrid === 'boolean') {
+          isVerticalGrid.value = gridData.isVerticalGrid;
+        }
 
         // بارگذاری رنگ‌های اخیر (اگر موجود باشد)
         if (gridData.recentColors && Array.isArray(gridData.recentColors)) {
@@ -1528,6 +1556,7 @@ function loadGridFromLocalStorage() {
 // بارگذاری خودکار گرید در هنگام شروع
 onMounted(() => {
   const loaded = loadGridFromLocalStorage();
+  isVertical.value =  localStorage.getItem('gridEditor_isVertical') !== null ? JSON.parse(localStorage.getItem('gridEditor_isVertical')) : true;
   // اگر localStorage خالی بود، گرید را با مقادیر پیش‌فرض مقداردهی کن
   if (!loaded) {
     const initialSize = rows.value * cols.value;
@@ -1541,7 +1570,8 @@ onMounted(() => {
 function loadAvailableImages() {
   const imageFiles = [
     '310.jpg', '1130.jpg', '1135.jpg', '2116.jpg', '2131.jpg', '2132.jpg', '725.jpg', '877.jpg',
-    'f111.jpg', 'f222.jpg', 'f333.jpg', 'f444.jpg', 'f555.jpg', 'f666.jpg', 'f777.jpg', 'f888.jpg', 'f999.jpg'
+    'f111.jpg', 'f222.jpg', 'f333.jpg', 'f444.jpg', 'f555.jpg', 'f666.jpg', 'f777.jpg', 'f888.jpg', 'f999.jpg', 'f1010.jpg', 'f1111.jpg', 'f1212.jpg',
+    'f1313.jpg', 'f1414.jpg', 'f1515.jpg', 'Awhite.jpg'
   ];
   
   availableImages.value = imageFiles.map(filename => ({
@@ -1618,6 +1648,22 @@ function handleTxtUpload(e) {
               // ابتدا ابعاد را تغییر بده
               rows.value = fileRows;
               cols.value = fileCols;
+              
+              // بارگذاری اندازه سلول (اگر موجود باشد)
+              if (parsedContent.cellWidth && typeof parsedContent.cellWidth === 'number') {
+                cellWidth.value = parsedContent.cellWidth;
+              }
+              if (parsedContent.cellHeight && typeof parsedContent.cellHeight === 'number') {
+                cellHeight.value = parsedContent.cellHeight;
+              }
+
+              // بارگذاری جهت (اگر موجود باشد)
+              if (typeof parsedContent.isVertical === 'boolean') {
+                isVertical.value = parsedContent.isVertical;
+              }
+              if (typeof parsedContent.isVerticalGrid === 'boolean') {
+                isVerticalGrid.value = parsedContent.isVerticalGrid;
+              }
               
               // منتظر بمان تا watcher اجرا شود
               nextTick(() => {
@@ -1721,6 +1767,20 @@ watch(
     }, 1000); // تاخیر 1 ثانیه
   },
   { deep: true },
+);
+
+// ذخیره خودکار جهت isVertical در localStorage هنگام تغییر
+watch(
+  isVertical,
+  (newValue) => {
+    try {
+      localStorage.setItem('gridEditor_isVertical', JSON.stringify(newValue));
+      console.log('isVertical saved', newValue);
+    } catch (error) {
+      console.error('Error saving isVertical to localStorage:', error);
+    }
+  },
+  { immediate: false }
 );
 
 function setTool(t) {
@@ -2527,6 +2587,10 @@ function exportGridAsTxt() {
       grid: grid.value,
       rows: rows.value,
       cols: cols.value,
+      cellWidth: cellWidth.value,
+      cellHeight: cellHeight.value,
+      isVertical: isVertical.value,
+      isVerticalGrid: isVerticalGrid.value,
       timestamp: new Date().toISOString()
     };
     
@@ -3290,6 +3354,7 @@ async function changeAllBeadsToColor() {
 
 .image-picker-container {
   margin-top: 8px;
+  width: 100%;
 }
 
 .available-images-grid {
