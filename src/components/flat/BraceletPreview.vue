@@ -34,6 +34,23 @@
         <span>دانلود تصویر</span>
       </button>
 
+      <div class="controls-panel">
+        <div class="control-group">
+          <label class="control-label">چرخش عکس مهره‌ها:</label>
+          <div class="slider-container">
+            <input
+              v-model="localTextureRotation"
+              type="range"
+              min="0"
+              max="360"
+              step="15"
+              class="rotation-slider"
+            />
+            <span class="slider-value">{{ localTextureRotation }}°</span>
+          </div>
+        </div>
+      </div>
+
       <div class="info-panel">
         <div class="info-item">
           <span class="info-label">ابعاد:</span>
@@ -60,14 +77,76 @@ const props = defineProps({
   // عرض/ارتفاع خروچی رندر
   width: { type: Number, default: 900 },
   height: { type: Number, default: 600 },
+  // چرخش texture (بر حسب درجه)
+  textureRotation: { type: Number, default: 90 },
 });
 
 const container = ref(null);
 let scene, camera, renderer, controls;
 let beads = [];
 
+// کنترل چرخش texture
+const localTextureRotation = ref(props.textureRotation);
+
+// Cache textures for image-based bead colors to avoid reloading
+const textureLoader = new THREE.TextureLoader();
+const textureCache = new Map(); // url -> THREE.Texture
+
+function isImageColor(value) {
+  return typeof value === 'string' && value.startsWith('/miyuki-beads-designer/beads/');
+}
+
+function getBeadMaterial(colorLike, textureRotation = 0) {
+  // Image texture material
+  if (isImageColor(colorLike)) {
+    const url = colorLike;
+    let texture = textureCache.get(url);
+    if (!texture) {
+      texture = textureLoader.load(url, (loaded) => {
+        // Configure color space and anisotropy after load
+        loaded.colorSpace = THREE.SRGBColorSpace;
+        if (renderer) {
+          loaded.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        }
+      });
+      // Also set immediately for initial instance (will update once loaded)
+      texture.colorSpace = THREE.SRGBColorSpace;
+      textureCache.set(url, texture);
+    }
+    
+    // Clone texture to avoid affecting cached version
+    const clonedTexture = texture.clone();
+    clonedTexture.rotation = textureRotation; // چرخش texture بر حسب رادیان
+    
+    const material = new THREE.MeshPhysicalMaterial({
+      color: 0xffffff,
+      map: clonedTexture,
+      roughness: 0.25,
+      metalness: 0.15,
+      clearcoat: 0.4,
+      clearcoatRoughness: 0.1,
+    });
+    return material;
+  }
+
+  // Solid color material
+  return new THREE.MeshPhysicalMaterial({
+    color: colorLike,
+    roughness: 0.25,
+    metalness: 0.15,
+    clearcoat: 0.4,
+    clearcoatRoughness: 0.1,
+  });
+}
+
 function clearBeads() {
-  beads.forEach((m) => scene.remove(m));
+  beads.forEach((mesh) => {
+    scene.remove(mesh);
+    if (mesh.material) {
+      // Do not dispose cached textures; only dispose materials
+      mesh.material.dispose();
+    }
+  });
   beads = [];
 }
 
@@ -75,34 +154,12 @@ function createCurvedBracelet() {
   if (!scene) return;
   clearBeads();
 
-  // اضافه کردن console.log برای debug
-  console.log('BraceletPreview - props:', {
-    pattern: props.pattern,
-    rows: props.rows,
-    cols: props.cols,
-    patternLength: props.pattern ? props.pattern.length : 0,
-    patternType: Array.isArray(props.pattern) ? 'Array' : typeof props.pattern,
-  });
-
-  // بررسی ساختار pattern
-  if (props.pattern && Array.isArray(props.pattern)) {
-    console.log('Pattern structure:', {
-      firstRow: props.pattern[0],
-      firstRowLength: props.pattern[0] ? props.pattern[0].length : 0,
-      firstRowType: props.pattern[0] ? typeof props.pattern[0] : 'undefined',
-      sampleValues: props.pattern
-        .slice(0, 3)
-        .map((row) => (row ? row.slice(0, 3) : 'undefined')),
-    });
-  }
 
   // پارامترهای هندسی دستبند
   const radius = 20; // شعاع خمیدگی دستبند
   const arcAngle = Math.PI * 1.55; // حدود 243 درجه (مشابه عکس)
   const startAngle = -arcAngle / 2;
 
-  // لبه طلایی اختیاری
-  const edgeColor = new THREE.Color('#b58a3a');
 
   // ابعاد مهره‌ها را برای قرارگیری صحیح روی انحنا محاسبه می‌کنیم
   // طرح عمودی (16×80) رو افقی روی دستبند نشون می‌دیم
@@ -140,20 +197,6 @@ function createCurvedBracelet() {
         colorHex = props.pattern[idx] || '#ffffff';
       }
 
-      // اضافه کردن console.log برای debug
-      if (y === 0 && x === 0) {
-        console.log('First bead debug:', {
-          y,
-          x,
-          patternY: props.pattern[y],
-          patternYX: props.pattern[y] ? props.pattern[y][x] : undefined,
-          colorHex,
-          patternType: Array.isArray(props.pattern[0])
-            ? 'Matrix'
-            : 'Simple Array',
-          index: y * props.cols + x,
-        });
-      }
 
       // بررسی اعتبار رنگ
       if (!colorHex || colorHex === '#' || colorHex.length < 3) {
@@ -165,15 +208,10 @@ function createCurvedBracelet() {
         );
       }
 
-      const isEdge = false; // y === 0 || y === props.rows - 1;
-      const matColor = isEdge ? edgeColor : new THREE.Color(colorHex);
-      const beadMaterial = new THREE.MeshPhysicalMaterial({
-        color: matColor,
-        roughness: 0.25,
-        metalness: isEdge ? 0.5 : 0.15,
-        clearcoat: 0.4,
-        clearcoatRoughness: 0.1,
-      });
+      // محاسبه چرخش texture
+      const textureRotationRadians = (localTextureRotation.value * Math.PI) / 180; // تبدیل درجه به رادیان
+      
+      const beadMaterial = getBeadMaterial(colorHex, textureRotationRadians);
 
       // مرکز هر مهره در وسط بازه‌اش قرار می‌گیرد تا فاصله عرضی صفر شود
       // y = طول (انحنا)، x = عرض (عمودی)
@@ -261,7 +299,7 @@ onMounted(() => {
 });
 
 watch(
-  () => [props.pattern, props.rows, props.cols],
+  () => [props.pattern, props.rows, props.cols, props.textureRotation],
   () => {
     createCurvedBracelet();
     renderOnce();
@@ -269,10 +307,19 @@ watch(
   { deep: true },
 );
 
+// Watch for local texture rotation changes
+watch(localTextureRotation, () => {
+  createCurvedBracelet();
+  renderOnce();
+});
+
 onBeforeUnmount(() => {
   if (controls) controls.dispose();
   if (renderer) renderer.dispose();
-  beads = [];
+  clearBeads();
+  // Clear texture cache
+  textureCache.forEach(texture => texture.dispose());
+  textureCache.clear();
 });
 
 defineExpose({ downloadImage });
@@ -413,6 +460,81 @@ defineExpose({ downloadImage });
   font-size: 1.2rem;
 }
 
+.controls-panel {
+  background: white;
+  padding: 20px 32px;
+  border-radius: 16px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  width: 100%;
+  max-width: 400px;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.control-label {
+  font-size: 1rem;
+  color: #1e293b;
+  font-weight: 600;
+  text-align: center;
+}
+
+.slider-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.rotation-slider {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, #e2e8f0, #3b82f6);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.rotation-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+  transition: all 0.2s ease;
+}
+
+.rotation-slider::-webkit-slider-thumb:hover {
+  background: #2563eb;
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
+  transform: scale(1.1);
+}
+
+.rotation-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+}
+
+.slider-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #3b82f6;
+  min-width: 50px;
+  text-align: center;
+}
+
 .info-panel {
   display: flex;
   gap: 32px;
@@ -472,6 +594,11 @@ defineExpose({ downloadImage });
     padding: 16px 24px;
   }
 
+  .controls-panel {
+    padding: 16px 24px;
+    max-width: 100%;
+  }
+
   .controls-hint {
     font-size: 0.8rem;
     padding: 10px 14px;
@@ -490,6 +617,18 @@ defineExpose({ downloadImage });
 
   .info-panel {
     padding: 14px 20px;
+  }
+
+  .controls-panel {
+    padding: 14px 20px;
+  }
+
+  .control-label {
+    font-size: 0.9rem;
+  }
+
+  .slider-value {
+    font-size: 1rem;
   }
 }
 

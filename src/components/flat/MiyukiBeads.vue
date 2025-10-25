@@ -14,6 +14,8 @@ const props = defineProps({
   pattern: { type: Array, required: true },
   rows: { type: Number, default: 10 },
   cols: { type: Number, default: 50 },
+  // چرخش texture (بر حسب درجه)
+  textureRotation: { type: Number, default: 90 },
 });
 
 const container = ref(null);
@@ -31,7 +33,7 @@ function isImageColor(value) {
   return typeof value === 'string' && value.startsWith('/miyuki-beads-designer/beads/');
 }
 
-function getBeadMaterial(colorLike) {
+function getBeadMaterial(colorLike, textureRotation = 0) {
   // Image texture material
   if (isImageColor(colorLike)) {
     const url = colorLike;
@@ -48,9 +50,14 @@ function getBeadMaterial(colorLike) {
       texture.colorSpace = THREE.SRGBColorSpace;
       textureCache.set(url, texture);
     }
+    
+    // Clone texture to avoid affecting cached version
+    const clonedTexture = texture.clone();
+    clonedTexture.rotation = textureRotation; // چرخش texture بر حسب رادیان
+    
     const material = new THREE.MeshPhysicalMaterial({
       color: 0xffffff,
-      map: texture,
+      map: clonedTexture,
       roughness: 0.1,
       metalness: 0.1,
       clearcoat: 0.5,
@@ -89,7 +96,11 @@ function createBeads() {
     for (let x = 0; x < props.cols; x++) {
       const idx = y * props.cols + x;
       const colorOrUrl = props.pattern[idx] || '#ffffff';
-      const beadMaterial = getBeadMaterial(colorOrUrl);
+      
+      // محاسبه چرخش texture
+      const textureRotationRadians = (props.textureRotation * Math.PI) / 180; // تبدیل درجه به رادیان
+      
+      const beadMaterial = getBeadMaterial(colorOrUrl, textureRotationRadians);
       const bead = new THREE.Mesh(beadGeometry, beadMaterial);
       bead.position.set((x - halfCols) * 1.2, -(y - halfRows) * 1.2, 0);
       scene.add(bead);
@@ -153,7 +164,7 @@ onMounted(() => {
 });
 
 watch(
-  () => props.pattern,
+  () => [props.pattern, props.textureRotation],
   () => {
     disposeBeads();
     createBeads();
@@ -171,6 +182,9 @@ onBeforeUnmount(() => {
   if (controls) controls.dispose();
   if (renderer) renderer.dispose();
   disposeBeads();
+  // Clear texture cache
+  textureCache.forEach(texture => texture.dispose());
+  textureCache.clear();
 });
 </script>
 
