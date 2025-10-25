@@ -2,7 +2,7 @@
   <div class="editor-container overflow-auto">
     <!-- Mobile Control Bar -->
     <div class="mobile-control-bar">
-      <button 
+      <button
         class="mobile-menu-btn"
         :class="{ active: isMobilePanelOpen }"
         @click="toggleMobilePanel"
@@ -14,16 +14,28 @@
     </div>
 
     <!-- Pinned Section (Mobile Only) -->
-    <div v-if="pinnedSection" class="pinned-section">
+    <div
+      v-if="pinnedSection"
+      class="pinned-section"
+    >
       <div class="pinned-section-header">
-        <h4 class="pinned-section-title">{{ getSectionTitle(pinnedSection) }}</h4>
-        <button class="unpin-btn" title="Unpin Section" @click="unpinSection">
+        <h4 class="pinned-section-title">
+          {{ getSectionTitle(pinnedSection) }}
+        </h4>
+        <button
+          class="unpin-btn"
+          title="Unpin Section"
+          @click="unpinSection"
+        >
           ✕
         </button>
       </div>
       <div class="pinned-section-content">
         <!-- Dimensions Section -->
-        <div v-if="pinnedSection === 'dimensions'" class="pinned-dimensions">
+        <div
+          v-if="pinnedSection === 'dimensions'"
+          class="pinned-dimensions"
+        >
           <div class="dimension-inputs">
             <label class="dimension-label">
               <span class="dimension-text">ستون ها:</span>
@@ -45,7 +57,9 @@
             </label>
           </div>
           <div class="cell-size-section">
-            <h4 class="mb-2 text-sm font-semibold text-gray-700">📏 اندازه سلول</h4>
+            <h4 class="mb-2 text-sm font-semibold text-gray-700">
+              📏 اندازه سلول
+            </h4>
             <div class="dimension-inputs">
               <label class="dimension-label">
                 <span class="dimension-text">عرض:</span>
@@ -72,7 +86,10 @@
         </div>
 
         <!-- Direction Section -->
-        <div v-if="pinnedSection === 'direction'" class="pinned-direction">
+        <div
+          v-if="pinnedSection === 'direction'"
+          class="pinned-direction"
+        >
           <div class="direction-toggle">
             <button
               class="direction-btn"
@@ -94,7 +111,10 @@
         </div>
 
         <!-- Color Section -->
-        <div v-if="pinnedSection === 'color'" class="pinned-color">
+        <div
+          v-if="pinnedSection === 'color'"
+          class="pinned-color"
+        >
           <div class="color-picker-container">
             <input
               v-model="selectedColor"
@@ -134,7 +154,10 @@
         </div>
 
         <!-- Mode Section -->
-        <div v-if="pinnedSection === 'mode'" class="pinned-mode">
+        <div
+          v-if="pinnedSection === 'mode'"
+          class="pinned-mode"
+        >
           <div class="mode-toggle">
             <button
               class="mode-btn"
@@ -154,7 +177,10 @@
         </div>
 
         <!-- Image Section -->
-        <div v-if="pinnedSection === 'image'" class="pinned-image">
+        <div
+          v-if="pinnedSection === 'image'"
+          class="pinned-image"
+        >
           <div class="image-picker-container">
             <div class="available-images-grid">
               <div
@@ -176,7 +202,10 @@
         </div>
 
         <!-- Tools Section -->
-        <div v-if="pinnedSection === 'tools'" class="pinned-tools">
+        <div
+          v-if="pinnedSection === 'tools'"
+          class="pinned-tools"
+        >
           <div class="tools-grid">
             <button
               class="tool-btn primary"
@@ -273,7 +302,10 @@
         </div>
 
         <!-- Export Section -->
-        <div v-if="pinnedSection === 'export'" class="pinned-export">
+        <div
+          v-if="pinnedSection === 'export'"
+          class="pinned-export"
+        >
           <div class="save-load-buttons">
             <button
               class="export-btn success"
@@ -319,7 +351,7 @@
     </div>
 
     <!-- Mobile Dropdown Panel -->
-    <div 
+    <div
       class="mobile-dropdown-panel"
       :class="{ open: isMobilePanelOpen }"
     >
@@ -361,7 +393,9 @@
         <!-- Controls Panel Content for Mobile -->
         <div class="mobile-controls-content">
           <div class="controls-header">
-            <h3 class="mb-4 text-lg font-bold text-gray-800">🎨 ابزارهای طراحی</h3>
+            <h3 class="mb-4 text-lg font-bold text-gray-800">
+              🎨 ابزارهای طراحی
+            </h3>
           </div>
 
           <div class="controls-content">
@@ -371,10 +405,14 @@
                 <h4 class="mb-2 text-sm font-semibold text-gray-700">
                   📐 ابعاد شبکه
                 </h4>
-                <button 
+                <button
                   class="pin-btn"
                   :class="{ pinned: pinnedSection === 'dimensions' }"
-                  :title="pinnedSection === 'dimensions' ? 'Unpin Section' : 'Pin Section'"
+                  :title="
+                    pinnedSection === 'dimensions'
+                      ? 'Unpin Section'
+                      : 'Pin Section'
+                  "
                   @click="pinSection('dimensions')"
                 >
                   {{ pinnedSection === 'dimensions' ? '📌' : '📌' }}
@@ -400,7 +438,7 @@
                   />
                 </label>
               </div>
-              
+
               <!-- اندازه سلول -->
               <div class="cell-size-section !mt-4">
                 <h4 class="mb-2 text-sm font-semibold text-gray-700">
@@ -434,13 +472,15 @@
             <!-- انتخاب جهت -->
             <div class="direction-section">
               <div class="section-header">
-                <h4 class="mb-2 text-sm font-semibold text-gray-700">
-                  🔄 جهت
-                </h4>
-                <button 
+                <h4 class="mb-2 text-sm font-semibold text-gray-700">🔄 جهت</h4>
+                <button
                   class="pin-btn"
                   :class="{ pinned: pinnedSection === 'direction' }"
-                  :title="pinnedSection === 'direction' ? 'Unpin Section' : 'Pin Section'"
+                  :title="
+                    pinnedSection === 'direction'
+                      ? 'Unpin Section'
+                      : 'Pin Section'
+                  "
                   @click="pinSection('direction')"
                 >
                   {{ pinnedSection === 'direction' ? '📌' : '📌' }}
@@ -472,10 +512,12 @@
                 <h4 class="mb-2 text-sm font-semibold text-gray-700">
                   🎨 انتخاب رنگ
                 </h4>
-                <button 
+                <button
                   class="pin-btn"
                   :class="{ pinned: pinnedSection === 'color' }"
-                  :title="pinnedSection === 'color' ? 'Unpin Section' : 'Pin Section'"
+                  :title="
+                    pinnedSection === 'color' ? 'Unpin Section' : 'Pin Section'
+                  "
                   @click="pinSection('color')"
                 >
                   {{ pinnedSection === 'color' ? '📌' : '📌' }}
@@ -490,7 +532,9 @@
                 <span class="color-value">{{ selectedColor }}</span>
               </div>
               <div class="recent-colors-header mt-3!">
-                <h4 class="text-sm font-semibold text-gray-700">🔄 رنگ‌های اخیر</h4>
+                <h4 class="text-sm font-semibold text-gray-700">
+                  🔄 رنگ‌های اخیر
+                </h4>
                 <button
                   v-if="recentColors.length > 0"
                   class="clear-colors-btn"
@@ -525,10 +569,12 @@
                 <h4 class="mb-2 text-sm font-semibold text-gray-700">
                   🎨 حالت طراحی
                 </h4>
-                <button 
+                <button
                   class="pin-btn"
                   :class="{ pinned: pinnedSection === 'mode' }"
-                  :title="pinnedSection === 'mode' ? 'Unpin Section' : 'Pin Section'"
+                  :title="
+                    pinnedSection === 'mode' ? 'Unpin Section' : 'Pin Section'
+                  "
                   @click="pinSection('mode')"
                 >
                   {{ pinnedSection === 'mode' ? '📌' : '📌' }}
@@ -553,15 +599,20 @@
             </div>
 
             <!-- انتخاب تصویر مهره -->
-            <div v-if="paintMode === 'image'" class="mode-section">
+            <div
+              v-if="paintMode === 'image'"
+              class="mode-section"
+            >
               <div class="section-header">
                 <h4 class="mb-2 text-sm font-semibold text-gray-700">
                   🖼️ انتخاب تصویر مهره
                 </h4>
-                <button 
+                <button
                   class="pin-btn"
                   :class="{ pinned: pinnedSection === 'image' }"
-                  :title="pinnedSection === 'image' ? 'Unpin Section' : 'Pin Section'"
+                  :title="
+                    pinnedSection === 'image' ? 'Unpin Section' : 'Pin Section'
+                  "
                   @click="pinSection('image')"
                 >
                   {{ pinnedSection === 'image' ? '📌' : '📌' }}
@@ -585,11 +636,16 @@
                   </div>
                 </div>
               </div>
-              
+
               <!-- تصاویر اخیر -->
-              <div v-if="recentImages.length > 0" class="recent-images-section">
+              <div
+                v-if="recentImages.length > 0"
+                class="recent-images-section"
+              >
                 <div class="recent-images-header">
-                  <h4 class="text-sm font-semibold text-gray-700">🔄 تصاویر اخیر</h4>
+                  <h4 class="text-sm font-semibold text-gray-700">
+                    🔄 تصاویر اخیر
+                  </h4>
                   <button
                     class="clear-images-btn"
                     title="پاک کردن تمام تصاویر"
@@ -625,11 +681,15 @@
             <!-- ابزارهای اصلی -->
             <div class="tools-section">
               <div class="section-header">
-                <h4 class="mb-2 text-sm font-semibold text-gray-700">🛠️ ابزارها</h4>
-                <button 
+                <h4 class="mb-2 text-sm font-semibold text-gray-700">
+                  🛠️ ابزارها
+                </h4>
+                <button
                   class="pin-btn"
                   :class="{ pinned: pinnedSection === 'tools' }"
-                  :title="pinnedSection === 'tools' ? 'Unpin Section' : 'Pin Section'"
+                  :title="
+                    pinnedSection === 'tools' ? 'Unpin Section' : 'Pin Section'
+                  "
                   @click="pinSection('tools')"
                 >
                   {{ pinnedSection === 'tools' ? '📌' : '📌' }}
@@ -728,11 +788,13 @@
                   ↪️ Redo
                 </button>
               </div>
-              
+
               <!-- دکمه تغییر رنگ تمام مهره‌ها -->
               <div class="background-color-section !mt-4">
-                <h4 class="mb-2 text-sm font-semibold text-gray-700">🎨 پس‌زمینه</h4>
-                
+                <h4 class="mb-2 text-sm font-semibold text-gray-700">
+                  🎨 پس‌زمینه
+                </h4>
+
                 <!-- انتخاب حالت پس‌زمینه -->
                 <div class="background-mode-toggle">
                   <button
@@ -750,9 +812,12 @@
                     🖼️ تصویر
                   </button>
                 </div>
-                
+
                 <!-- انتخاب رنگ -->
-                <div v-if="backgroundMode === 'color'" class="background-color-controls">
+                <div
+                  v-if="backgroundMode === 'color'"
+                  class="background-color-controls"
+                >
                   <input
                     v-model="backgroundColor"
                     type="color"
@@ -766,16 +831,21 @@
                     🎨 تغییر تمام مهره‌ها
                   </button>
                 </div>
-                
+
                 <!-- انتخاب تصویر -->
-                <div v-if="backgroundMode === 'image'" class="background-image-controls">
+                <div
+                  v-if="backgroundMode === 'image'"
+                  class="background-image-controls"
+                >
                   <div class="background-image-picker">
                     <div class="background-images-grid">
                       <div
                         v-for="image in availableImages"
                         :key="image.name"
                         class="background-image-item"
-                        :class="{ selected: selectedBackgroundImage?.url === image.url }"
+                        :class="{
+                          selected: selectedBackgroundImage?.url === image.url,
+                        }"
                         @click="selectedBackgroundImage = image"
                       >
                         <img
@@ -783,7 +853,9 @@
                           :alt="image.displayName"
                           class="background-bead-image"
                         />
-                        <span class="background-image-name">{{ image.displayName }}</span>
+                        <span class="background-image-name">{{
+                          image.displayName
+                        }}</span>
                       </div>
                     </div>
                   </div>
@@ -801,11 +873,15 @@
             <!-- دکمه‌های خروجی -->
             <div class="export-section">
               <div class="section-header">
-                <h4 class="mb-2 text-sm font-semibold text-gray-700">📤 خروجی</h4>
-                <button 
+                <h4 class="mb-2 text-sm font-semibold text-gray-700">
+                  📤 خروجی
+                </h4>
+                <button
                   class="pin-btn"
                   :class="{ pinned: pinnedSection === 'export' }"
-                  :title="pinnedSection === 'export' ? 'Unpin Section' : 'Pin Section'"
+                  :title="
+                    pinnedSection === 'export' ? 'Unpin Section' : 'Pin Section'
+                  "
                   @click="pinSection('export')"
                 >
                   {{ pinnedSection === 'export' ? '📌' : '📌' }}
@@ -829,34 +905,33 @@
               </div>
               <div class="grid grid-cols-2 gap-2">
                 <button
-                class="export-btn primary"
-                @click="$emit('update-grid', getGridMatrix())"
-              >
-                🚀 ارسال به 3D
-              </button>
+                  class="export-btn primary"
+                  @click="$emit('update-grid', getGridMatrix())"
+                >
+                  🚀 ارسال به 3D
+                </button>
 
-              <button
-                class="export-btn success"
-                @click="() => exportGridAsImage()"
-              >
-                📷 خروجی عکس
-              </button>
+                <button
+                  class="export-btn success"
+                  @click="() => exportGridAsImage()"
+                >
+                  📷 خروجی عکس
+                </button>
 
-              <button
-                class="export-btn info"
-                @click="() => exportGridAsHighQualityImage()"
-              >
-                🖼️ خروجی HD
-              </button>
+                <button
+                  class="export-btn info"
+                  @click="() => exportGridAsHighQualityImage()"
+                >
+                  🖼️ خروجی HD
+                </button>
 
-              <button
-                class="export-btn warning"
-                @click="exportGridAsTxt"
-              >
-                📄 خروجی TXT
-              </button>
+                <button
+                  class="export-btn warning"
+                  @click="exportGridAsTxt"
+                >
+                  📄 خروجی TXT
+                </button>
               </div>
-              
             </div>
           </div>
         </div>
@@ -895,7 +970,7 @@
               />
             </label>
           </div>
-          
+
           <!-- اندازه سلول -->
           <div class="cell-size-section !mt-4">
             <h4 class="mb-2 text-sm font-semibold text-gray-700">
@@ -928,9 +1003,7 @@
 
         <!-- انتخاب جهت -->
         <div class="direction-section">
-          <h4 class="mb-2 text-sm font-semibold text-gray-700">
-            🔄 جهت
-          </h4>
+          <h4 class="mb-2 text-sm font-semibold text-gray-700">🔄 جهت</h4>
           <div class="direction-toggle">
             <button
               class="direction-btn"
@@ -1018,7 +1091,10 @@
         </div>
 
         <!-- انتخاب تصویر مهره -->
-        <div v-if="paintMode === 'image'" class="image-section">
+        <div
+          v-if="paintMode === 'image'"
+          class="image-section"
+        >
           <h4 class="mb-2 text-sm font-semibold text-gray-700">
             🖼️ انتخاب تصویر مهره
           </h4>
@@ -1040,11 +1116,16 @@
               </div>
             </div>
           </div>
-          
+
           <!-- تصاویر اخیر -->
-          <div v-if="recentImages.length > 0" class="recent-images-section">
+          <div
+            v-if="recentImages.length > 0"
+            class="recent-images-section"
+          >
             <div class="recent-images-header">
-              <h4 class="text-sm font-semibold text-gray-700">🔄 تصاویر اخیر</h4>
+              <h4 class="text-sm font-semibold text-gray-700">
+                🔄 تصاویر اخیر
+              </h4>
               <button
                 class="clear-images-btn"
                 title="پاک کردن تمام تصاویر"
@@ -1173,11 +1254,13 @@
               ↪️ Redo
             </button>
           </div>
-          
+
           <!-- دکمه تغییر رنگ تمام مهره‌ها -->
           <div class="background-color-section !mt-4">
-            <h4 class="mb-2 text-sm font-semibold text-gray-700">🎨 پس‌زمینه</h4>
-            
+            <h4 class="mb-2 text-sm font-semibold text-gray-700">
+              🎨 پس‌زمینه
+            </h4>
+
             <!-- انتخاب حالت پس‌زمینه -->
             <div class="background-mode-toggle">
               <button
@@ -1195,9 +1278,12 @@
                 🖼️ تصویر
               </button>
             </div>
-            
+
             <!-- انتخاب رنگ -->
-            <div v-if="backgroundMode === 'color'" class="background-color-controls">
+            <div
+              v-if="backgroundMode === 'color'"
+              class="background-color-controls"
+            >
               <input
                 v-model="backgroundColor"
                 type="color"
@@ -1211,16 +1297,21 @@
                 🎨 تغییر تمام مهره‌ها
               </button>
             </div>
-            
+
             <!-- انتخاب تصویر -->
-            <div v-if="backgroundMode === 'image'" class="background-image-controls">
+            <div
+              v-if="backgroundMode === 'image'"
+              class="background-image-controls"
+            >
               <div class="background-image-picker">
                 <div class="background-images-grid">
                   <div
                     v-for="image in availableImages"
                     :key="image.name"
                     class="background-image-item"
-                    :class="{ selected: selectedBackgroundImage?.url === image.url }"
+                    :class="{
+                      selected: selectedBackgroundImage?.url === image.url,
+                    }"
                     @click="selectedBackgroundImage = image"
                   >
                     <img
@@ -1228,7 +1319,9 @@
                       :alt="image.displayName"
                       class="background-bead-image"
                     />
-                    <span class="background-image-name">{{ image.displayName }}</span>
+                    <span class="background-image-name">{{
+                      image.displayName
+                    }}</span>
                   </div>
                 </div>
               </div>
@@ -1264,41 +1357,47 @@
           </div>
           <div class="grid grid-cols-2 gap-2">
             <button
-            class="export-btn primary"
-            @click="$emit('update-grid', getGridMatrix())"
-          >
-            🚀 ارسال به 3D
-          </button>
+              class="export-btn primary"
+              @click="$emit('update-grid', getGridMatrix())"
+            >
+              🚀 ارسال به 3D
+            </button>
 
-          <button
-            class="export-btn success"
-            @click="() => exportGridAsImage()"
-          >
-            📷 خروجی عکس
-          </button>
+            <button
+              class="export-btn success"
+              @click="() => exportGridAsImage()"
+            >
+              📷 خروجی عکس
+            </button>
 
-          <button
-            class="export-btn info"
-            @click="() => exportGridAsHighQualityImage()"
-          >
-            🖼️ خروجی HD
-          </button>
+            <button
+              class="export-btn info"
+              @click="() => exportGridAsHighQualityImage()"
+            >
+              🖼️ خروجی HD
+            </button>
 
-          <button
-            class="export-btn warning"
-            @click="exportGridAsTxt"
-          >
-            📄 خروجی TXT
-          </button>
+            <button
+              class="export-btn warning"
+              @click="exportGridAsTxt"
+            >
+              📄 خروجی TXT
+            </button>
           </div>
-          
         </div>
       </div>
     </div>
 
     <!-- صفحه شطرنجی -->
-     <!--  -->
-    <div class="grid-container md:max-h-[calc(100vh_-_200px)] max-md:min-h-[calc(100vh_-_310px)]" :class="{ '!flex-row': isVertical, '!flex-col-reverse': !isVertical, 'pinned-active': pinnedSection }" >
+    <!--  -->
+    <div
+      class="grid-container max-md:min-h-[calc(100vh_-_310px)] md:max-h-[calc(100vh_-_200px)]"
+      :class="{
+        '!flex-row': isVertical,
+        '!flex-col-reverse': !isVertical,
+        'pinned-active': pinnedSection,
+      }"
+    >
       <div class="image-section max-h-[70%]">
         <div class="upload-section grid grid-cols-2 gap-2">
           <label class="upload-label">
@@ -1331,12 +1430,19 @@
           />
         </div>
       </div>
-      <div class="grid-wrapper" :class="{ 'rotate-none': isVerticalGrid, ' rotate-90 z-10 translate-x-[200%] min-h-fit! translate-y-[10%] h-fit! w-fit!': !isVerticalGrid }">
+      <div
+        class="grid-wrapper"
+        :class="{
+          'rotate-none': isVerticalGrid,
+          'z-10 h-fit! min-h-fit! w-fit! translate-x-[200%] translate-y-[10%] rotate-90':
+            !isVerticalGrid,
+        }"
+      >
         <div
           class="grid-item"
-          :style="{ 
+          :style="{
             gridTemplateColumns: `repeat(${rows}, ${cellWidth}px)`,
-            gridAutoRows: `${cellHeight}px`
+            gridAutoRows: `${cellHeight}px`,
           }"
           @mousedown="startDrawing"
           @mouseup="stopDrawing"
@@ -1355,8 +1461,12 @@
               '!border-red-200': i == Math.floor((rows * cols) / 2),
             }"
             :style="{
-              backgroundColor: cell.startsWith('/miyuki-beads-designer/beads/') ? 'transparent' : cell,
-              backgroundImage: cell.startsWith('/miyuki-beads-designer/beads/') ? `url(${cell})` : 'none',
+              backgroundColor: cell.startsWith('/miyuki-beads-designer/beads/')
+                ? 'transparent'
+                : cell,
+              backgroundImage: cell.startsWith('/miyuki-beads-designer/beads/')
+                ? `url(${cell})`
+                : 'none',
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               border: selection.includes(i)
@@ -1365,11 +1475,10 @@
               width: `${cellWidth}px`,
               height: `${cellHeight}px`,
               minWidth: `${cellWidth}px`,
-              minHeight: `${cellHeight}px`
+              minHeight: `${cellHeight}px`,
             }"
             @click="handleCellClick(i)"
-          >
-          </div>
+          ></div>
         </div>
       </div>
     </div>
@@ -1441,17 +1550,16 @@ function unpinSection() {
 // Helper functions for pinned section
 function getSectionTitle(sectionName) {
   const titles = {
-    'dimensions': '📐 ابعاد شبکه',
-    'direction': '🔄 جهت',
-    'color': '🎨 انتخاب رنگ',
-    'mode': '🎨 حالت طراحی',
-    'image': '🖼️ انتخاب تصویر مهره',
-    'tools': '🛠️ ابزارها',
-    'export': '📤 خروجی'
+    dimensions: '📐 ابعاد شبکه',
+    direction: '🔄 جهت',
+    color: '🎨 انتخاب رنگ',
+    mode: '🎨 حالت طراحی',
+    image: '🖼️ انتخاب تصویر مهره',
+    tools: '🛠️ ابزارها',
+    export: '📤 خروجی',
   };
   return titles[sectionName] || sectionName;
 }
-
 
 const grid = ref([]);
 
@@ -1532,7 +1640,7 @@ function loadGridFromLocalStorage() {
         history.index = -1;
         saveHistory();
 
-        emit('update-grid', getGridMatrix())
+        emit('update-grid', getGridMatrix());
 
         // showSuccess('بارگذاری شد', 'گرید با موفقیت بارگذاری شد');
         return true;
@@ -1553,10 +1661,24 @@ function loadGridFromLocalStorage() {
   }
 }
 
+// تابع مدیریت کلیدهای میانبر
+function handleKeydown(event) {
+  // Ctrl+Z برای undo
+  console.log('Key pressed:', event.key, 'Ctrl:', event.ctrlKey);
+  if (event.ctrlKey && event.key === 'z') {
+    event.preventDefault();
+    undo();
+    console.log('Undo triggered by Ctrl+Z');
+  }
+}
+
 // بارگذاری خودکار گرید در هنگام شروع
 onMounted(() => {
   const loaded = loadGridFromLocalStorage();
-  isVertical.value =  localStorage.getItem('gridEditor_isVertical') !== null ? JSON.parse(localStorage.getItem('gridEditor_isVertical')) : true;
+  isVertical.value =
+    localStorage.getItem('gridEditor_isVertical') !== null
+      ? JSON.parse(localStorage.getItem('gridEditor_isVertical'))
+      : true;
   // اگر localStorage خالی بود، گرید را با مقادیر پیش‌فرض مقداردهی کن
   if (!loaded) {
     const initialSize = rows.value * cols.value;
@@ -1564,20 +1686,81 @@ onMounted(() => {
     saveHistory();
   }
   loadAvailableImages();
+
+  // اضافه کردن listener برای کلیدهای میانبر
+  document.addEventListener('keydown', handleKeydown);
 });
 
 // بارگذاری تصاویر موجود در پوشه beads
 function loadAvailableImages() {
   const imageFiles = [
-    '310.jpg', '1130.jpg', '1135.jpg', '2116.jpg', '2131.jpg', '2132.jpg', '725.jpg', '877.jpg',
-    'f111.jpg', 'f222.jpg', 'f333.jpg', 'f444.jpg', 'f555.jpg', 'f666.jpg', 'f777.jpg', 'f888.jpg', 'f999.jpg', 'f1010.jpg', 'f1111.jpg', 'f1212.jpg',
-    'f1313.jpg', 'f1414.jpg', 'f1515.jpg', 'Awhite.jpg'
+    '310.jpg',
+    '1130.jpg',
+    '1135.jpg',
+    '2116.jpg',
+    '2131.jpg',
+    '2132.jpg',
+    '725.jpg',
+    '877.jpg',
+    'f111.jpg',
+    'f222.jpg',
+    'f333.jpg',
+    'f444.jpg',
+    'f555.jpg',
+    'f666.jpg',
+    'f777.jpg',
+    'f888.jpg',
+    'f999.jpg',
+    'f1010.jpg',
+    'f1111.jpg',
+    'f1212.jpg',
+    'f1313.jpg',
+    'f1414.jpg',
+    'f1515.jpg',
+    'Awhite.jpg',
+    'db0042.jpg',
+    'db0221.jpg',
+    'db0231.jpg',
+    'db0268.jpg',
+    'db0623.jpg',
+    'db0627.jpg',
+    'db0635.jpg',
+    'db0651.jpg',
+    'db0721.jpg',
+    'db0722.jpg',
+    'db0723.jpg',
+    'db0725.jpg',
+    'db0726.jpg',
+    'db0729.jpg',
+    'db0759.jpg',
+    'db0763.jpg',
+    'db0791.jpg',
+    'db0796.jpg',
+    'db0877.jpg',
+    'db1132.jpg',
+    'db1133.jpg',
+    'db1135.jpg',
+    'db1153.jpg',
+    'db1262.jpg',
+    'db1570.jpg',
+    'db2111.jpg',
+    'db2127.jpg',
+    'db2131.jpg',
+    'db2132.jpg',
+    'db2144.jpg',
+    'db2316.jpg',
+    'db2352.jpg',
+    'db2357.jpg',
+    'db310.jpg',
+    'db626.jpg',
+    'db732.jpg',
+    'db856.jpg',
   ];
-  
-  availableImages.value = imageFiles.map(filename => ({
+
+  availableImages.value = imageFiles.map((filename) => ({
     name: filename,
     url: `/miyuki-beads-designer/beads/${filename}`,
-    displayName: filename.replace('.jpg', '')
+    displayName: filename.replace('.jpg', ''),
   }));
 }
 
@@ -1630,17 +1813,20 @@ function handleTxtUpload(e) {
         // بررسی فرمت جدید (شامل rows و cols)
         if (parsedContent.grid && parsedContent.rows && parsedContent.cols) {
           // فرمت جدید: شامل ابعاد
-          const { grid: colors, rows: fileRows, cols: fileCols } = parsedContent;
-          
+          const {
+            grid: colors,
+            rows: fileRows,
+            cols: fileCols,
+          } = parsedContent;
+
           // بررسی اعتبار آرایه رنگ‌ها و تصاویر
           if (
             Array.isArray(colors) &&
             colors.every(
               (cell) =>
-                typeof cell === 'string' && (
-                  cell.match(/^#[0-9A-Fa-f]{6}$/) || // رنگ‌های hex
-                  cell.startsWith('/miyuki-beads-designer/beads/') // تصاویر مهره
-                ),
+                typeof cell === 'string' &&
+                (cell.match(/^#[0-9A-Fa-f]{6}$/) || // رنگ‌های hex
+                  cell.startsWith('/miyuki-beads-designer/beads/')), // تصاویر مهره
             )
           ) {
             // بررسی تطابق تعداد سلول‌ها با ابعاد
@@ -1648,12 +1834,18 @@ function handleTxtUpload(e) {
               // ابتدا ابعاد را تغییر بده
               rows.value = fileRows;
               cols.value = fileCols;
-              
+
               // بارگذاری اندازه سلول (اگر موجود باشد)
-              if (parsedContent.cellWidth && typeof parsedContent.cellWidth === 'number') {
+              if (
+                parsedContent.cellWidth &&
+                typeof parsedContent.cellWidth === 'number'
+              ) {
                 cellWidth.value = parsedContent.cellWidth;
               }
-              if (parsedContent.cellHeight && typeof parsedContent.cellHeight === 'number') {
+              if (
+                parsedContent.cellHeight &&
+                typeof parsedContent.cellHeight === 'number'
+              ) {
                 cellHeight.value = parsedContent.cellHeight;
               }
 
@@ -1664,61 +1856,66 @@ function handleTxtUpload(e) {
               if (typeof parsedContent.isVerticalGrid === 'boolean') {
                 isVerticalGrid.value = parsedContent.isVerticalGrid;
               }
-              
+
               // منتظر بمان تا watcher اجرا شود
               nextTick(() => {
                 // حالا گرید را تنظیم کن
                 grid.value = [...colors];
                 saveHistory();
-                showSuccess('بارگذاری شد', `گرید ${fileRows}×${fileCols} با موفقیت بارگذاری شد`);
+                showSuccess(
+                  'بارگذاری شد',
+                  `گرید ${fileRows}×${fileCols} با موفقیت بارگذاری شد`,
+                );
               });
             } else {
               showError(
                 'خطا در ابعاد',
-                `تعداد سلول‌ها (${colors.length}) با ابعاد اعلام شده (${fileRows}×${fileCols}) مطابقت ندارد`
+                `تعداد سلول‌ها (${colors.length}) با ابعاد اعلام شده (${fileRows}×${fileCols}) مطابقت ندارد`,
               );
             }
           } else {
             showError(
               'خطا در فرمت فایل',
-              'فایل باید شامل آرایه‌ای معتبر از رنگ‌ها یا تصاویر باشد'
+              'فایل باید شامل آرایه‌ای معتبر از رنگ‌ها یا تصاویر باشد',
             );
           }
         } else if (Array.isArray(parsedContent)) {
           // فرمت قدیمی: فقط آرایه رنگ‌ها
           const colors = parsedContent;
-          
+
           // بررسی اعتبار آرایه رنگ‌ها و تصاویر
           if (
             colors.every(
               (cell) =>
-                typeof cell === 'string' && (
-                  cell.match(/^#[0-9A-Fa-f]{6}$/) || // رنگ‌های hex
-                  cell.startsWith('/miyuki-beads-designer/beads/') // تصاویر مهره
-                ),
+                typeof cell === 'string' &&
+                (cell.match(/^#[0-9A-Fa-f]{6}$/) || // رنگ‌های hex
+                  cell.startsWith('/miyuki-beads-designer/beads/')), // تصاویر مهره
             )
           ) {
             // استفاده از ابعاد فعلی سایت
             if (colors.length === rows.value * cols.value) {
               grid.value = [...colors];
               saveHistory();
-              showSuccess('بارگذاری شد', `گرید با ابعاد فعلی (${rows.value}×${cols.value}) بارگذاری شد`);
+              showSuccess(
+                'بارگذاری شد',
+                `گرید با ابعاد فعلی (${rows.value}×${cols.value}) بارگذاری شد`,
+              );
             } else {
               showError(
                 'خطا در ابعاد',
-                `تعداد سلول‌ها (${colors.length}) با ابعاد فعلی (${rows.value}×${cols.value}) مطابقت ندارد. لطفاً ابعاد را تنظیم کنید یا از فایل با فرمت جدید استفاده کنید.`
+                `تعداد سلول‌ها (${colors.length}) با ابعاد فعلی (${rows.value}×${cols.value}) مطابقت ندارد. لطفاً ابعاد را تنظیم کنید یا از فایل با فرمت جدید استفاده کنید.`,
               );
             }
           } else {
             showError(
               'خطا در فرمت فایل',
-              'فایل باید شامل آرایه‌ای معتبر از رنگ‌ها یا تصاویر باشد'
+              'فایل باید شامل آرایه‌ای معتبر از رنگ‌ها یا تصاویر باشد',
             );
           }
         } else {
           showError(
             'خطا در فرمت فایل',
-            'فرمت فایل نامعتبر است. فایل باید شامل آرایه‌ای از رنگ‌ها/تصاویر یا آبجکتی با grid، rows و cols باشد.'
+            'فرمت فایل نامعتبر است. فایل باید شامل آرایه‌ای از رنگ‌ها/تصاویر یا آبجکتی با grid، rows و cols باشد.',
           );
         }
       } catch (error) {
@@ -1730,19 +1927,21 @@ function handleTxtUpload(e) {
   }
 }
 
-watch([rows, cols], () => {
-  // فقط اگر تعداد سلول‌ها تغییر کرده باشد، گرید را ریست کن
-  const newSize = rows.value * cols.value;
-  if (grid.value.length !== newSize) {
-    grid.value = Array(newSize).fill('#ffffff');
-    // ریست کردن clipboard و selection
-    clipboard.value = [];
-    clipboardSize.value = { width: 0, height: 0 };
-    selection.value = [];
-    isPasteMode.value = false;
-    saveHistory();
-  }
-}, { immediate: true });
+watch(
+  [rows, cols],
+  () => {
+    // فقط اگر تعداد سلول‌ها تغییر کرده باشد، گرید را ریست کن
+    const newSize = rows.value * cols.value;
+    if (grid.value.length !== newSize) {
+      grid.value = Array(newSize).fill('#ffffff');
+      // ریست کردن selection اما حفظ کردن clipboard
+      selection.value = [];
+      isPasteMode.value = false;
+      saveHistory();
+    }
+  },
+  { immediate: true },
+);
 
 // ذخیره خودکار گرید در localStorage هنگام تغییر
 watch(
@@ -1780,7 +1979,7 @@ watch(
       console.error('Error saving isVertical to localStorage:', error);
     }
   },
-  { immediate: false }
+  { immediate: false },
 );
 
 function setTool(t) {
@@ -1809,7 +2008,7 @@ function startDrawing(e) {
   if (tool.value === 'paint') {
     paintCell(index);
   } else if (tool.value === 'fill') {
-    bucketFill(index, grid.value[index], selectedColor.value);
+    bucketFill(index, grid.value[index], getFillValue());
   } else if (tool.value === 'select') {
     selectionStart = index;
     selection.value = [index];
@@ -1834,25 +2033,27 @@ function drawMove(e) {
 // Touch event handlers
 function handleTouchStart(e) {
   e.preventDefault();
-  
+
   const touches = e.touches;
   isMultiTouch = touches.length > 1;
-  
+
   if (touches.length === 1) {
     // Single touch - start painting
     const touch = touches[0];
-    
+
     // Get the cell element that was touched using elementFromPoint
     const element = document.elementFromPoint(touch.clientX, touch.clientY);
     if (element && element.classList.contains('cell')) {
-      const cellIndex = Array.from(element.parentNode.children).indexOf(element);
+      const cellIndex = Array.from(element.parentNode.children).indexOf(
+        element,
+      );
       lastPaintedCell = cellIndex;
       isPainting = true;
-      
+
       if (tool.value === 'paint') {
         paintCell(cellIndex);
       } else if (tool.value === 'fill') {
-        bucketFill(cellIndex, grid.value[cellIndex], selectedColor.value);
+        bucketFill(cellIndex, grid.value[cellIndex], getFillValue());
         saveHistory();
       } else if (tool.value === 'select') {
         selectionStart = cellIndex;
@@ -1868,7 +2069,7 @@ function handleTouchStart(e) {
 
 function handleTouchMove(e) {
   const touches = e.touches;
-  
+
   if (touches.length === 1 && isPainting && !isMultiTouch) {
     // Single touch painting
     e.preventDefault();
@@ -1876,11 +2077,13 @@ function handleTouchMove(e) {
     // Get the cell element that was touched using elementFromPoint
     const element = document.elementFromPoint(touch.clientX, touch.clientY);
     if (element && element.classList.contains('cell')) {
-      const cellIndex = Array.from(element.parentNode.children).indexOf(element);
-      
+      const cellIndex = Array.from(element.parentNode.children).indexOf(
+        element,
+      );
+
       if (cellIndex !== lastPaintedCell) {
         lastPaintedCell = cellIndex;
-        
+
         if (tool.value === 'paint') {
           paintCell(cellIndex);
         } else if (tool.value === 'select' && isSelecting) {
@@ -1902,7 +2105,7 @@ function handleTouchEnd() {
       saveHistory();
     }
   }
-  
+
   // Reset touch state
   isPainting = false;
   isMultiTouch = false;
@@ -1910,7 +2113,6 @@ function handleTouchEnd() {
   selectionStart = null;
   isSelecting = false;
 }
-
 
 // ابزار Paint
 function paintCell(i) {
@@ -1921,6 +2123,16 @@ function paintCell(i) {
     grid.value[i] = selectedBeadImage.value.url;
     addToRecentImages(selectedBeadImage.value);
   }
+}
+
+// تابع کمکی برای دریافت مقدار صحیح برای پر کردن
+function getFillValue() {
+  if (paintMode.value === 'color') {
+    return selectedColor.value;
+  } else if (paintMode.value === 'image' && selectedBeadImage.value) {
+    return selectedBeadImage.value.url;
+  }
+  return selectedColor.value; // fallback
 }
 
 // اضافه کردن رنگ به لیست رنگ‌های اخیر
@@ -1943,7 +2155,7 @@ function addToRecentColors(color) {
 // اضافه کردن تصویر به لیست تصاویر اخیر
 function addToRecentImages(image) {
   // اگر تصویر قبلاً وجود دارد، آن را حذف کن
-  const index = recentImages.value.findIndex(img => img.url === image.url);
+  const index = recentImages.value.findIndex((img) => img.url === image.url);
   if (index > -1) {
     recentImages.value.splice(index, 1);
   }
@@ -1965,7 +2177,7 @@ function selectBeadImage(image) {
 
 // حذف تصویر از لیست تصاویر اخیر
 function removeRecentImage(image) {
-  const index = recentImages.value.findIndex(img => img.url === image.url);
+  const index = recentImages.value.findIndex((img) => img.url === image.url);
   if (index > -1) {
     recentImages.value.splice(index, 1);
   }
@@ -2004,22 +2216,22 @@ async function clearRecentColors() {
 // Fill - در طرح عمودی: rows = تعداد ستون‌ها، cols = تعداد ردیف‌ها
 function bucketFill(startIndex, targetColor, newColor) {
   if (targetColor === newColor) return;
-  
+
   const stack = [startIndex];
   const visited = new Set();
-  
+
   while (stack.length) {
     const idx = stack.pop();
-    
+
     if (visited.has(idx) || grid.value[idx] !== targetColor) continue;
-    
+
     visited.add(idx);
     grid.value[idx] = newColor;
-    
+
     // در طرح عمودی: x از rows می‌آید، y از cols می‌آید
     const x = idx % rows.value; // x از rows
     const y = Math.floor(idx / rows.value); // y از rows
-    
+
     // بررسی همسایه‌ها
     // چپ
     if (x > 0) {
@@ -2028,7 +2240,7 @@ function bucketFill(startIndex, targetColor, newColor) {
         stack.push(leftIdx);
       }
     }
-    
+
     // راست
     if (x < rows.value - 1) {
       const rightIdx = idx + 1;
@@ -2036,7 +2248,7 @@ function bucketFill(startIndex, targetColor, newColor) {
         stack.push(rightIdx);
       }
     }
-    
+
     // بالا
     if (y > 0) {
       const upIdx = idx - rows.value;
@@ -2044,7 +2256,7 @@ function bucketFill(startIndex, targetColor, newColor) {
         stack.push(upIdx);
       }
     }
-    
+
     // پایین
     if (y < cols.value - 1) {
       const downIdx = idx + rows.value;
@@ -2095,7 +2307,7 @@ function handleCellClick(i) {
     paintCell(i);
     saveHistory();
   } else if (tool.value === 'fill') {
-    bucketFill(i, grid.value[i], selectedColor.value);
+    bucketFill(i, grid.value[i], getFillValue());
     saveHistory();
   } else if (tool.value === 'paste' && isPasteMode.value) {
     // محاسبه موقعیت کلیک شده
@@ -2213,8 +2425,12 @@ function mirrorSelection() {
     const selCols = rows.value; // از rows استفاده می‌کنیم
     const minX = Math.min(...selection.value.map((i) => i % selCols));
     const maxX = Math.max(...selection.value.map((i) => i % selCols));
-    const minY = Math.min(...selection.value.map((i) => Math.floor(i / selCols)));
-    const maxY = Math.max(...selection.value.map((i) => Math.floor(i / selCols)));
+    const minY = Math.min(
+      ...selection.value.map((i) => Math.floor(i / selCols)),
+    );
+    const maxY = Math.max(
+      ...selection.value.map((i) => Math.floor(i / selCols)),
+    );
 
     const width = maxX - minX + 1;
     const height = maxY - minY + 1;
@@ -2235,7 +2451,7 @@ function mirrorSelection() {
     }
 
     // آینه کردن هر ردیف (از چپ به راست)
-    const mirroredSelection = tempSelection.map(row => row.reverse());
+    const mirroredSelection = tempSelection.map((row) => row.reverse());
 
     // اعمال تغییرات آینه شده به گرید
     for (let y = 0; y < height; y++) {
@@ -2267,8 +2483,12 @@ function mirrorSelectionVertical() {
     const selCols = rows.value; // از rows استفاده می‌کنیم
     const minX = Math.min(...selection.value.map((i) => i % selCols));
     const maxX = Math.max(...selection.value.map((i) => i % selCols));
-    const minY = Math.min(...selection.value.map((i) => Math.floor(i / selCols)));
-    const maxY = Math.max(...selection.value.map((i) => Math.floor(i / selCols)));
+    const minY = Math.min(
+      ...selection.value.map((i) => Math.floor(i / selCols)),
+    );
+    const maxY = Math.max(
+      ...selection.value.map((i) => Math.floor(i / selCols)),
+    );
 
     const width = maxX - minX + 1;
     const height = maxY - minY + 1;
@@ -2302,9 +2522,15 @@ function mirrorSelectionVertical() {
     }
 
     saveHistory();
-    showSuccess('آینه عمودی شد', 'طرح انتخاب شده با موفقیت به صورت عمودی آینه شد');
+    showSuccess(
+      'آینه عمودی شد',
+      'طرح انتخاب شده با موفقیت به صورت عمودی آینه شد',
+    );
   } catch (error) {
-    showError('خطا در آینه عمودی', 'خطا در آینه عمودی کردن طرح: ' + error.message);
+    showError(
+      'خطا در آینه عمودی',
+      'خطا در آینه عمودی کردن طرح: ' + error.message,
+    );
     console.error('Error vertical mirroring selection:', error);
   }
 }
@@ -2429,67 +2655,74 @@ async function drawCell(ctx, x, y, cellWidth, cellHeight, cellValue) {
 async function exportGridAsImage() {
   try {
     showInfo('در حال پردازش...', 'لطفاً صبر کنید، در حال ایجاد عکس...');
-    
+
     // ایجاد canvas
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
-  // تنظیم اندازه canvas بر اساس شبکه
-  const padding = 20; // حاشیه اطراف
-  const width = rows.value * cellWidth.value + padding * 2;
-  const height = cols.value * cellHeight.value + padding * 2;
+    // تنظیم اندازه canvas بر اساس شبکه
+    const padding = 20; // حاشیه اطراف
+    const width = rows.value * cellWidth.value + padding * 2;
+    const height = cols.value * cellHeight.value + padding * 2;
 
-  canvas.width = width;
-  canvas.height = height;
+    canvas.width = width;
+    canvas.height = height;
 
-  // رنگ پس‌زمینه
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, width, height);
+    // رنگ پس‌زمینه
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
 
-  // رسم شبکه
-  for (let y = 0; y < cols.value; y++) {
-    for (let x = 0; x < rows.value; x++) {
-      const index = y * rows.value + x;
-      const cellValue = grid.value[index];
+    // رسم شبکه
+    for (let y = 0; y < cols.value; y++) {
+      for (let x = 0; x < rows.value; x++) {
+        const index = y * rows.value + x;
+        const cellValue = grid.value[index];
 
-      if (cellValue) {
-        const cellX = padding + x * cellWidth.value;
-        const cellY = padding + y * cellHeight.value;
-        
-        // رسم سلول (رنگ یا تصویر)
-        await drawCell(ctx, cellX, cellY, cellWidth.value, cellHeight.value, cellValue);
+        if (cellValue) {
+          const cellX = padding + x * cellWidth.value;
+          const cellY = padding + y * cellHeight.value;
 
-        // اضافه کردن خطوط جداکننده
-        ctx.strokeStyle = '#e0e0e0';
-        ctx.lineWidth = 0.5;
-        ctx.strokeRect(cellX, cellY, cellWidth.value, cellHeight.value);
+          // رسم سلول (رنگ یا تصویر)
+          await drawCell(
+            ctx,
+            cellX,
+            cellY,
+            cellWidth.value,
+            cellHeight.value,
+            cellValue,
+          );
+
+          // اضافه کردن خطوط جداکننده
+          ctx.strokeStyle = '#e0e0e0';
+          ctx.lineWidth = 0.5;
+          ctx.strokeRect(cellX, cellY, cellWidth.value, cellHeight.value);
+        }
       }
     }
-  }
 
-  // اضافه کردن عنوان
-  ctx.fillStyle = '#000000';
-  ctx.font = '16px Arial';
-  ctx.textAlign = 'center';
-  ctx.fillText(
-    `Grid: ${rows.value}×${cols.value}`,
-    width / 2,
-    padding / 2 + 10,
-  );
+    // اضافه کردن عنوان
+    ctx.fillStyle = '#000000';
+    ctx.font = '16px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(
+      `Grid: ${rows.value}×${cols.value}`,
+      width / 2,
+      padding / 2 + 10,
+    );
 
-  // تبدیل به عکس و دانلود
-  canvas.toBlob((blob) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `grid_${rows.value}x${cols.value}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // تبدیل به عکس و دانلود
+    canvas.toBlob((blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `grid_${rows.value}x${cols.value}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
 
-    showSuccess('موفقیت', 'عکس با موفقیت دانلود شد!');
-  }, 'image/png');
+      showSuccess('موفقیت', 'عکس با موفقیت دانلود شد!');
+    }, 'image/png');
   } catch (error) {
     showError('خطا در خروجی', 'خطا در ایجاد عکس: ' + error.message);
     console.error('Error exporting grid as image:', error);
@@ -2500,79 +2733,86 @@ async function exportGridAsImage() {
 async function exportGridAsHighQualityImage() {
   try {
     showInfo('در حال پردازش...', 'لطفاً صبر کنید، در حال ایجاد عکس HD...');
-    
+
     // ایجاد canvas با کیفیت بالا
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
-  // تنظیم اندازه canvas با کیفیت بالا (2x بزرگتر)
-  const cellSizeWidth = cellWidth.value * 2; // عرض سلول (2x بزرگتر)
-  const cellSizeHeight = cellHeight.value * 2; // ارتفاع سلول (2x بزرگتر)
-  const padding = 40; // حاشیه اطراف (2x بزرگتر)
-  const width = rows.value * cellSizeWidth + padding * 2;
-  const height = cols.value * cellSizeHeight + padding * 2;
+    // تنظیم اندازه canvas با کیفیت بالا (2x بزرگتر)
+    const cellSizeWidth = cellWidth.value * 2; // عرض سلول (2x بزرگتر)
+    const cellSizeHeight = cellHeight.value * 2; // ارتفاع سلول (2x بزرگتر)
+    const padding = 40; // حاشیه اطراف (2x بزرگتر)
+    const width = rows.value * cellSizeWidth + padding * 2;
+    const height = cols.value * cellSizeHeight + padding * 2;
 
-  canvas.width = width;
-  canvas.height = height;
+    canvas.width = width;
+    canvas.height = height;
 
-  // رنگ پس‌زمینه
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, width, height);
+    // رنگ پس‌زمینه
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
 
-  // رسم شبکه با کیفیت بالا
-  for (let y = 0; y < cols.value; y++) {
-    for (let x = 0; x < rows.value; x++) {
-      const index = y * rows.value + x;
-      const cellValue = grid.value[index];
+    // رسم شبکه با کیفیت بالا
+    for (let y = 0; y < cols.value; y++) {
+      for (let x = 0; x < rows.value; x++) {
+        const index = y * rows.value + x;
+        const cellValue = grid.value[index];
 
-      if (cellValue) {
-        const cellX = padding + x * cellSizeWidth;
-        const cellY = padding + y * cellSizeHeight;
-        
-        // رسم سلول (رنگ یا تصویر)
-        await drawCell(ctx, cellX, cellY, cellSizeWidth, cellSizeHeight, cellValue);
+        if (cellValue) {
+          const cellX = padding + x * cellSizeWidth;
+          const cellY = padding + y * cellSizeHeight;
 
-        // اضافه کردن خطوط جداکننده با کیفیت بالا
-        ctx.strokeStyle = '#d0d0d0';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(cellX, cellY, cellSizeWidth, cellSizeHeight);
+          // رسم سلول (رنگ یا تصویر)
+          await drawCell(
+            ctx,
+            cellX,
+            cellY,
+            cellSizeWidth,
+            cellSizeHeight,
+            cellValue,
+          );
+
+          // اضافه کردن خطوط جداکننده با کیفیت بالا
+          ctx.strokeStyle = '#d0d0d0';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(cellX, cellY, cellSizeWidth, cellSizeHeight);
+        }
       }
     }
-  }
 
-  // اضافه کردن عنوان با کیفیت بالا
-  ctx.fillStyle = '#000000';
-  ctx.font = 'bold 24px Arial';
-  ctx.textAlign = 'center';
-  ctx.fillText(
-    `Grid: ${rows.value}×${cols.value}`,
-    width / 2,
-    padding / 2 + 20,
-  );
+    // اضافه کردن عنوان با کیفیت بالا
+    ctx.fillStyle = '#000000';
+    ctx.font = 'bold 24px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(
+      `Grid: ${rows.value}×${cols.value}`,
+      width / 2,
+      padding / 2 + 20,
+    );
 
-  // اضافه کردن تاریخ و زمان
-  ctx.font = '16px Arial';
-  ctx.fillStyle = '#666666';
-  const timestamp = new Date().toLocaleString('fa-IR');
-  ctx.fillText(timestamp, width / 2, height - padding / 2);
+    // اضافه کردن تاریخ و زمان
+    ctx.font = '16px Arial';
+    ctx.fillStyle = '#666666';
+    const timestamp = new Date().toLocaleString('fa-IR');
+    ctx.fillText(timestamp, width / 2, height - padding / 2);
 
-  // تبدیل به عکس و دانلود
-  canvas.toBlob(
-    (blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `grid_HD_${rows.value}x${cols.value}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+    // تبدیل به عکس و دانلود
+    canvas.toBlob(
+      (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `grid_HD_${rows.value}x${cols.value}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
 
-      showSuccess('موفقیت', 'عکس HD با موفقیت دانلود شد!');
-    },
-    'image/png',
-    1.0,
-  ); // کیفیت 100%
+        showSuccess('موفقیت', 'عکس HD با موفقیت دانلود شد!');
+      },
+      'image/png',
+      1.0,
+    ); // کیفیت 100%
   } catch (error) {
     showError('خطا در خروجی', 'خطا در ایجاد عکس HD: ' + error.message);
     console.error('Error exporting grid as high quality image:', error);
@@ -2591,31 +2831,33 @@ function exportGridAsTxt() {
       cellHeight: cellHeight.value,
       isVertical: isVertical.value,
       isVerticalGrid: isVerticalGrid.value,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
-    
+
     // تبدیل به رشته JSON
     const gridDataString = JSON.stringify(gridData, null, 2);
-    
+
     // ایجاد Blob از داده‌ها
-    const blob = new Blob([gridDataString], { type: 'text/plain;charset=utf-8' });
-    
+    const blob = new Blob([gridDataString], {
+      type: 'text/plain;charset=utf-8',
+    });
+
     // ایجاد URL برای دانلود
     const url = URL.createObjectURL(blob);
-    
+
     // ایجاد لینک دانلود
     const a = document.createElement('a');
     a.href = url;
     a.download = `grid_${rows.value}x${cols.value}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
-    
+
     // اضافه کردن لینک به صفحه و کلیک روی آن
     document.body.appendChild(a);
     a.click();
-    
+
     // پاک کردن لینک و URL
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    
+
     showSuccess('موفقیت', 'فایل TXT با موفقیت دانلود شد!');
   } catch (error) {
     showError('خطا در خروجی', 'خطا در ایجاد فایل TXT: ' + error.message);
@@ -2650,40 +2892,42 @@ const selectedBackgroundImage = ref(null);
 async function changeAllBeadsToColor() {
   let newValue;
   let confirmMessage;
-  
+
   if (backgroundMode.value === 'color') {
     newValue = backgroundColor.value;
     confirmMessage = `آیا می‌خواهید تمام مهره‌ها به رنگ ${newValue} تغییر یابند؟ این عملیات غیرقابل برگشت است.`;
-  } else if (backgroundMode.value === 'image' && selectedBackgroundImage.value) {
+  } else if (
+    backgroundMode.value === 'image' &&
+    selectedBackgroundImage.value
+  ) {
     newValue = selectedBackgroundImage.value.url;
     confirmMessage = `آیا می‌خواهید تمام مهره‌ها به تصویر ${selectedBackgroundImage.value.displayName} تغییر یابند؟ این عملیات غیرقابل برگشت است.`;
   } else {
     showError('خطا', 'لطفاً یک رنگ یا تصویر انتخاب کنید');
     return;
   }
-  
-  const result = await showConfirm(
-    'تغییر تمام مهره‌ها',
-    confirmMessage
-  );
-  
+
+  const result = await showConfirm('تغییر تمام مهره‌ها', confirmMessage);
+
   if (result.isConfirmed) {
     const totalCells = rows.value * cols.value;
     for (let i = 0; i < totalCells; i++) {
       grid.value[i] = newValue;
     }
     saveHistory();
-    
+
     if (backgroundMode.value === 'color') {
       addToRecentColors(newValue);
       showSuccess('تغییر رنگ', `تمام مهره‌ها به رنگ ${newValue} تغییر یافتند`);
     } else {
       addToRecentImages(selectedBackgroundImage.value);
-      showSuccess('تغییر تصویر', `تمام مهره‌ها به تصویر ${selectedBackgroundImage.value.displayName} تغییر یافتند`);
+      showSuccess(
+        'تغییر تصویر',
+        `تمام مهره‌ها به تصویر ${selectedBackgroundImage.value.displayName} تغییر یافتند`,
+      );
     }
   }
 }
-
 </script>
 
 <style lang="scss" scoped>
