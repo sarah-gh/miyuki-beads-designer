@@ -1,7 +1,837 @@
 <template>
-  <div class="peyote-editor-container">
+  <div class="peyote-editor-container overflow-auto">
+    <!-- Mobile Control Bar -->
+    <div class="mobile-control-bar">
+      <button
+        class="mobile-menu-btn"
+        :class="{ active: isMobilePanelOpen }"
+        @click="toggleMobilePanel"
+      >
+        <span class="menu-icon">☰</span>
+        <span class="menu-text">ابزارها</span>
+      </button>
+      <div class="mobile-title">🎨 ویرایشگر Peyote</div>
+    </div>
+
+    <!-- Pinned Section (Mobile Only) -->
+    <div
+      v-if="pinnedSection"
+      class="pinned-section"
+    >
+      <div class="pinned-section-header">
+        <h4 class="pinned-section-title">
+          {{ getSectionTitle(pinnedSection) }}
+        </h4>
+        <button
+          class="unpin-btn"
+          title="Unpin Section"
+          @click="unpinSection"
+        >
+          ✕
+        </button>
+      </div>
+      <div class="pinned-section-content">
+        <!-- Dimensions Section -->
+        <div
+          v-if="pinnedSection === 'dimensions'"
+          class="pinned-dimensions"
+        >
+          <div class="dimension-inputs">
+            <label class="dimension-label">
+              <span class="dimension-text">ردیف‌ها:</span>
+              <input
+                v-model.number="rows"
+                type="number"
+                min="1"
+                class="dimension-input"
+              />
+            </label>
+            <label class="dimension-label">
+              <span class="dimension-text">ستون‌ها:</span>
+              <input
+                v-model.number="cols"
+                type="number"
+                min="1"
+                class="dimension-input"
+              />
+            </label>
+            <label class="dimension-label">
+              <span class="dimension-text">عرض سل:</span>
+              <input
+                v-model.number="cellWidth"
+                type="number"
+                min="5"
+                max="50"
+                class="dimension-input"
+              />
+            </label>
+            <label class="dimension-label">
+              <span class="dimension-text">ارتفاع سل:</span>
+              <input
+                v-model.number="cellHeight"
+                type="number"
+                min="5"
+                max="50"
+                class="dimension-input"
+              />
+            </label>
+          </div>
+        </div>
+
+        <!-- Color Section -->
+        <div
+          v-if="pinnedSection === 'color'"
+          class="pinned-color"
+        >
+          <div class="color-picker-container">
+            <input
+              v-model="selectedColor"
+              type="color"
+              class="color-picker"
+            />
+            <span class="color-value">{{ selectedColor }}</span>
+          </div>
+          <div class="recent-colors-header">
+            <h4 class="text-sm font-semibold text-gray-700">🔄 رنگ‌های اخیر</h4>
+            <button
+              v-if="recentColors.length > 0"
+              class="clear-colors-btn"
+              title="پاک کردن تمام رنگ‌ها"
+              @click="clearRecentColors"
+            >
+              🗑️ پاک کردن
+            </button>
+          </div>
+          <div class="recent-colors-grid">
+            <div
+              v-for="color in recentColors"
+              :key="color"
+              class="color-swatch"
+              :style="{ backgroundColor: color }"
+              :title="color"
+              @click="selectedColor = color"
+            >
+              <button
+                class="remove-color-btn"
+                @click.stop="removeRecentColor(color)"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mode Section -->
+        <div
+          v-if="pinnedSection === 'mode'"
+          class="pinned-mode"
+        >
+          <div class="mode-toggle">
+            <button
+              class="mode-btn"
+              :class="{ active: selectionMode === 'color' }"
+              @click="setColorMode"
+            >
+              🎨 رنگ
+            </button>
+            <button
+              class="mode-btn"
+              :class="{ active: selectionMode === 'image' }"
+              @click="setImageMode"
+            >
+              🖼️ تصویر
+            </button>
+          </div>
+        </div>
+
+        <!-- Image Section -->
+        <div
+          v-if="pinnedSection === 'image'"
+          class="pinned-image"
+        >
+          <div class="image-picker-container">
+            <div class="available-images-grid">
+              <div
+                v-for="image in availableImages"
+                :key="image.name"
+                class="image-item"
+                :class="{ selected: selectedBeadImage?.url === image.url }"
+                @click="selectBeadImage(image)"
+              >
+                <img
+                  :src="image.url"
+                  :alt="image.displayName"
+                  class="bead-image"
+                />
+                <span class="image-name">{{ image.displayName }}</span>
+              </div>
+            </div>
+          </div>
+          <div
+            v-if="recentImages.length > 0"
+            class="recent-images-section"
+          >
+            <div class="recent-images-header">
+              <h4 class="text-sm font-semibold text-gray-700">
+                🔄 تصاویر اخیر
+              </h4>
+              <button
+                class="clear-images-btn"
+                title="پاک کردن تمام تصاویر"
+                @click="clearRecentImages"
+              >
+                🗑️ پاک کردن
+              </button>
+            </div>
+            <div class="recent-images-grid">
+              <div
+                v-for="image in recentImages"
+                :key="image.url"
+                class="recent-image-item"
+                :class="{ selected: selectedBeadImage?.url === image.url }"
+                @click="selectBeadImage(image)"
+              >
+                <img
+                  :src="image.url"
+                  :alt="image.displayName"
+                  class="recent-bead-image"
+                />
+                <button
+                  class="remove-image-btn"
+                  @click.stop="removeRecentImage(image)"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tools Section -->
+        <div
+          v-if="pinnedSection === 'tools'"
+          class="pinned-tools"
+        >
+          <div class="tools-grid">
+            <button
+              class="tool-btn primary"
+              :class="{ active: tool === 'paint' }"
+              @click="setTool('paint')"
+            >
+              🖌️ Paint
+            </button>
+            <button
+              class="tool-btn primary"
+              :class="{ active: tool === 'fill' }"
+              @click="setTool('fill')"
+            >
+              🪣 Fill
+            </button>
+            <button
+              class="tool-btn secondary"
+              :class="{ active: tool === 'select' }"
+              @click="setTool('select')"
+            >
+              📐 Select
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="copySelection"
+            >
+              📋 Copy
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="cutSelection"
+            >
+              ✂️ Cut
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="pasteAtCenter"
+            >
+              📍 Paste at Center
+            </button>
+            <button
+              class="tool-btn secondary"
+              :disabled="!hasClipboardContent()"
+              @click="enablePasteMode"
+            >
+              🎯 Enable Click-to-Paste
+            </button>
+            <button
+              v-if="isPasteMode"
+              class="tool-btn danger"
+              @click="cancelPasteMode"
+            >
+              ❌ Cancel Click-to-Paste
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="clearSelection"
+            >
+              🗑️ Clear Selection
+            </button>
+            <button
+              class="tool-btn secondary"
+              :disabled="selection.length === 0"
+              @click="mirrorSelection"
+            >
+              🔄 Mirror Selection
+            </button>
+            <button
+              class="tool-btn secondary"
+              :disabled="selection.length === 0"
+              @click="mirrorSelectionVertical"
+            >
+              ↕️ Mirror Selection Vertical
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="undo"
+            >
+              ↩️ Undo
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="redo"
+            >
+              ↪️ Redo
+            </button>
+          </div>
+        </div>
+
+        <!-- Export Section -->
+        <div
+          v-if="pinnedSection === 'export'"
+          class="pinned-export"
+        >
+          <div class="save-load-buttons">
+            <button
+              class="export-btn success"
+              @click="saveGridToLocalStorage"
+            >
+              💾 ذخیره گرید
+            </button>
+            <button
+              class="export-btn info"
+              @click="loadGridFromLocalStorage"
+            >
+              📂 بارگذاری اخرین ذخیره
+            </button>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              class="export-btn primary"
+              @click="emit('update-grid', getGridMatrix())"
+            >
+              🚀 ارسال به 3D
+            </button>
+            <button
+              class="export-btn success"
+              @click="exportGridAsImage"
+            >
+              📷 خروجی عکس
+            </button>
+            <button
+              class="export-btn info"
+              @click="exportGridAsHighQualityImage"
+            >
+              🖼️ خروجی HD
+            </button>
+            <button
+              class="export-btn warning"
+              @click="exportGridAsTxt"
+            >
+              📄 خروجی TXT
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Dropdown Panel -->
+    <div
+      class="mobile-dropdown-panel"
+      :class="{ open: isMobilePanelOpen }"
+    >
+      <div class="mobile-panel-content">
+        <!-- Image Section for Mobile -->
+        <div class="mobile-image-section">
+          <div class="upload-section grid grid-cols-2 gap-2">
+            <label class="upload-label">
+              <span class="upload-text">📁 آپلود فایل txt grid</span>
+              <input
+                type="file"
+                accept=".txt"
+                class="upload-input"
+                @change="handleTxtUpload"
+              />
+            </label>
+            <label class="upload-label">
+              <span class="upload-text">📁 آپلود تصویر</span>
+              <input
+                type="file"
+                accept="image/*"
+                class="upload-input"
+                @change="handleImageUpload"
+              />
+            </label>
+          </div>
+          <div
+            v-if="selectedImage"
+            class="image-preview"
+          >
+            <img
+              :src="selectedImage"
+              alt="تصویر انتخاب شده"
+              class="preview-image"
+            />
+          </div>
+        </div>
+
+        <!-- Controls Panel Content for Mobile -->
+        <div class="mobile-controls-content">
+          <div class="controls-header">
+            <h3 class="mb-4 text-lg font-bold text-gray-800">
+              🎨 ابزارهای طراحی
+            </h3>
+          </div>
+
+          <div class="controls-content">
+            <!-- تنظیمات ابعاد -->
+            <div class="dimensions-section">
+              <div class="section-header">
+                <h4 class="mb-2 text-sm font-semibold text-gray-700">
+                  📐 ابعاد شبکه
+                </h4>
+                <button
+                  class="pin-btn"
+                  :class="{ pinned: pinnedSection === 'dimensions' }"
+                  :title="
+                    pinnedSection === 'dimensions'
+                      ? 'Unpin Section'
+                      : 'Pin Section'
+                  "
+                  @click="pinSection('dimensions')"
+                >
+                  {{ pinnedSection === 'dimensions' ? '📌' : '📌' }}
+                </button>
+              </div>
+              <div class="dimension-inputs">
+                <label class="dimension-label">
+                  <span class="dimension-text">ردیف‌ها:</span>
+                  <input
+                    v-model.number="rows"
+                    type="number"
+                    min="1"
+                    class="dimension-input"
+                  />
+                </label>
+                <label class="dimension-label">
+                  <span class="dimension-text">ستون‌ها:</span>
+                  <input
+                    v-model.number="cols"
+                    type="number"
+                    min="1"
+                    class="dimension-input"
+                  />
+                </label>
+                <label class="dimension-label">
+                  <span class="dimension-text">عرض سل:</span>
+                  <input
+                    v-model.number="cellWidth"
+                    type="number"
+                    min="5"
+                    max="50"
+                    class="dimension-input"
+                  />
+                </label>
+                <label class="dimension-label">
+                  <span class="dimension-text">ارتفاع سل:</span>
+                  <input
+                    v-model.number="cellHeight"
+                    type="number"
+                    min="5"
+                    max="50"
+                    class="dimension-input"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <!-- انتخاب رنگ -->
+            <div class="color-section">
+              <div class="section-header">
+                <h4 class="mb-2 text-sm font-semibold text-gray-700">
+                  🎨 انتخاب رنگ
+                </h4>
+                <button
+                  class="pin-btn"
+                  :class="{ pinned: pinnedSection === 'color' }"
+                  :title="
+                    pinnedSection === 'color' ? 'Unpin Section' : 'Pin Section'
+                  "
+                  @click="pinSection('color')"
+                >
+                  {{ pinnedSection === 'color' ? '📌' : '📌' }}
+                </button>
+              </div>
+              <div class="color-picker-container">
+                <input
+                  v-model="selectedColor"
+                  type="color"
+                  class="color-picker"
+                />
+                <span class="color-value">{{ selectedColor }}</span>
+              </div>
+              <div class="recent-colors-header mt-3!">
+                <h4 class="text-sm font-semibold text-gray-700">
+                  🔄 رنگ‌های اخیر
+                </h4>
+                <button
+                  v-if="recentColors.length > 0"
+                  class="clear-colors-btn"
+                  title="پاک کردن تمام رنگ‌ها"
+                  @click="clearRecentColors"
+                >
+                  🗑️ پاک کردن
+                </button>
+              </div>
+              <div class="recent-colors-grid">
+                <div
+                  v-for="color in recentColors"
+                  :key="color"
+                  class="color-swatch"
+                  :style="{ backgroundColor: color }"
+                  :title="color"
+                  @click="selectedColor = color"
+                >
+                  <button
+                    class="remove-color-btn"
+                    @click.stop="removeRecentColor(color)"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- انتخاب حالت رنگ یا تصویر -->
+            <div class="mode-section">
+              <div class="section-header">
+                <h4 class="mb-2 text-sm font-semibold text-gray-700">
+                  🎨 حالت طراحی
+                </h4>
+                <button
+                  class="pin-btn"
+                  :class="{ pinned: pinnedSection === 'mode' }"
+                  :title="
+                    pinnedSection === 'mode' ? 'Unpin Section' : 'Pin Section'
+                  "
+                  @click="pinSection('mode')"
+                >
+                  {{ pinnedSection === 'mode' ? '📌' : '📌' }}
+                </button>
+              </div>
+              <div class="mode-toggle">
+                <button
+                  class="mode-btn"
+                  :class="{ active: selectionMode === 'color' }"
+                  @click="setColorMode"
+                >
+                  🎨 رنگ
+                </button>
+                <button
+                  class="mode-btn"
+                  :class="{ active: selectionMode === 'image' }"
+                  @click="setImageMode"
+                >
+                  🖼️ تصویر
+                </button>
+              </div>
+            </div>
+
+            <!-- انتخاب تصویر مهره -->
+            <div
+              v-if="selectionMode === 'image'"
+              class="mode-section"
+            >
+              <div class="section-header">
+                <h4 class="mb-2 text-sm font-semibold text-gray-700">
+                  🖼️ انتخاب تصویر مهره
+                </h4>
+                <button
+                  class="pin-btn"
+                  :class="{ pinned: pinnedSection === 'image' }"
+                  :title="
+                    pinnedSection === 'image' ? 'Unpin Section' : 'Pin Section'
+                  "
+                  @click="pinSection('image')"
+                >
+                  {{ pinnedSection === 'image' ? '📌' : '📌' }}
+                </button>
+              </div>
+              <div class="image-picker-container">
+                <div class="available-images-grid">
+                  <div
+                    v-for="image in availableImages"
+                    :key="image.name"
+                    class="image-item"
+                    :class="{ selected: selectedBeadImage?.url === image.url }"
+                    @click="selectBeadImage(image)"
+                  >
+                    <img
+                      :src="image.url"
+                      :alt="image.displayName"
+                      class="bead-image"
+                    />
+                    <span class="image-name">{{ image.displayName }}</span>
+                  </div>
+                </div>
+              </div>
+              <div
+                v-if="recentImages.length > 0"
+                class="recent-images-section"
+              >
+                <div class="recent-images-header">
+                  <h4 class="text-sm font-semibold text-gray-700">
+                    🔄 تصاویر اخیر
+                  </h4>
+                  <button
+                    class="clear-images-btn"
+                    title="پاک کردن تمام تصاویر"
+                    @click="clearRecentImages"
+                  >
+                    🗑️ پاک کردن
+                  </button>
+                </div>
+                <div class="recent-images-grid">
+                  <div
+                    v-for="image in recentImages"
+                    :key="image.url"
+                    class="recent-image-item"
+                    :class="{ selected: selectedBeadImage?.url === image.url }"
+                    @click="selectBeadImage(image)"
+                  >
+                    <img
+                      :src="image.url"
+                      :alt="image.displayName"
+                      class="recent-bead-image"
+                    />
+                    <button
+                      class="remove-image-btn"
+                      @click.stop="removeRecentImage(image)"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ابزارهای اصلی -->
+            <div class="tools-section">
+              <div class="section-header">
+                <h4 class="mb-2 text-sm font-semibold text-gray-700">
+                  🛠️ ابزارها
+                </h4>
+                <button
+                  class="pin-btn"
+                  :class="{ pinned: pinnedSection === 'tools' }"
+                  :title="
+                    pinnedSection === 'tools' ? 'Unpin Section' : 'Pin Section'
+                  "
+                  @click="pinSection('tools')"
+                >
+                  {{ pinnedSection === 'tools' ? '📌' : '📌' }}
+                </button>
+              </div>
+              <div class="tools-grid">
+                <button
+                  class="tool-btn primary"
+                  :class="{ active: tool === 'paint' }"
+                  @click="setTool('paint')"
+                >
+                  🖌️ Paint
+                </button>
+                <button
+                  class="tool-btn primary"
+                  :class="{ active: tool === 'fill' }"
+                  @click="setTool('fill')"
+                >
+                  🪣 Fill
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  :class="{ active: tool === 'select' }"
+                  @click="setTool('select')"
+                >
+                  📐 Select
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  @click="copySelection"
+                >
+                  📋 Copy
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  @click="cutSelection"
+                >
+                  ✂️ Cut
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  @click="pasteAtCenter"
+                >
+                  📍 Paste at Center
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  :disabled="!hasClipboardContent()"
+                  @click="enablePasteMode"
+                >
+                  🎯 Enable Click-to-Paste
+                </button>
+                <button
+                  v-if="isPasteMode"
+                  class="tool-btn danger"
+                  @click="cancelPasteMode"
+                >
+                  ❌ Cancel Click-to-Paste
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  @click="clearSelection"
+                >
+                  🗑️ Clear Selection
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  :disabled="selection.length === 0"
+                  @click="mirrorSelection"
+                >
+                  🔄 Mirror Selection
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  :disabled="selection.length === 0"
+                  @click="mirrorSelectionVertical"
+                >
+                  ↕️ Mirror Selection Vertical
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  @click="undo"
+                >
+                  ↩️ Undo
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  @click="redo"
+                >
+                  ↪️ Redo
+                </button>
+              </div>
+
+              <!-- دکمه تغییر رنگ تمام مهره‌ها -->
+              <div class="background-color-section !mt-4">
+                <h4 class="mb-2 text-sm font-semibold text-gray-700">
+                  🎨 پس‌زمینه
+                </h4>
+                <div class="background-color-controls">
+                  <input
+                    v-model="backgroundColor"
+                    type="color"
+                    class="color-picker"
+                    title="انتخاب رنگ پس‌زمینه"
+                  />
+                  <button
+                    class="tool-btn success"
+                    @click="changeAllBeadsToColor"
+                  >
+                    🎨 تغییر تمام مهره‌ها
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- دکمه‌های خروجی -->
+            <div class="export-section">
+              <div class="section-header">
+                <h4 class="mb-2 text-sm font-semibold text-gray-700">
+                  📤 خروجی
+                </h4>
+                <button
+                  class="pin-btn"
+                  :class="{ pinned: pinnedSection === 'export' }"
+                  :title="
+                    pinnedSection === 'export' ? 'Unpin Section' : 'Pin Section'
+                  "
+                  @click="pinSection('export')"
+                >
+                  {{ pinnedSection === 'export' ? '📌' : '📌' }}
+                </button>
+              </div>
+
+              <!-- دکمه‌های ذخیره و بارگذاری -->
+              <div class="save-load-buttons mb-3">
+                <button
+                  class="export-btn success"
+                  @click="saveGridToLocalStorage"
+                >
+                  💾 ذخیره گرید
+                </button>
+                <button
+                  class="export-btn info"
+                  @click="loadGridFromLocalStorage"
+                >
+                  📂 بارگذاری اخرین ذخیره
+                </button>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <button
+                  class="export-btn primary"
+                  @click="emit('update-grid', getGridMatrix())"
+                >
+                  🚀 ارسال به 3D
+                </button>
+
+                <button
+                  class="export-btn success"
+                  @click="exportGridAsImage"
+                >
+                  📷 خروجی عکس
+                </button>
+
+                <button
+                  class="export-btn info"
+                  @click="exportGridAsHighQualityImage"
+                >
+                  🖼️ خروجی HD
+                </button>
+
+                <button
+                  class="export-btn warning"
+                  @click="exportGridAsTxt"
+                >
+                  📄 خروجی TXT
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Main content area -->
-    <div class="grid-container">
+    <div
+      class="grid-container max-md:min-h-[calc(100vh_-_310px)] md:max-h-[calc(100vh_-_200px)]"
+      :class="{
+        'pinned-active': pinnedSection,
+      }"
+    >
         <div class="image-section">
           <div class="upload-section grid grid-cols-2 gap-2">
             <label class="upload-label">
@@ -35,9 +865,7 @@
         </div>
         </div>
         <div class="main-content">
-        <div class="p-4">
-            <h2 class="text-lg font-semibold mb-3">Peyote عمودی — ویرایشگر طرح</h2>
-  
+        <div class="p-4">  
   
       <!-- Grid wrapper: flex row so columns sit side-by-side -->
       <div
@@ -88,9 +916,23 @@
       <div class="controls-content">
         <!-- تنظیمات ابعاد -->
         <div class="dimensions-section">
+          <div class="section-header">
           <h4 class="mb-2 text-sm font-semibold text-gray-700">
             📐 ابعاد شبکه
           </h4>
+            <button
+              class="pin-btn"
+              :class="{ pinned: pinnedSection === 'dimensions' }"
+              :title="
+                pinnedSection === 'dimensions'
+                  ? 'Unpin Section'
+                  : 'Pin Section'
+              "
+              @click="pinSection('dimensions')"
+            >
+              {{ pinnedSection === 'dimensions' ? '📌' : '📌' }}
+            </button>
+          </div>
           <div class="dimension-inputs">
             <label class="dimension-label">
               <span class="dimension-text">ردیف‌ها: {{ rows }}</span>
@@ -138,11 +980,20 @@
 
         <!-- انتخاب رنگ -->
         <div class="color-section">
+          <div class="section-header">
           <h4 class="mb-2 text-sm font-semibold text-gray-700">
             🎨 انتخاب رنگ
           </h4>
-          <div class="selection-mode-indicator">
-            <span class="mode-text">حالت فعلی: {{ selectionMode === 'color' ? 'رنگ' : 'تصویر' }}</span>
+            <button
+              class="pin-btn"
+              :class="{ pinned: pinnedSection === 'color' }"
+              :title="
+                pinnedSection === 'color' ? 'Unpin Section' : 'Pin Section'
+              "
+              @click="pinSection('color')"
+            >
+              {{ pinnedSection === 'color' ? '📌' : '📌' }}
+            </button>
           </div>
           <div class="color-picker-container">
             <input
@@ -152,23 +1003,6 @@
               @change="setColorMode"
             />
             <span class="color-value">{{ selectedColor }}</span>
-          </div>
-          <div class="mode-switch-buttons">
-            <button
-              class="mode-btn"
-              :class="{ active: selectionMode === 'color' }"
-              @click="setColorMode"
-            >
-              🎨 رنگ
-            </button>
-            <button
-              class="mode-btn"
-              :class="{ active: selectionMode === 'image' }"
-              :disabled="!selectedImage"
-              @click="setImageMode"
-            >
-              🖼️ تصویر
-            </button>
           </div>
           <div class="recent-colors-header mt-3!">
             <h4 class="text-sm font-semibold text-gray-700">🔄 رنگ‌های اخیر</h4>
@@ -200,72 +1034,136 @@
           </div>
         </div>
 
-        <!-- انتخاب تصویر -->
-        <div class="image-section">
-          <h4 class="mb-2 text-sm font-semibold text-gray-700">
-            🖼️ انتخاب تصویر
-          </h4>
-          <div class="image-upload-container">
-            <label class="image-upload-label">
-              <span class="image-upload-text">📁 آپلود تصویر</span>
-              <input
-                type="file"
-                accept="image/*"
-                class="image-upload-input"
-                @change="handleImageUpload"
-              />
-            </label>
-          </div>
-          <div v-if="selectedImage" class="selected-image-preview">
-            <img
-              :src="selectedImage"
-              alt="تصویر انتخاب شده"
-              class="preview-image-small"
-            />
+        <!-- انتخاب حالت رنگ یا تصویر -->
+        <div class="mode-section">
+          <div class="section-header">
+            <h4 class="mb-2 text-sm font-semibold text-gray-700">
+              🎨 حالت طراحی
+            </h4>
             <button
-              title="حذف تصویر"
-              class="remove-image-btn"
-              @click="clearSelectedImage"
+              class="pin-btn"
+              :class="{ pinned: pinnedSection === 'mode' }"
+              :title="
+                pinnedSection === 'mode' ? 'Unpin Section' : 'Pin Section'
+              "
+              @click="pinSection('mode')"
             >
-              ×
+              {{ pinnedSection === 'mode' ? '📌' : '📌' }}
             </button>
           </div>
-          <div v-if="recentImages.length > 0" class="recent-images-header mt-3!">
-            <h4 class="text-sm font-semibold text-gray-700">🔄 تصاویر اخیر</h4>
+          <div class="mode-toggle">
             <button
-              class="clear-images-btn"
-              title="پاک کردن تمام تصاویر"
-              @click="clearRecentImages"
+              class="mode-btn"
+              :class="{ active: selectionMode === 'color' }"
+              @click="setColorMode"
             >
-              🗑️ پاک کردن
+              🎨 رنگ
+            </button>
+            <button
+              class="mode-btn"
+              :class="{ active: selectionMode === 'image' }"
+              @click="setImageMode"
+            >
+              🖼️ تصویر
             </button>
           </div>
-          <div v-if="recentImages.length > 0" class="recent-images-grid">
-            <div
-              v-for="image in recentImages"
-              :key="image"
-              class="image-swatch"
-              :class="{ active: selectedImage === image }"
-              @click="selectedImage = image; setImageMode()"
+        </div>
+
+        <!-- انتخاب تصویر مهره -->
+        <div
+          v-if="selectionMode === 'image'"
+          class="image-section"
+        >
+          <div class="section-header">
+            <h4 class="mb-2 text-sm font-semibold text-gray-700">
+              🖼️ انتخاب تصویر مهره
+            </h4>
+            <button
+              class="pin-btn"
+              :class="{ pinned: pinnedSection === 'image' }"
+              :title="
+                pinnedSection === 'image' ? 'Unpin Section' : 'Pin Section'
+              "
+              @click="pinSection('image')"
             >
-              <img
-                :src="image"
-                alt="تصویر اخیر"
-                class="image-swatch-img"
-              />
-              <button
-                class="remove-image-btn-small"
-                @click.stop="removeRecentImage(image)"
+              {{ pinnedSection === 'image' ? '📌' : '📌' }}
+            </button>
+          </div>
+          <div class="image-picker-container">
+            <div class="available-images-grid">
+              <div
+                v-for="image in availableImages"
+                :key="image.name"
+                class="image-item"
+                :class="{ selected: selectedBeadImage?.url === image.url }"
+                @click="selectBeadImage(image)"
               >
-                ×
+                <img
+                  :src="image.url"
+                  :alt="image.displayName"
+                  class="bead-image"
+                />
+                <span class="image-name">{{ image.displayName }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- تصاویر اخیر -->
+          <div
+            v-if="recentImages.length > 0"
+            class="recent-images-section"
+          >
+            <div class="recent-images-header">
+              <h4 class="text-sm font-semibold text-gray-700">
+                🔄 تصاویر اخیر
+              </h4>
+              <button
+                class="clear-images-btn"
+                title="پاک کردن تمام تصاویر"
+                @click="clearRecentImages"
+              >
+                🗑️ پاک کردن
               </button>
+            </div>
+            <div class="recent-images-grid">
+              <div
+                v-for="image in recentImages"
+                :key="image.url"
+                class="recent-image-item"
+                :class="{ selected: selectedBeadImage?.url === image.url }"
+                @click="selectBeadImage(image)"
+              >
+                <img
+                  :src="image.url"
+                  :alt="image.displayName"
+                  class="recent-bead-image"
+                />
+                <button
+                  class="remove-image-btn"
+                  @click.stop="removeRecentImage(image)"
+                >
+                  ×
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
         <!-- ابزارهای اصلی -->
         <div class="tools-section">
+          <div class="section-header">
           <h4 class="mb-2 text-sm font-semibold text-gray-700">🛠️ ابزارها</h4>
+            <button
+              class="pin-btn"
+              :class="{ pinned: pinnedSection === 'tools' }"
+              :title="
+                pinnedSection === 'tools' ? 'Unpin Section' : 'Pin Section'
+              "
+              @click="pinSection('tools')"
+            >
+              {{ pinnedSection === 'tools' ? '📌' : '📌' }}
+            </button>
+          </div>
           <div class="tools-grid">
             <button
               class="tool-btn primary"
@@ -376,7 +1274,19 @@
 
         <!-- دکمه‌های خروجی -->
         <div class="export-section">
+          <div class="section-header">
           <h4 class="mb-2 text-sm font-semibold text-gray-700">📤 خروجی</h4>
+            <button
+              class="pin-btn"
+              :class="{ pinned: pinnedSection === 'export' }"
+              :title="
+                pinnedSection === 'export' ? 'Unpin Section' : 'Pin Section'
+              "
+              @click="pinSection('export')"
+            >
+              {{ pinnedSection === 'export' ? '📌' : '📌' }}
+            </button>
+          </div>
 
           <!-- دکمه‌های ذخیره و بارگذاری -->
           <div class="save-load-buttons mb-3">
@@ -434,10 +1344,55 @@
   
   const emit = defineEmits(['update-grid']);
   
-  // File upload state
+  // File upload state (only for preview/idea)
   const selectedImage = ref(null);
   const recentImages = ref([]);
   const selectionMode = ref('color'); // 'color' or 'image'
+  
+  // Bead images for painting
+  const availableImages = ref([]);
+  const selectedBeadImage = ref(null);
+
+  // Mobile panel state
+  const isMobilePanelOpen = ref(false);
+
+  // Pinning state
+  const pinnedSection = ref(null);
+
+  // Toggle mobile panel
+  function toggleMobilePanel() {
+    isMobilePanelOpen.value = !isMobilePanelOpen.value;
+  }
+
+  // Pin/unpin section functions
+  function pinSection(sectionName) {
+    if (pinnedSection.value === sectionName) {
+      // If already pinned, unpin it
+      pinnedSection.value = null;
+    } else {
+      // Pin the new section (this will automatically unpin the previous one)
+      pinnedSection.value = sectionName;
+      // Auto-close the mobile menu when pinning a section
+      isMobilePanelOpen.value = false;
+    }
+  }
+
+  function unpinSection() {
+    pinnedSection.value = null;
+  }
+
+  // Helper functions for pinned section
+  function getSectionTitle(sectionName) {
+    const titles = {
+      dimensions: '📐 ابعاد شبکه',
+      color: '🎨 انتخاب رنگ',
+      mode: '🎨 حالت طراحی',
+      image: '🖼️ انتخاب تصویر',
+      tools: '🛠️ ابزارها',
+      export: '📤 خروجی',
+    };
+    return titles[sectionName] || sectionName;
+  }
   
   // تنظیمات — این مقادیر را مطابق نیازت تغییر بده
   const cols = ref(12);     // طول (تعداد ستون‌ها)
@@ -645,15 +1600,15 @@
   }
 
   // Image management functions
-  function addToRecentImages(imageDataUrl) {
+  function addToRecentImages(image) {
     // Remove image if it already exists to avoid duplicates
-    const index = recentImages.value.indexOf(imageDataUrl);
+    const index = recentImages.value.findIndex((img) => img.url === image.url);
     if (index > -1) {
       recentImages.value.splice(index, 1);
     }
     
     // Add image to the beginning of the array
-    recentImages.value.unshift(imageDataUrl);
+    recentImages.value.unshift(image);
     
     // Limit to maximum 10 recent images
     if (recentImages.value.length > 10) {
@@ -661,8 +1616,8 @@
     }
   }
 
-  function removeRecentImage(imageDataUrl) {
-    const index = recentImages.value.indexOf(imageDataUrl);
+  function removeRecentImage(image) {
+    const index = recentImages.value.findIndex((img) => img.url === image.url);
     if (index > -1) {
       recentImages.value.splice(index, 1);
     }
@@ -672,19 +1627,100 @@
     recentImages.value = [];
   }
 
-  function clearSelectedImage() {
-    selectedImage.value = null;
-    selectionMode.value = 'color'; // Switch back to color mode when image is cleared
-  }
+  // clearSelectedImage is kept for potential future use with preview image
+  // function clearSelectedImage() {
+  //   selectedImage.value = null;
+  //   // Don't change selectionMode when clearing preview image
+  // }
 
   function setColorMode() {
     selectionMode.value = 'color';
   }
 
   function setImageMode() {
-    if (selectedImage.value) {
+    // if (selectedBeadImage.value) {
       selectionMode.value = 'image';
-    }
+    // }
+  }
+
+  // بارگذاری تصاویر موجود در پوشه beads
+  function loadAvailableImages() {
+    const imageFiles = [
+      '310.jpg',
+      '1130.jpg',
+      '1135.jpg',
+      '2116.jpg',
+      '2131.jpg',
+      '2132.jpg',
+      '725.jpg',
+      '877.jpg',
+      'f111.jpg',
+      'f222.jpg',
+      'f333.jpg',
+      'f444.jpg',
+      'f555.jpg',
+      'f666.jpg',
+      'f777.jpg',
+      'f888.jpg',
+      'f999.jpg',
+      'f1010.jpg',
+      'f1111.jpg',
+      'f1212.jpg',
+      'f1313.jpg',
+      'f1414.jpg',
+      'f1515.jpg',
+      'Awhite.jpg',
+      'db0042.jpg',
+      'db0221.jpg',
+      'db0231.jpg',
+      'db0268.jpg',
+      'db0623.jpg',
+      'db0627.jpg',
+      'db0635.jpg',
+      'db0651.jpg',
+      'db0721.jpg',
+      'db0722.jpg',
+      'db0723.jpg',
+      'db0725.jpg',
+      'db0726.jpg',
+      'db0729.jpg',
+      'db0759.jpg',
+      'db0763.jpg',
+      'db0791.jpg',
+      'db0796.jpg',
+      'db0877.jpg',
+      'db1132.jpg',
+      'db1133.jpg',
+      'db1135.jpg',
+      'db1153.jpg',
+      'db1262.jpg',
+      'db1570.jpg',
+      'db2111.jpg',
+      'db2127.jpg',
+      'db2131.jpg',
+      'db2132.jpg',
+      'db2144.jpg',
+      'db2316.jpg',
+      'db2352.jpg',
+      'db2357.jpg',
+      'db310.jpg',
+      'db626.jpg',
+      'db732.jpg',
+      'db856.jpg',
+    ];
+
+    availableImages.value = imageFiles.map((filename) => ({
+      name: filename,
+      url: `/miyuki-beads-designer/beads/${filename}`,
+      displayName: filename.replace('.jpg', ''),
+    }));
+  }
+
+  // انتخاب تصویر مهره
+  function selectBeadImage(image) {
+    selectedBeadImage.value = image;
+    addToRecentImages(image);
+    setImageMode(); // Automatically switch to image mode
   }
   
   function setTool(newTool) {
@@ -748,7 +1784,9 @@
   function toggleCell(r, c) {
     if (grid[r] && grid[r][c] !== undefined) {
       const currentValue = grid[r][c];
-      const newValue = selectionMode.value === 'image' ? selectedImage.value : selectedColor.value;
+      const newValue = selectionMode.value === 'image' && selectedBeadImage.value 
+        ? selectedBeadImage.value.url 
+        : selectedColor.value;
       
       // Toggle between current value and selected value (color or image)
       grid[r][c] = currentValue === newValue ? backgroundColor.value : newValue;
@@ -756,22 +1794,24 @@
       // Add to recent colors/images when painting
       if (grid[r][c] === selectedColor.value) {
         addToRecentColors(selectedColor.value);
-      } else if (grid[r][c] === selectedImage.value) {
-        addToRecentImages(selectedImage.value);
+      } else if (selectionMode.value === 'image' && selectedBeadImage.value && grid[r][c] === selectedBeadImage.value.url) {
+        addToRecentImages(selectedBeadImage.value);
       }
     }
   }
   
   function paintCell(r, c) {
     if (grid[r] && grid[r][c] !== undefined) {
-      const newValue = selectionMode.value === 'image' ? selectedImage.value : selectedColor.value;
+      const newValue = selectionMode.value === 'image' && selectedBeadImage.value 
+        ? selectedBeadImage.value.url 
+        : selectedColor.value;
       grid[r][c] = newValue;
       
       // Add to recent colors/images when painting
       if (newValue === selectedColor.value) {
         addToRecentColors(selectedColor.value);
-      } else if (newValue === selectedImage.value) {
-        addToRecentImages(selectedImage.value);
+      } else if (selectionMode.value === 'image' && selectedBeadImage.value) {
+        addToRecentImages(selectedBeadImage.value);
       }
     }
   }
@@ -781,7 +1821,9 @@
     if (!grid[startR] || grid[startR][startC] === undefined) return;
     
     const targetValue = grid[startR][startC];
-    const fillValue = selectionMode.value === 'image' ? selectedImage.value : selectedColor.value;
+    const fillValue = selectionMode.value === 'image' && selectedBeadImage.value 
+      ? selectedBeadImage.value.url 
+      : selectedColor.value;
     
     if (targetValue === fillValue) return;
     
@@ -1441,8 +2483,7 @@
     reader.onload = (e) => {
       const imageDataUrl = e.target.result;
       selectedImage.value = imageDataUrl;
-      addToRecentImages(imageDataUrl);
-      setImageMode(); // Automatically switch to image mode when image is uploaded
+      // Don't add to recent images or change mode - this is only for preview/idea
     };
     reader.readAsDataURL(file);
   }
@@ -1464,8 +2505,11 @@
     const isSelected = selection.value.includes(`${r},${c}`);
     const isPasteTarget = isPasteMode.value;
     
-    // Check if the cell value is an image (data URL) or a color
-    const isImage = cellValue && cellValue.startsWith('data:image/');
+    // Check if the cell value is an image (data URL or bead image URL)
+    const isImage = cellValue && (
+      cellValue.startsWith('data:image/') || 
+      cellValue.startsWith('/miyuki-beads-designer/beads/')
+    );
     
     const baseStyle = {
       width: `${cellWidth.value}px`,
@@ -1479,6 +2523,7 @@
     if (isImage) {
       return {
         ...baseStyle,
+        backgroundColor: 'transparent',
         backgroundImage: `url(${cellValue})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
@@ -1498,6 +2543,9 @@
     
     // Initialize grid first
     initializeGrid();
+    
+    // Load available bead images
+    loadAvailableImages();
     
     // یک موج نمونه در ستون‌ها (نمایشی)
     for (let j = 0; j < cols.value; j++) {
@@ -1677,8 +2725,9 @@
   }  
   .peyote-editor-container {
     display: flex;
-    height: 100vh;
-    overflow: hidden;
+    gap: 20px;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   }
 
   .main-content {
@@ -1688,153 +2737,274 @@
   }
 
   .controls-panel {
-    width: 320px;
-    background: #f8f9fa;
-    border-left: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 260px;
+    height: calc(100vh - 168px);
+    background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+    border-left: 1px solid #dee2e6;
+    z-index: 1000;
     overflow-y: auto;
-    padding: 20px;
-    box-shadow: -2px 0 4px rgba(0, 0, 0, 0.1);
+    padding: 12px;
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.08);
+    scrollbar-width: thin;
+    scrollbar-color: #adb5bd #f8f9fa;
+  }
+
+  .controls-panel::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .controls-panel::-webkit-scrollbar-track {
+    background: #f8f9fa;
+  }
+
+  .controls-panel::-webkit-scrollbar-thumb {
+    background: #adb5bd;
+    border-radius: 3px;
+  }
+
+  .controls-panel::-webkit-scrollbar-thumb:hover {
+    background: #6c757d;
   }
 
   .controls-header {
-    border-bottom: 2px solid #e5e7eb;
-    padding-bottom: 15px;
-    margin-bottom: 20px;
+    text-align: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #dee2e6;
+  }
+
+  .controls-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #495057;
   }
 
   .controls-content {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 12px;
   }
 
   .dimensions-section,
   .color-section,
   .tools-section,
   .export-section {
-    background: white;
-    padding: 15px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 1px solid #dee2e6;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: all 0.2s ease;
+  }
+
+  .dimensions-section:hover,
+  .color-section:hover,
+  .tools-section:hover,
+  .export-section:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .dimensions-section h4,
+  .color-section h4,
+  .tools-section h4,
+  .export-section h4 {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #495057;
   }
 
   .dimension-inputs {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 6px;
+    margin-top: 4px;
   }
 
   .dimension-label {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
+    gap: 8px;
   }
 
   .dimension-text {
-    font-size: 14px;
-    color: #374151;
+    font-size: 12px;
+    color: #6c757d;
+    font-weight: 500;
   }
 
   .dimension-input {
-    width: 80px;
-    padding: 4px 8px;
-    color: #374151 !important;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
-    font-size: 14px;
+    width: 60px;
+    color: #495057;
+    padding: 6px 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 12px;
+    background: #ffffff;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  }
+
+  .dimension-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+  }
+
+  .dimension-input:hover {
+    border-color: #adb5bd;
   }
 
   .color-picker-container {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 10px;
+    gap: 8px;
+    margin-top: 4px;
   }
 
   .color-picker {
-    width: 40px;
-    height: 40px;
-    border: none;
-    border-radius: 4px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid #dee2e6;
     cursor: pointer;
+    padding: 0;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  }
+
+  .color-picker:hover {
+    transform: scale(1.05);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
   }
 
   .color-value {
     font-size: 12px;
-    color: #6b7280;
-    font-family: monospace;
+    color: #495057;
+    font-weight: 500;
+    background: #f8f9fa;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+    min-width: 60px;
+    text-align: center;
   }
 
   .recent-colors-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
+  }
+
+  .recent-colors-header h4 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #495057;
   }
 
   .clear-colors-btn {
-    background: #ef4444;
+    background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
     color: white;
-    border: none;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
     cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    box-shadow: 0 2px 6px rgba(255, 71, 87, 0.3);
+  }
+
+  .clear-colors-btn:hover {
+    background-color: #d32f2f;
+    transform: translateY(-1px);
   }
 
   .recent-colors-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 5px;
+    grid-template-columns: repeat(auto-fill, minmax(28px, 1fr));
+    gap: 6px;
+    margin-top: 8px;
   }
 
   .color-swatch {
-    width: 30px;
-    height: 30px;
-    border-radius: 4px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
     cursor: pointer;
     position: relative;
-    border: 2px solid #e5e7eb;
+    border: 1px solid #dee2e6;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  }
+
+  .color-swatch:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   }
 
   .remove-color-btn {
     position: absolute;
-    top: -5px;
-    right: -5px;
-    width: 16px;
-    height: 16px;
-    background: #ef4444;
+    top: -6px;
+    right: -6px;
+    background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
     color: white;
-    border: none;
+    width: 18px;
+    height: 18px;
     border-radius: 50%;
-    font-size: 10px;
-    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    border: 1px solid white;
+    padding: 0;
+    line-height: 1;
+    opacity: 0;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 4px rgba(255, 71, 87, 0.4);
+  }
+
+  .color-swatch:hover .remove-color-btn {
+    opacity: 1;
   }
 
   .tools-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 8px;
   }
 
   .tool-btn {
-    padding: 8px 12px;
-    border: 1px solid #d1d5db;
+    padding: 8px 6px;
+    border: 1px solid transparent;
     border-radius: 6px;
-    font-size: 12px;
     cursor: pointer;
-    transition: all 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   }
 
   .tool-btn:hover {
-    background: #f3f4f6;
+    background-color: #e0e0e0;
+    border-color: #ccc;
+    transform: translateY(-1px);
   }
 
   .tool-btn:disabled {
@@ -1843,45 +3013,102 @@
   }
 
   .tool-btn.active {
-    background: #3b82f6;
+    background-color: #4caf50;
     color: white;
-    border-color: #3b82f6;
+    border-color: #4caf50;
   }
 
   .tool-btn.primary {
-    background: #3b82f6;
+    background-color: #4caf50;
     color: white;
-    border-color: #3b82f6;
+    border-color: #4caf50;
+  }
+
+  .tool-btn.primary:hover {
+    background-color: #388e3c;
+    border-color: #388e3c;
   }
 
   .tool-btn.secondary {
-    background: #6b7280;
+    background-color: #2196f3;
     color: white;
-    border-color: #6b7280;
+    border-color: #2196f3;
+  }
+
+  .tool-btn.secondary:hover {
+    background-color: #1976d2;
+    border-color: #1976d2;
   }
 
   .tool-btn.success {
-    background: #10b981;
+    background-color: #4caf50;
     color: white;
-    border-color: #10b981;
+    border-color: #4caf50;
+  }
+
+  .tool-btn.success:hover {
+    background-color: #388e3c;
+    border-color: #388e3c;
   }
 
   .tool-btn.danger {
-    background: #ef4444;
+    background-color: #f44336;
     color: white;
-    border-color: #ef4444;
+    border-color: #f44336;
+  }
+
+  .tool-btn.danger:hover {
+    background-color: #d32f2f;
+    border-color: #d32f2f;
   }
 
   .background-color-section {
-    margin-top: 15px;
-    padding-top: 15px;
-    border-top: 1px solid #e5e7eb;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: all 0.2s ease;
+  }
+
+  .background-color-section:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
 
   .background-color-controls {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .background-color-controls .color-picker {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid #dee2e6;
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  }
+
+  .background-color-controls .color-picker:hover {
+    transform: scale(1.05);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+  }
+
+  .background-color-controls .tool-btn {
+    flex: 1;
+    min-width: 100px;
+  }
+
+  .export-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
   }
 
   .export-section .grid {
@@ -1891,50 +3118,88 @@
   }
 
   .export-btn {
-    padding: 8px 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    font-size: 12px;
+    padding: 10px 8px;
+    border: 1px solid transparent;
+    border-radius: 8px;
     cursor: pointer;
-    transition: all 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
   }
 
   .export-btn:hover {
-    background: #f3f4f6;
+    background-color: #e0e0e0;
+    border-color: #ccc;
+    transform: translateY(-1px);
   }
 
   .export-btn.primary {
-    background: #3b82f6;
+    background-color: #4caf50;
     color: white;
-    border-color: #3b82f6;
+    border-color: #4caf50;
+  }
+
+  .export-btn.primary:hover {
+    background-color: #388e3c;
+    border-color: #388e3c;
   }
 
   .export-btn.success {
-    background: #10b981;
+    background-color: #4caf50;
     color: white;
-    border-color: #10b981;
+    border-color: #4caf50;
+  }
+
+  .export-btn.success:hover {
+    background-color: #388e3c;
+    border-color: #388e3c;
   }
 
   .export-btn.info {
-    background: #06b6d4;
+    background-color: #2196f3;
     color: white;
-    border-color: #06b6d4;
+    border-color: #2196f3;
+  }
+
+  .export-btn.info:hover {
+    background-color: #1976d2;
+    border-color: #1976d2;
   }
 
   .export-btn.warning {
-    background: #f59e0b;
+    background-color: #ff9800;
     color: white;
-    border-color: #f59e0b;
+    border-color: #ff9800;
+  }
+
+  .export-btn.warning:hover {
+    background-color: #f57c00;
+    border-color: #f57c00;
   }
 
   .save-load-buttons {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .save-load-buttons .export-btn {
+    flex: 1;
+    min-width: 100px;
+  }
+
+  .export-section .export-btn {
+    margin-bottom: 6px;
+    transition: all 0.2s ease;
+  }
+
+  .export-section .export-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
   }
 
   .cell {
@@ -2236,146 +3501,177 @@
 
   /* Image section styles */
   .image-section {
-    background: white;
-    padding: 15px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 1px solid #dee2e6;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: all 0.2s ease;
   }
 
-  .image-upload-container {
-    margin-bottom: 10px;
-  }
-
-  .image-upload-label {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 10px 15px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border: 2px dashed rgba(255, 255, 255, 0.3);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    color: white;
-    font-weight: 500;
-    font-size: 12px;
-  }
-
-  .image-upload-label:hover {
-    background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
-    border-color: rgba(255, 255, 255, 0.5);
+  .image-section:hover {
     transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
 
-  .image-upload-input {
-    display: none;
+  .image-picker-container {
+    margin-top: 8px;
+    width: 100%;
   }
 
-  .selected-image-preview {
-    position: relative;
-    margin-bottom: 10px;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 2px solid #dee2e6;
+  .available-images-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    gap: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 4px;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
     background: #f8f9fa;
   }
 
-  .preview-image-small {
-    width: 100%;
-    height: 60px;
-    object-fit: cover;
-    display: block;
+  .image-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6px;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: white;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   }
 
-  .remove-image-btn {
-    position: absolute;
-    top: 5px;
-    right: 5px;
-    width: 20px;
-    height: 20px;
-    background: #ef4444;
-    color: white;
-    border: none;
-    border-radius: 50%;
-    font-size: 12px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: bold;
+  .image-item:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .image-item.selected {
+    border-color: #667eea;
+    background: linear-gradient(135deg, #f8f9ff 0%, #e6f0ff 100%);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  }
+
+  .bead-image {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+  }
+
+  .image-name {
+    font-size: 10px;
+    color: #6c757d;
+    margin-top: 4px;
+    text-align: center;
+    font-weight: 500;
+  }
+
+  .recent-images-section {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e9ecef;
   }
 
   .recent-images-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
+  }
+
+  .recent-images-header h4 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #495057;
   }
 
   .clear-images-btn {
-    background: #ef4444;
+    background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
     color: white;
-    border: none;
     padding: 4px 8px;
     border-radius: 4px;
-    font-size: 12px;
+    font-size: 10px;
+    font-weight: 500;
     cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    box-shadow: 0 1px 4px rgba(255, 71, 87, 0.3);
+  }
+
+  .clear-images-btn:hover {
+    background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+    transform: translateY(-1px);
   }
 
   .recent-images-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 5px;
+    grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
+    gap: 6px;
   }
 
-  .image-swatch {
+  .recent-image-item {
     position: relative;
-    width: 40px;
-    height: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 4px;
+    border: 2px solid transparent;
     border-radius: 4px;
     cursor: pointer;
-    border: 2px solid #e5e7eb;
-    overflow: hidden;
     transition: all 0.2s ease;
+    background: white;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   }
 
-  .image-swatch:hover {
+  .recent-image-item:hover {
     transform: scale(1.05);
-    border-color: #3b82f6;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   }
 
-  .image-swatch.active {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  .recent-image-item.selected {
+    border-color: #667eea;
+    background: linear-gradient(135deg, #f8f9ff 0%, #e6f0ff 100%);
+    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
   }
 
-  .image-swatch-img {
-    width: 100%;
-    height: 100%;
+  .recent-bead-image {
+    width: 32px;
+    height: 32px;
     object-fit: cover;
+    border-radius: 3px;
+    border: 1px solid #dee2e6;
   }
 
-  .remove-image-btn-small {
+  .remove-image-btn {
     position: absolute;
-    top: -5px;
-    right: -5px;
+    top: -4px;
+    right: -4px;
+    background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+    color: white;
     width: 16px;
     height: 16px;
-    background: #ef4444;
-    color: white;
-    border: none;
     border-radius: 50%;
-    font-size: 10px;
-    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-size: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    border: 1px solid white;
+    padding: 0;
+    line-height: 1;
     opacity: 0;
     transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(255, 71, 87, 0.4);
   }
 
-  .image-swatch:hover .remove-image-btn-small {
+  .recent-image-item:hover .remove-image-btn {
     opacity: 1;
   }
 
@@ -2394,34 +3690,64 @@
     color: #1976d2;
   }
 
+  .mode-section {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: all 0.2s ease;
+  }
+
+  .mode-section:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .mode-section h4 {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #495057;
+  }
+
+  .mode-toggle {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
   .mode-switch-buttons {
     display: flex;
-    gap: 8px;
-    margin-bottom: 10px;
+    gap: 6px;
+    margin-top: 8px;
   }
 
   .mode-btn {
     flex: 1;
     padding: 8px 12px;
-    border: 1px solid #d1d5db;
+    border: 1px solid #dee2e6;
     border-radius: 6px;
+    background: #ffffff;
+    color: #495057;
+    cursor: pointer;
     font-size: 12px;
     font-weight: 500;
-    cursor: pointer;
     transition: all 0.2s ease;
-    background: white;
-    color: #374151;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   }
 
   .mode-btn:hover {
-    background: #f3f4f6;
-    border-color: #9ca3af;
+    background: #f8f9fa;
+    border-color: #adb5bd;
+    transform: translateY(-1px);
   }
 
   .mode-btn.active {
-    background: #3b82f6;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    border-color: #3b82f6;
+    border-color: #667eea;
+    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
   }
 
   .mode-btn:disabled {
@@ -2432,6 +3758,354 @@
   .mode-btn:disabled:hover {
     background: white;
     border-color: #d1d5db;
+  }
+
+  /* Section Header with Pin Button */
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .pin-btn {
+    background: transparent;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s ease;
+    color: #6c757d;
+  }
+
+  .pin-btn:hover {
+    background: #f8f9fa;
+    border-color: #adb5bd;
+    transform: scale(1.1);
+  }
+
+  .pin-btn.pinned {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: #667eea;
+    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+  }
+
+  .pin-btn.pinned:hover {
+    background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+    transform: scale(1.1);
+  }
+
+  /* Pinned Section Styles */
+  .pinned-section {
+    position: fixed;
+    top: 50px;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border-bottom: 2px solid #667eea;
+    z-index: 1800;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    max-height: 200px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .pinned-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    flex-shrink: 0;
+  }
+
+  .pinned-section-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .unpin-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: bold;
+    transition: all 0.2s ease;
+  }
+
+  .unpin-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+  }
+
+  .pinned-section-content {
+    padding: 16px;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  .pinned-section-content::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .pinned-section-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+  }
+
+  .pinned-section-content::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+  }
+
+  .pinned-section-content::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+  }
+
+  /* Mobile Styles */
+  @media (max-width: 768px) {
+    .peyote-editor-container {
+      flex-direction: column;
+      padding: 0;
+      gap: 0;
+    }
+
+    /* Mobile Control Bar */
+    .mobile-control-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 2000;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .mobile-menu-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      padding: 4px 8px;
+      color: white;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      backdrop-filter: blur(10px);
+    }
+
+    .mobile-menu-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .mobile-menu-btn.active {
+      background: rgba(255, 255, 255, 0.4);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .menu-icon {
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .menu-text {
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .mobile-title {
+      font-size: 16px;
+      font-weight: 600;
+      text-align: center;
+      flex: 1;
+    }
+
+    /* Mobile Dropdown Panel */
+    .mobile-dropdown-panel {
+      position: fixed;
+      top: 50px;
+      left: 0;
+      right: 0;
+      background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+      border-bottom: 1px solid #dee2e6;
+      z-index: 1500;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .mobile-dropdown-panel.open {
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .mobile-panel-content {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .mobile-image-section {
+      background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+
+    .mobile-controls-content {
+      background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+
+    /* Hide desktop controls panel on mobile */
+    .controls-panel {
+      display: none;
+    }
+
+    /* Make grid container full screen on mobile */
+    .grid-container {
+      margin-right: 0;
+      margin-top: 50px;
+      padding: 10px;
+      height: calc(100vh - 50px);
+      flex-direction: column;
+      transition: margin-top 0.3s ease;
+    }
+
+    /* Adjust grid container when section is pinned */
+    .grid-container.pinned-active {
+      margin-top: 250px; /* 50px (mobile bar) + 200px (pinned section) */
+    }
+
+    .image-section {
+      display: none;
+    }
+
+    .main-content {
+      flex: 1;
+      min-height: 0;
+      padding: 12px;
+      max-height: calc(100vh - 182px);
+      -webkit-overflow-scrolling: touch;
+      overflow: auto;
+    }
+
+    /* Mobile-specific adjustments for tools */
+    .tools-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .tool-btn {
+      padding: 10px 8px;
+      font-size: 12px;
+    }
+
+    /* Mobile-specific adjustments for export buttons */
+    .export-section .grid {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .export-btn {
+      padding: 12px 8px;
+      font-size: 13px;
+    }
+
+    /* Mobile-specific adjustments for color picker */
+    .color-picker-container {
+      flex-direction: column;
+      gap: 8px;
+      align-items: flex-start;
+    }
+
+    .color-picker {
+      width: 40px;
+      height: 40px;
+    }
+
+    /* Mobile-specific adjustments for dimension inputs */
+    .dimension-inputs {
+      gap: 8px;
+    }
+
+    .dimension-label {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+    }
+
+    .dimension-input {
+      width: 100%;
+      max-width: 120px;
+    }
+
+    /* Mobile-specific adjustments for mode toggles */
+    .mode-toggle {
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .mode-btn {
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+
+    /* Mobile-specific adjustments for image grids */
+    .recent-images-grid {
+      grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+      gap: 4px;
+    }
+
+    /* Mobile-specific adjustments for background controls */
+    .background-color-controls {
+      flex-direction: column;
+      gap: 8px;
+      align-items: flex-start;
+    }
+  }
+
+  /* Desktop styles - ensure desktop layout is preserved */
+  @media (min-width: 769px) {
+    .mobile-control-bar,
+    .mobile-dropdown-panel {
+      display: none;
+    }
+
+    .grid-container {
+      margin-top: 0;
+    }
   }
   </style>
   
