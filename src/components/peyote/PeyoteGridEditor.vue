@@ -75,6 +75,25 @@
                 class="dimension-input"
               />
             </label>
+            <div class="dimension-label">
+              <span class="dimension-text">جهت گرید:</span>
+              <div class="orientation-toggle-group">
+                <button
+                  class="orientation-toggle-btn"
+                  :class="{ active: gridOrientation === 'vertical' }"
+                  @click="gridOrientation = 'vertical'"
+                >
+                  ↕️ عمودی
+                </button>
+                <button
+                  class="orientation-toggle-btn"
+                  :class="{ active: gridOrientation === 'horizontal' }"
+                  @click="gridOrientation = 'horizontal'"
+                >
+                  ↔️ افقی
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -870,10 +889,10 @@
       <!-- Grid wrapper: flex row so columns sit side-by-side -->
       <div
         ref="gridWrapper"
-        class="overflow-auto border rounded p-2 bg-white"
-        :style="{ height: gridHeight + 'px', minWidth: gridMinWidth + 'px' }"
+        class="overflow-auto border rounded p-2 bg-white h-[80vh]"
       >
-            <div v-if="isGridReady" class="flex items-start" :style="{ gap: '0px' }">
+        <!-- حالت عمودی: ستون‌ها افقی، ردیف‌ها عمودی -->
+        <div v-if="isGridReady && gridOrientation === 'vertical'" class="flex items-start" :style="{ gap: '0px' }">
           <!-- each column -->
           <div
             v-for="c in colsArr"
@@ -897,8 +916,35 @@
             </div>
           </div>
         </div>
-            <div v-else class="flex items-center justify-center h-full text-gray-500">
-                Loading grid...
+        
+        <!-- حالت افقی: ردیف‌ها افقی، ستون‌ها عمودی -->
+        <div v-else-if="isGridReady && gridOrientation === 'horizontal'" class="flex flex-col items-start" :style="{ gap: '0px' }">
+          <!-- each row -->
+          <div
+            v-for="r in rowsArr"
+            :key="r"
+            class="flex-shrink-0 flex items-start"
+            :style="{ height: cellHeight + 'px', width: '100%' }"
+          >
+            <!-- row content (cells side-by-side). we apply translateX to create peyote offset -->
+            <div
+              class="flex items-start"
+              :style="rowOffsetStyle(r)"
+            >
+              <div
+                v-for="c in colsArr"
+                :key="`${r}-${c}`"
+                class="cell cursor-pointer border-[1px] border-gray-200 flex-shrink-0"
+                :style="cellStyle(r, c)"
+                     @mousedown="handleCellClick(r, c)"
+                     @mouseenter="handleCellMouseEnter(r, c)"
+              ></div>
+            </div>
+          </div>
+        </div>
+        
+        <div v-else class="flex items-center justify-center h-full text-gray-500">
+          Loading grid...
         </div>
       </div>
   
@@ -974,6 +1020,25 @@
                 class="dimension-input"
               />
             </label>
+            <div class="dimension-label">
+              <span class="dimension-text">جهت گرید:</span>
+              <div class="orientation-toggle-group">
+                <button
+                  class="orientation-toggle-btn"
+                  :class="{ active: gridOrientation === 'vertical' }"
+                  @click="gridOrientation = 'vertical'"
+                >
+                  ↕️ عمودی
+                </button>
+                <button
+                  class="orientation-toggle-btn"
+                  :class="{ active: gridOrientation === 'horizontal' }"
+                  @click="gridOrientation = 'horizontal'"
+                >
+                  ↔️ افقی
+                </button>
+              </div>
+            </div>
 
           </div>
         </div>
@@ -1400,6 +1465,9 @@
   const cellWidth = ref(15); // عرض هر خانه (پیکسل)
   const cellHeight = ref(17); // ارتفاع هر خانه (پیکسل)
   
+  // جهت گرید: 'vertical' (عمودی) یا 'horizontal' (افقی)
+  const gridOrientation = ref('vertical');
+  
   // پالت رنگ‌ها
   const palette = [
     { key: 'DB-1510', hex: '#efe9df' },
@@ -1430,8 +1498,28 @@
     historyIndex.value = 0;
   }
   
-  const gridHeight = computed(() => rows.value * cellHeight.value + cellHeight.value);
-  const gridMinWidth = computed(() => cols.value * cellWidth.value + cellWidth.value);
+  // محاسبه ارتفاع و عرض گرید بر اساس جهت
+  // eslint-disable-next-line no-unused-vars
+  const gridHeight = computed(() => {
+    if (gridOrientation.value === 'horizontal') {
+      // در حالت افقی: ردیف‌ها افقی هستند، پس ارتفاع = تعداد ستون‌ها × ارتفاع سل
+      return cols.value * cellHeight.value + cellHeight.value;
+    } else {
+      // در حالت عمودی: ردیف‌ها عمودی هستند، پس ارتفاع = تعداد ردیف‌ها × ارتفاع سل
+      return rows.value * cellHeight.value + cellHeight.value;
+    }
+  });
+  
+  // eslint-disable-next-line no-unused-vars
+  const gridMinWidth = computed(() => {
+    if (gridOrientation.value === 'horizontal') {
+      // در حالت افقی: ردیف‌ها افقی هستند، پس عرض = تعداد ردیف‌ها × عرض سل
+      return rows.value * cellWidth.value + cellWidth.value;
+    } else {
+      // در حالت عمودی: ستون‌ها افقی هستند، پس عرض = تعداد ستون‌ها × عرض سل
+      return cols.value * cellWidth.value + cellWidth.value;
+    }
+  });
   
   // Check if grid is properly initialized
   const isGridReady = computed(() => {
@@ -2178,7 +2266,8 @@
       cellWidth: cellWidth.value,
       cellHeight: cellHeight.value,
       selectedColor: selectedColor.value,
-      backgroundColor: backgroundColor.value
+      backgroundColor: backgroundColor.value,
+      orientation: gridOrientation.value // ذخیره جهت گرید
     };
     localStorage.setItem('peyoteGrid', JSON.stringify(data));
   }
@@ -2193,6 +2282,11 @@
       cellHeight.value = data.cellHeight || 15;
       selectedColor.value = data.selectedColor || palette[2].hex;
       backgroundColor.value = data.backgroundColor || '#ffffff';
+      
+      // بارگذاری جهت گرید اگر ذخیره شده باشد
+      if (data.orientation && (data.orientation === 'vertical' || data.orientation === 'horizontal')) {
+        gridOrientation.value = data.orientation;
+      }
       
       if (data.grid) {
         resizeGrid(rows.value, cols.value);
@@ -2209,8 +2303,17 @@
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
-    canvas.width = cols.value * cellWidth.value;
-    canvas.height = rows.value * cellHeight.value;
+    // محاسبه ابعاد canvas بر اساس جهت گرید و peyote offset
+    if (gridOrientation.value === 'horizontal') {
+      // در حالت افقی: ردیف‌ها افقی هستند (rows)، ستون‌ها عمودی هستند (cols)
+      // عرض = ستون‌ها × عرض سل + نیم‌سل برای offset، ارتفاع = ردیف‌ها × ارتفاع سل
+      canvas.width = cols.value * cellWidth.value + cellWidth.value / 2;
+      canvas.height = rows.value * cellHeight.value;
+    } else {
+      // در حالت عمودی: عرض = ستون‌ها × عرض سل، ارتفاع = ردیف‌ها × ارتفاع سل + نیم‌سل برای offset
+      canvas.width = cols.value * cellWidth.value;
+      canvas.height = rows.value * cellHeight.value + cellHeight.value / 2;
+    }
     
     // Draw background
     ctx.fillStyle = backgroundColor.value;
@@ -2225,10 +2328,11 @@
       for (let c = 0; c < cols.value; c++) {
         const cellValue = grid[r][c] || backgroundColor.value;
         
-        if (cellValue && cellValue.startsWith('data:image/')) {
+        if (cellValue && (cellValue.startsWith('data:image/') || cellValue.startsWith('/miyuki-beads-designer/beads/'))) {
           const promise = new Promise((resolve) => {
             const img = new Image();
             img.onload = () => resolve({ img, r, c });
+            img.onerror = () => resolve({ img: null, r, c }); // Handle image load errors
             img.src = cellValue;
           });
           imagePromises.push(promise);
@@ -2240,17 +2344,30 @@
     // Wait for all images to load
     const loadedImages = await Promise.all(imagePromises);
     
-    // Draw all cells
+    // Draw all cells با اعمال peyote offset
     for (let r = 0; r < rows.value; r++) {
       for (let c = 0; c < cols.value; c++) {
         const cellValue = grid[r][c] || backgroundColor.value;
-        const x = c * cellWidth.value;
-        const y = r * cellHeight.value;
         
-        if (cellValue && cellValue.startsWith('data:image/')) {
+        // محاسبه موقعیت سل بر اساس جهت گرید و peyote offset
+        let x, y;
+        if (gridOrientation.value === 'horizontal') {
+          // در حالت افقی: ردیف‌ها افقی هستند (rows)، ستون‌ها عمودی هستند (cols)
+          // ردیف‌های فرد (r % 2 === 1) با translateX نیم‌سل راست می‌روند
+          const rowOffset = (r % 2 === 1) ? cellWidth.value / 2 : 0;
+          x = c * cellWidth.value + rowOffset; // x بر اساس ستون (c)
+          y = r * cellHeight.value; // y بر اساس ردیف (r)
+        } else {
+          // در حالت عمودی: ستون‌ها افقی هستند، ستون‌های فرد نیم‌سل پایین می‌روند
+          const colOffset = (c % 2 === 1) ? cellHeight.value / 2 : 0;
+          x = c * cellWidth.value;
+          y = r * cellHeight.value + colOffset;
+        }
+        
+        if (cellValue && (cellValue.startsWith('data:image/') || cellValue.startsWith('/miyuki-beads-designer/beads/'))) {
           // Find the loaded image for this cell
           const loadedImage = loadedImages.find(img => img.r === r && img.c === c);
-          if (loadedImage) {
+          if (loadedImage && loadedImage.img) {
             ctx.drawImage(loadedImage.img, x, y, cellWidth.value, cellHeight.value);
           }
         } else {
@@ -2263,7 +2380,7 @@
     
     // Download
     const link = document.createElement('a');
-    link.download = 'peyote-grid.png';
+    link.download = `peyote-grid-${gridOrientation.value}.png`;
     link.href = canvas.toDataURL();
     link.click();
   }
@@ -2273,8 +2390,17 @@
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
-    canvas.width = cols.value * cellWidth.value * scale;
-    canvas.height = rows.value * cellHeight.value * scale;
+    // محاسبه ابعاد canvas بر اساس جهت گرید و peyote offset
+    if (gridOrientation.value === 'horizontal') {
+      // در حالت افقی: ردیف‌ها افقی هستند (rows)، ستون‌ها عمودی هستند (cols)
+      // عرض = ستون‌ها × عرض سل + نیم‌سل برای offset، ارتفاع = ردیف‌ها × ارتفاع سل
+      canvas.width = (cols.value * cellWidth.value + cellWidth.value / 2) * scale;
+      canvas.height = rows.value * cellHeight.value * scale;
+    } else {
+      // در حالت عمودی: عرض = ستون‌ها × عرض سل، ارتفاع = ردیف‌ها × ارتفاع سل + نیم‌سل برای offset
+      canvas.width = cols.value * cellWidth.value * scale;
+      canvas.height = (rows.value * cellHeight.value + cellHeight.value / 2) * scale;
+    }
     
     // Draw background
     ctx.fillStyle = backgroundColor.value;
@@ -2288,10 +2414,11 @@
       for (let c = 0; c < cols.value; c++) {
         const cellValue = grid[r][c] || backgroundColor.value;
         
-        if (cellValue && cellValue.startsWith('data:image/')) {
+        if (cellValue && (cellValue.startsWith('data:image/') || cellValue.startsWith('/miyuki-beads-designer/beads/'))) {
           const promise = new Promise((resolve) => {
             const img = new Image();
             img.onload = () => resolve({ img, r, c });
+            img.onerror = () => resolve({ img: null, r, c }); // Handle image load errors
             img.src = cellValue;
           });
           imagePromises.push(promise);
@@ -2302,19 +2429,33 @@
     // Wait for all images to load
     const loadedImages = await Promise.all(imagePromises);
     
-    // Draw all cells
+    // Draw all cells با اعمال peyote offset
     for (let r = 0; r < rows.value; r++) {
       for (let c = 0; c < cols.value; c++) {
         const cellValue = grid[r][c] || backgroundColor.value;
-        const x = c * cellWidth.value * scale;
-        const y = r * cellHeight.value * scale;
+        
+        // محاسبه موقعیت سل بر اساس جهت گرید و peyote offset
+        let x, y;
+        if (gridOrientation.value === 'horizontal') {
+          // در حالت افقی: ردیف‌ها افقی هستند (rows)، ستون‌ها عمودی هستند (cols)
+          // ردیف‌های فرد (r % 2 === 1) با translateX نیم‌سل راست می‌روند
+          const rowOffset = (r % 2 === 1) ? cellWidth.value / 2 : 0;
+          x = (c * cellWidth.value + rowOffset) * scale; // x بر اساس ستون (c)
+          y = r * cellHeight.value * scale; // y بر اساس ردیف (r)
+        } else {
+          // در حالت عمودی: ستون‌ها افقی هستند، ستون‌های فرد نیم‌سل پایین می‌روند
+          const colOffset = (c % 2 === 1) ? cellHeight.value / 2 : 0;
+          x = c * cellWidth.value * scale;
+          y = (r * cellHeight.value + colOffset) * scale;
+        }
+        
         const width = cellWidth.value * scale;
         const height = cellHeight.value * scale;
         
-        if (cellValue && cellValue.startsWith('data:image/')) {
+        if (cellValue && (cellValue.startsWith('data:image/') || cellValue.startsWith('/miyuki-beads-designer/beads/'))) {
           // Find the loaded image for this cell
           const loadedImage = loadedImages.find(img => img.r === r && img.c === c);
-          if (loadedImage) {
+          if (loadedImage && loadedImage.img) {
             ctx.drawImage(loadedImage.img, x, y, width, height);
           }
         } else {
@@ -2327,7 +2468,7 @@
     
     // Download
     const link = document.createElement('a');
-    link.download = 'peyote-grid-hd.png';
+    link.download = `peyote-grid-hd-${gridOrientation.value}.png`;
     link.href = canvas.toDataURL();
     link.click();
   }
@@ -2348,6 +2489,7 @@
         grid: colors,
         rows: rows.value,
         cols: cols.value,
+        orientation: gridOrientation.value, // ذخیره جهت گرید
         type: 'peyote',
         timestamp: new Date().toISOString()
       };
@@ -2360,7 +2502,7 @@
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `peyote_grid_${rows.value}x${cols.value}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+      link.download = `peyote_grid_${rows.value}x${cols.value}_${gridOrientation.value}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
       link.click();
       URL.revokeObjectURL(url);
     } catch (error) {
@@ -2384,14 +2526,21 @@
           const parsedContent = JSON.parse(content);
           if (parsedContent.grid && parsedContent.rows && parsedContent.cols) {
             // New format: JSON with dimensions
-            const { grid: colors, rows: fileRows, cols: fileCols } = parsedContent;
+            const { grid: colors, rows: fileRows, cols: fileCols, orientation: fileOrientation } = parsedContent;
             
             console.info('Parsed colors:', colors.slice(0, 10), '...', 'Length:', colors.length);
             console.info('Expected length:', fileRows * fileCols, 'Rows:', fileRows, 'Cols:', fileCols);
+            console.info('Orientation:', fileOrientation || 'vertical (default)');
+            
+            // اعمال جهت گرید اگر در فایل ذخیره شده باشد
+            if (fileOrientation && (fileOrientation === 'vertical' || fileOrientation === 'horizontal')) {
+              gridOrientation.value = fileOrientation;
+              console.info('Grid orientation set to:', fileOrientation);
+            }
             
             if (Array.isArray(colors) && colors.every(color => 
               color === null || color === backgroundColor.value || 
-              (typeof color === 'string' && color.match(/^#[0-9A-Fa-f]{6}$/))
+              (typeof color === 'string' && (color.match(/^#[0-9A-Fa-f]{6}$/) || color.startsWith('data:image/') || color.startsWith('/miyuki-beads-designer/beads/')))
             )) {
               console.info('Color validation passed');
               if (colors.length === fileRows * fileCols) {
@@ -2415,7 +2564,7 @@
                     gridData.push(row);
                   }
                   grid.splice(0, grid.length, ...gridData);
-                  console.info('Grid loaded from TXT:', { rows: fileRows, cols: fileCols, gridData });
+                  console.info('Grid loaded from TXT:', { rows: fileRows, cols: fileCols, orientation: gridOrientation.value, gridData });
 
                 });
                 return;
@@ -2494,6 +2643,16 @@
     const translateY = isShifted ? cellHeight.value / 2 : 0;
     return {
       transform: `translateY(${translateY}px)`,
+      gap: '0px'
+    };
+  }
+  
+  // محاسبه‌ی شیفت برای ردیف r در حالت افقی (0-based): ردیف‌های فرد را نیم‌سل راست می‌بریم
+  function rowOffsetStyle(rowIndex) {
+    const isShifted = (rowIndex % 2) === 1; // اگر خواستی بالعکسش کن: === 0
+    const translateX = isShifted ? cellWidth.value / 2 : 0;
+    return {
+      transform: `translateX(${translateX}px)`,
       gap: '0px'
     };
   }
@@ -2861,6 +3020,36 @@
 
   .dimension-input:hover {
     border-color: #adb5bd;
+  }
+
+  .orientation-toggle-group {
+    display: flex;
+    gap: 4px;
+  }
+
+  .orientation-toggle-btn {
+    flex: 1;
+    padding: 6px 12px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 11px;
+    background: #ffffff;
+    color: #6c757d;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  }
+
+  .orientation-toggle-btn:hover {
+    border-color: #adb5bd;
+    background: #f8f9fa;
+  }
+
+  .orientation-toggle-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #ffffff;
+    border-color: #667eea;
+    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
   }
 
   .color-picker-container {
