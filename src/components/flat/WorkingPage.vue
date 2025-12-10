@@ -113,6 +113,7 @@
                   class="color-name-input"
                   @input="updateColorName(color, $event.target.value)"
                 />
+                <span class="color-count-badge">{{ getTotalColorCount(color) }} مهره</span>
                 <span class="color-code">{{ color }}</span>
               </div>
             </div>
@@ -402,6 +403,16 @@ const getColorCount = (color) => {
       if (props.pattern[index] === color) {
         count++;
       }
+    }
+  }
+  return count;
+};
+
+const getTotalColorCount = (color) => {
+  let count = 0;
+  for (let i = 0; i < props.pattern.length; i++) {
+    if (props.pattern[i] === color) {
+      count++;
     }
   }
   return count;
@@ -894,6 +905,18 @@ watch(
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.color-count-badge {
+  font-weight: bold;
+  font-size: 14px;
+  color: #667eea;
+  background: #e7f0ff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  border: 1px solid #667eea;
 }
 
 .color-code {

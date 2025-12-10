@@ -56,6 +56,9 @@
         <GridEditor
           v-if="isGridEditorVisible"
           class="content-component"
+          :initial-pattern="pattern"
+          :initial-rows="rows"
+          :initial-cols="cols"
           @update-grid="handleUpdateGrid"
         />
         <MiyukiBeads

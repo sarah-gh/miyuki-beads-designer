@@ -60,14 +60,92 @@ const props = defineProps({
   // عرض/ارتفاع خروچی رندر
   width: { type: Number, default: 900 },
   height: { type: Number, default: 600 },
+  // چرخش texture (بر حسب درجه)
+  textureRotation: { type: Number, default: 90 },
 });
 
 const container = ref(null);
 let scene, camera, renderer, controls;
 let beads = [];
 
+// Cache textures for image-based bead colors to avoid reloading
+const textureLoader = new THREE.TextureLoader();
+const textureCache = new Map(); // url -> THREE.Texture
+
+function isImageColor(value) {
+  return (
+    typeof value === 'string' &&
+    (value.startsWith('/miyuki-beads-designer/beads/') ||
+      value.startsWith('/beads/') ||
+      value.startsWith('data:image/'))
+  );
+}
+
+function getBeadMaterial(colorLike, textureRotation = 0) {
+  // Image texture material
+  if (isImageColor(colorLike)) {
+    const url = colorLike;
+    let texture = textureCache.get(url);
+    if (!texture) {
+      texture = textureLoader.load(
+        url,
+        (loaded) => {
+          // Configure color space and anisotropy after load
+          loaded.colorSpace = THREE.SRGBColorSpace;
+          if (renderer) {
+            loaded.anisotropy = renderer.capabilities.getMaxAnisotropy();
+          }
+        },
+        undefined,
+        (error) => {
+          console.error('Error loading texture:', url, error);
+        }
+      );
+      // Also set immediately for initial instance (will update once loaded)
+      texture.colorSpace = THREE.SRGBColorSpace;
+      textureCache.set(url, texture);
+    }
+
+    // Clone texture to avoid affecting cached version
+    const clonedTexture = texture.clone();
+    clonedTexture.rotation = textureRotation; // چرخش texture بر حسب رادیان
+
+    const material = new THREE.MeshPhysicalMaterial({
+      color: 0xffffff,
+      map: clonedTexture,
+      roughness: 0.25,
+      metalness: 0.15,
+      clearcoat: 0.4,
+      clearcoatRoughness: 0.1,
+    });
+    return material;
+  }
+
+  // Solid color material
+  const isEdge = false; // You can add edge detection logic here if needed
+  const edgeColor = new THREE.Color('#b58a3a');
+  const matColor = isEdge ? edgeColor : new THREE.Color(colorLike);
+  
+  return new THREE.MeshPhysicalMaterial({
+    color: matColor,
+    roughness: 0.25,
+    metalness: 0.15,
+    clearcoat: 0.4,
+    clearcoatRoughness: 0.1,
+  });
+}
+
 function clearBeads() {
-  beads.forEach((m) => scene.remove(m));
+  beads.forEach((mesh) => {
+    scene.remove(mesh);
+    if (mesh.material) {
+      // Dispose material and its map if it exists
+      if (mesh.material.map) {
+        mesh.material.map.dispose();
+      }
+      mesh.material.dispose();
+    }
+  });
   beads = [];
 }
 
@@ -75,34 +153,12 @@ function createCurvedBracelet() {
   if (!scene) return;
   clearBeads();
 
-  // اضافه کردن console.log برای debug
-  console.log('BraceletPreview - props:', {
-    pattern: props.pattern,
-    rows: props.rows,
-    cols: props.cols,
-    patternLength: props.pattern ? props.pattern.length : 0,
-    patternType: Array.isArray(props.pattern) ? 'Array' : typeof props.pattern,
-  });
-
-  // بررسی ساختار pattern
-  if (props.pattern && Array.isArray(props.pattern)) {
-    console.log('Pattern structure:', {
-      firstRow: props.pattern[0],
-      firstRowLength: props.pattern[0] ? props.pattern[0].length : 0,
-      firstRowType: props.pattern[0] ? typeof props.pattern[0] : 'undefined',
-      sampleValues: props.pattern
-        .slice(0, 3)
-        .map((row) => (row ? row.slice(0, 3) : 'undefined')),
-    });
-  }
 
   // پارامترهای هندسی دستبند
   const radius = 20; // شعاع خمیدگی دستبند
   const arcAngle = Math.PI * 1.55; // حدود 243 درجه (مشابه عکس)
   const startAngle = -arcAngle / 2;
 
-  // لبه طلایی اختیاری
-  const edgeColor = new THREE.Color('#b58a3a');
 
   // ابعاد مهره‌ها را برای قرارگیری صحیح روی انحنا محاسبه می‌کنیم
   // طرح عمودی (16×80) رو افقی روی دستبند نشون می‌دیم
@@ -140,20 +196,6 @@ function createCurvedBracelet() {
         colorHex = props.pattern[idx] || '#ffffff';
       }
 
-      // اضافه کردن console.log برای debug
-      if (y === 0 && x === 0) {
-        console.log('First bead debug:', {
-          y,
-          x,
-          patternY: props.pattern[y],
-          patternYX: props.pattern[y] ? props.pattern[y][x] : undefined,
-          colorHex,
-          patternType: Array.isArray(props.pattern[0])
-            ? 'Matrix'
-            : 'Simple Array',
-          index: y * props.cols + x,
-        });
-      }
 
       // بررسی اعتبار رنگ
       if (!colorHex || colorHex === '#' || colorHex.length < 3) {
@@ -165,15 +207,11 @@ function createCurvedBracelet() {
         );
       }
 
-      const isEdge = false; // y === 0 || y === props.rows - 1;
-      const matColor = isEdge ? edgeColor : new THREE.Color(colorHex);
-      const beadMaterial = new THREE.MeshPhysicalMaterial({
-        color: matColor,
-        roughness: 0.25,
-        metalness: isEdge ? 0.5 : 0.15,
-        clearcoat: 0.4,
-        clearcoatRoughness: 0.1,
-      });
+      // محاسبه چرخش texture
+      const textureRotationRadians = (props.textureRotation * Math.PI) / 55; // تبدیل درجه به رادیان
+
+      // استفاده از getBeadMaterial برای پشتیبانی از عکس‌ها
+      const beadMaterial = getBeadMaterial(colorHex, textureRotationRadians);
 
       // مرکز هر مهره در وسط بازه‌اش قرار می‌گیرد تا فاصله عرضی صفر شود
       // y = طول (انحنا)، x = عرض (عمودی)
@@ -266,7 +304,7 @@ onMounted(() => {
 });
 
 watch(
-  () => [props.pattern, props.rows, props.cols],
+  () => [props.pattern, props.rows, props.cols, props.textureRotation],
   () => {
     createCurvedBracelet();
     renderOnce();
@@ -275,9 +313,17 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  // Dispose all beads and their materials
+  clearBeads();
+  
+  // Dispose cached textures
+  textureCache.forEach((texture) => {
+    texture.dispose();
+  });
+  textureCache.clear();
+  
   if (controls) controls.dispose();
   if (renderer) renderer.dispose();
-  beads = [];
 });
 
 defineExpose({ downloadImage });

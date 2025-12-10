@@ -1431,9 +1431,26 @@ import {
   computed,
   onMounted,
   onUnmounted,
+  onBeforeUnmount,
   watch,
   nextTick,
 } from 'vue';
+
+// Props for initial grid state
+const props = defineProps({
+  initialPattern: {
+    type: Array,
+    default: null,
+  },
+  initialRows: {
+    type: Number,
+    default: null,
+  },
+  initialCols: {
+    type: Number,
+    default: null,
+  },
+});
 
 const emit = defineEmits(['update-grid']);
 
@@ -1488,8 +1505,9 @@ function getSectionTitle(sectionName) {
 }
 
 // تنظیمات — این مقادیر را مطابق نیازت تغییر بده
-const cols = ref(12); // طول (تعداد ستون‌ها)
-const rows = ref(50); // عرض (تعداد سطرها در هر ستون)
+// Initialize with props if provided, otherwise use defaults
+const cols = ref(props.initialCols ?? 12); // طول (تعداد ستون‌ها)
+const rows = ref(props.initialRows ?? 50); // عرض (تعداد سطرها در هر ستون)
 const cellWidth = ref(15); // عرض هر خانه (پیکسل)
 const cellHeight = ref(17); // ارتفاع هر خانه (پیکسل)
 
@@ -1515,16 +1533,31 @@ const rowsArr = computed(() => Array.from({ length: rows.value }, (_, i) => i));
 const grid = reactive([]);
 
 // Initialize grid based on current dimensions
-function initializeGrid() {
+function initializeGrid(initialPattern = null) {
   const newGrid = Array.from({ length: rows.value }, () =>
     Array.from({ length: cols.value }, () => backgroundColor.value),
   );
+  
+  // If initial pattern is provided, restore from it
+  if (initialPattern && Array.isArray(initialPattern) && initialPattern.length > 0) {
+    // Convert 1D pattern array to 2D grid matrix
+    for (let r = 0; r < rows.value; r++) {
+      for (let c = 0; c < cols.value; c++) {
+        const index = r * cols.value + c;
+        if (index < initialPattern.length) {
+          newGrid[r][c] = initialPattern[index] || backgroundColor.value;
+        }
+      }
+    }
+  }
+  
   grid.splice(0, grid.length, ...newGrid);
   gridInitialized.value = true;
   console.info('Grid initialized:', {
     rows: rows.value,
     cols: cols.value,
     gridLength: grid.length,
+    hasInitialPattern: !!initialPattern,
   });
 
   // Initialize history with the initial grid state
@@ -1635,6 +1668,33 @@ function endOperation() {
 }
 
 // Watch for dimension changes
+// Watch for props changes to restore grid when switching back
+watch(
+  () => [props.initialPattern, props.initialRows, props.initialCols],
+  ([newPattern, newRows, newCols], [oldPattern]) => {
+    // Only restore if grid is initialized and props actually changed
+    if (!gridInitialized.value) return;
+    
+    // If pattern changed and we have a new pattern, restore it
+    if (
+      newPattern &&
+      Array.isArray(newPattern) &&
+      newPattern.length > 0 &&
+      newPattern !== oldPattern
+    ) {
+      // Update dimensions if provided
+      if (newRows && newRows !== rows.value) rows.value = newRows;
+      if (newCols && newCols !== cols.value) cols.value = newCols;
+      
+      // Wait for dimensions to update, then restore grid
+      nextTick(() => {
+        initializeGrid(newPattern);
+      });
+    }
+  },
+  { deep: true }
+);
+
 watch([rows, cols], ([newRows, newCols], [oldRows, oldCols]) => {
   // Don't resize if grid is not initialized yet
   if (!gridInitialized.value) {
@@ -1801,6 +1861,7 @@ function loadAvailableImages() {
     'f1414.jpg',
     'f1515.jpg',
     'Awhite.jpg',
+    'Turquoise.jpg',
     'db0042.jpg',
     'db0221.jpg',
     'db0231.jpg',
@@ -1809,6 +1870,7 @@ function loadAvailableImages() {
     'db0627.jpg',
     'db0635.jpg',
     'db0651.jpg',
+    'db0680.jpg',
     'db0721.jpg',
     'db0722.jpg',
     'db0723.jpg',
@@ -1826,6 +1888,9 @@ function loadAvailableImages() {
     'db1153.jpg',
     'db1262.jpg',
     'db1570.jpg',
+    'db1802.jpg',
+    'db1832.jpg',
+    'db1832-2.jpg',
     'db2111.jpg',
     'db2127.jpg',
     'db2131.jpg',
@@ -2857,27 +2922,42 @@ onMounted(() => {
   console.info('Component mounted. Initial dimensions:', {
     rows: rows.value,
     cols: cols.value,
+    hasInitialPattern: !!props.initialPattern,
   });
 
-  // Initialize grid first
-  initializeGrid();
+  // Initialize grid first - restore from props if provided
+  if (props.initialPattern && props.initialPattern.length > 0) {
+    // Restore from saved pattern
+    initializeGrid(props.initialPattern);
+  } else {
+    // Initialize with default empty grid
+    initializeGrid();
+    
+    // یک موج نمونه در ستون‌ها (نمایشی) - only if no initial pattern
+    for (let j = 0; j < cols.value; j++) {
+      const rr = Math.floor(
+        rows.value / 2 + Math.sin(j / 1.5) * (rows.value / 6),
+      );
+      if (rr >= 0 && rr < rows.value) grid[rr][j] = palette[2].hex;
+    }
+  }
 
   // Load available bead images
   loadAvailableImages();
 
-  // یک موج نمونه در ستون‌ها (نمایشی)
-  for (let j = 0; j < cols.value; j++) {
-    const rr = Math.floor(
-      rows.value / 2 + Math.sin(j / 1.5) * (rows.value / 6),
-    );
-    if (rr >= 0 && rr < rows.value) grid[rr][j] = palette[2].hex;
-  }
-
-  // Save the initial state with sample pattern to history
+  // Save the initial state to history
   saveToHistory();
 
   // Add global mouseup event listener
   document.addEventListener('mouseup', handleMouseUp);
+});
+
+// Auto-save grid state before component is unmounted (when switching tabs)
+onBeforeUnmount(() => {
+  // Emit current grid state to parent so it can be restored when switching back
+  if (gridInitialized.value && grid.length > 0) {
+    emit('update-grid', getGridMatrix());
+  }
 });
 
 onUnmounted(() => {
