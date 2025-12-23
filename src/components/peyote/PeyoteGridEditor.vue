@@ -255,6 +255,13 @@
             </button>
             <button
               class="tool-btn secondary"
+              :class="{ active: tool === 'selectRect' }"
+              @click="setTool('selectRect')"
+            >
+              📦 Select Rectangle
+            </button>
+            <button
+              class="tool-btn secondary"
               @click="copySelection"
             >
               📋 Copy
@@ -273,10 +280,36 @@
             </button>
             <button
               class="tool-btn secondary"
+              @click="pasteAtCenter('horizontal')"
+            >
+              📍 Paste at Center (Mirror H)
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="pasteAtCenter('vertical')"
+            >
+              📍 Paste at Center (Mirror V)
+            </button>
+            <button
+              class="tool-btn secondary"
               :disabled="!hasClipboardContent()"
-              @click="enablePasteMode"
+              @click="enablePasteMode()"
             >
               🎯 Enable Click-to-Paste
+            </button>
+            <button
+              class="tool-btn secondary"
+              :disabled="!hasClipboardContent()"
+              @click="enablePasteMode('horizontal')"
+            >
+              🎯 Click-to-Paste (Mirror H)
+            </button>
+            <button
+              class="tool-btn secondary"
+              :disabled="!hasClipboardContent()"
+              @click="enablePasteMode('vertical')"
+            >
+              🎯 Click-to-Paste (Mirror V)
             </button>
             <button
               v-if="isPasteMode"
@@ -708,10 +741,36 @@
                 </button>
                 <button
                   class="tool-btn secondary"
+                  @click="pasteAtCenter('horizontal')"
+                >
+                  📍 Paste at Center (Mirror H)
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  @click="pasteAtCenter('vertical')"
+                >
+                  📍 Paste at Center (Mirror V)
+                </button>
+                <button
+                  class="tool-btn secondary"
                   :disabled="!hasClipboardContent()"
-                  @click="enablePasteMode"
+                  @click="enablePasteMode()"
                 >
                   🎯 Enable Click-to-Paste
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  :disabled="!hasClipboardContent()"
+                  @click="enablePasteMode('horizontal')"
+                >
+                  🎯 Click-to-Paste (Mirror H)
+                </button>
+                <button
+                  class="tool-btn secondary"
+                  :disabled="!hasClipboardContent()"
+                  @click="enablePasteMode('vertical')"
+                >
+                  🎯 Click-to-Paste (Mirror V)
                 </button>
                 <button
                   v-if="isPasteMode"
@@ -1272,6 +1331,13 @@
             </button>
             <button
               class="tool-btn secondary"
+              :class="{ active: tool === 'selectRect' }"
+              @click="setTool('selectRect')"
+            >
+              📦 Select Rectangle
+            </button>
+            <button
+              class="tool-btn secondary"
               @click="copySelection"
             >
               📋 Copy
@@ -1290,10 +1356,36 @@
             </button>
             <button
               class="tool-btn secondary"
+              @click="pasteAtCenter('horizontal')"
+            >
+              📍 Paste at Center (Mirror H)
+            </button>
+            <button
+              class="tool-btn secondary"
+              @click="pasteAtCenter('vertical')"
+            >
+              📍 Paste at Center (Mirror V)
+            </button>
+            <button
+              class="tool-btn secondary"
               :disabled="!hasClipboardContent()"
-              @click="enablePasteMode"
+              @click="enablePasteMode()"
             >
               🎯 Enable Click-to-Paste
+            </button>
+            <button
+              class="tool-btn secondary"
+              :disabled="!hasClipboardContent()"
+              @click="enablePasteMode('horizontal')"
+            >
+              🎯 Click-to-Paste (Mirror H)
+            </button>
+            <button
+              class="tool-btn secondary"
+              :disabled="!hasClipboardContent()"
+              @click="enablePasteMode('vertical')"
+            >
+              🎯 Click-to-Paste (Mirror V)
             </button>
             <button
               v-if="isPasteMode"
@@ -1611,12 +1703,19 @@ const tool = ref('paint');
 const selection = ref([]);
 const clipboard = ref(null);
 const isPasteMode = ref(false);
+const pasteMirrorMode = ref('none'); // 'none' | 'horizontal' | 'vertical'
 const recentColors = ref([]);
 
 // Mouse drag state
 const isMouseDown = ref(false);
 const isDragging = ref(false);
 const lastPaintedCell = ref(null);
+
+// Rectangle selection state
+const isSelectingRect = ref(false);
+const rectStartCell = ref(null); // {r, c}
+const rectEndCell = ref(null); // {r, c}
+const gridWrapper = ref(null);
 
 // Grid state
 const gridInitialized = ref(false);
@@ -1638,32 +1737,47 @@ function saveToHistory() {
     history.value = history.value.slice(0, historyIndex.value + 1);
   }
 
-  // Add current state to history
-  history.value.push(currentState);
-  historyIndex.value = history.value.length - 1;
+  // Check if the current state is different from the last saved state
+  const lastState = history.value[historyIndex.value];
+  const isDifferent = !lastState || JSON.stringify(currentState) !== JSON.stringify(lastState);
 
-  // Limit history size to 10 actions as requested
-  if (history.value.length > 10) {
-    history.value.shift();
-    historyIndex.value--;
+  if (isDifferent) {
+    // Add current state to history
+    history.value.push(currentState);
+    historyIndex.value = history.value.length - 1;
+
+    // Limit history size to 10 actions as requested
+    if (history.value.length > 10) {
+      history.value.shift();
+      historyIndex.value--;
+    }
+
+    console.info('Saved to history:', {
+      historyLength: history.value.length,
+      historyIndex: historyIndex.value,
+    });
+  } else {
+    console.info('State unchanged, skipping history save');
   }
-
-  console.info('Saved to history:', {
-    historyLength: history.value.length,
-    historyIndex: historyIndex.value,
-  });
 }
 
 // Function to mark the start of an operation (for batching)
 function startOperation() {
-  pendingHistorySave.value = true;
+  if (!pendingHistorySave.value) {
+    // Save the state before the operation starts (so we can undo to this state)
+    saveToHistory();
+    pendingHistorySave.value = true;
+  }
 }
 
 // Function to mark the end of an operation
 function endOperation() {
   if (pendingHistorySave.value) {
-    saveToHistory();
-    pendingHistorySave.value = false;
+    // Use nextTick to ensure all grid changes are applied before saving
+    nextTick(() => {
+      saveToHistory();
+      pendingHistorySave.value = false;
+    });
   }
 }
 
@@ -1923,11 +2037,15 @@ function setTool(newTool) {
   tool.value = newTool;
   clearSelection();
   cancelPasteMode();
+  // Reset rectangle selection state
+  isSelectingRect.value = false;
+  rectStartCell.value = null;
+  rectEndCell.value = null;
 }
 
 function handleCellClick(r, c) {
   if (isPasteMode.value) {
-    pasteAtPosition(r, c);
+    pasteAtPosition(r, c, pasteMirrorMode.value);
     return;
   }
 
@@ -1948,6 +2066,11 @@ function handleCellClick(r, c) {
     case 'select':
       toggleSelection(r, c);
       break;
+    case 'selectRect':
+      isSelectingRect.value = true;
+      rectStartCell.value = { r, c };
+      rectEndCell.value = { r, c };
+      break;
   }
 }
 
@@ -1966,12 +2089,31 @@ function handleCellMouseEnter(r, c) {
     case 'select':
       toggleSelection(r, c);
       break;
+    case 'selectRect':
+      if (isSelectingRect.value) {
+        rectEndCell.value = { r, c };
+      }
+      break;
   }
 }
 
 function handleMouseUp() {
+  // Finalize rectangle selection before ending operation
+  if (tool.value === 'selectRect' && isSelectingRect.value && rectStartCell.value && rectEndCell.value) {
+    selectCellsInRectangle(
+      rectStartCell.value.r,
+      rectStartCell.value.c,
+      rectEndCell.value.r,
+      rectEndCell.value.c
+    );
+    isSelectingRect.value = false;
+    rectStartCell.value = null;
+    rectEndCell.value = null;
+  }
+  
   // End any pending operation when mouse is released
   endOperation();
+  
   isMouseDown.value = false;
   isDragging.value = false;
   lastPaintedCell.value = null;
@@ -2078,6 +2220,29 @@ function toggleSelection(r, c) {
   }
 }
 
+function selectCellsInRectangle(startR, startC, endR, endC) {
+  const minR = Math.min(startR, endR);
+  const maxR = Math.max(startR, endR);
+  const minC = Math.min(startC, endC);
+  const maxC = Math.max(startC, endC);
+  
+  const newSelection = [];
+  for (let r = minR; r <= maxR; r++) {
+    for (let c = minC; c <= maxC; c++) {
+      if (grid[r] && grid[r][c] !== undefined) {
+        newSelection.push(`${r},${c}`);
+      }
+    }
+  }
+  
+  // Add to selection (avoid duplicates)
+  newSelection.forEach(key => {
+    if (!selection.value.includes(key)) {
+      selection.value.push(key);
+    }
+  });
+}
+
 function clearSelection() {
   selection.value = [];
 }
@@ -2132,7 +2297,7 @@ function cutSelection() {
   endOperation();
 }
 
-function pasteAtCenter() {
+function pasteAtCenter(mirrorMode = 'none') {
   if (!clipboard.value) {
     console.warn('No content in clipboard to paste');
     return;
@@ -2143,11 +2308,17 @@ function pasteAtCenter() {
   // Clear any current selection
   clearSelection();
 
+  const transformed = getTransformedClipboard(mirrorMode);
+  if (transformed.length === 0) {
+    endOperation();
+    return;
+  }
+
   // Calculate the bounds of the copied selection
-  const minR = Math.min(...clipboard.value.map((cell) => cell.r));
-  const minC = Math.min(...clipboard.value.map((cell) => cell.c));
-  const maxR = Math.max(...clipboard.value.map((cell) => cell.r));
-  const maxC = Math.max(...clipboard.value.map((cell) => cell.c));
+  const minR = Math.min(...transformed.map((cell) => cell.r));
+  const minC = Math.min(...transformed.map((cell) => cell.c));
+  const maxR = Math.max(...transformed.map((cell) => cell.r));
+  const maxC = Math.max(...transformed.map((cell) => cell.c));
 
   // Calculate the center of the copied selection
   const selectionCenterR = (minR + maxR) / 2;
@@ -2165,7 +2336,7 @@ function pasteAtCenter() {
   // Note: peyoteAdjustment is now calculated per-cell in the loop below
 
   let pastedCount = 0;
-  clipboard.value.forEach(({ r, c, color }) => {
+  transformed.forEach(({ r, c, color }) => {
     // Calculate the target column for this cell
     const targetCol = c + offsetC;
 
@@ -2208,7 +2379,7 @@ function pasteAtCenter() {
   endOperation();
 }
 
-function pasteAtPosition(r, c) {
+function pasteAtPosition(r, c, mirrorMode = 'none') {
   if (!clipboard.value) return;
 
   startOperation();
@@ -2216,54 +2387,97 @@ function pasteAtPosition(r, c) {
   // Clear any current selection
   clearSelection();
 
-  // Calculate the bounds of the copied selection
-  const minR = Math.min(...clipboard.value.map((cell) => cell.r));
-  const minC = Math.min(...clipboard.value.map((cell) => cell.c));
+  const transformed = getTransformedClipboard(mirrorMode);
+  if (transformed.length === 0) {
+    endOperation();
+    return;
+  }
 
-  console.info('minC', minC, 'c', c);
+  // Calculate the bounds of the transformed selection
+  const minR = Math.min(...transformed.map((cell) => cell.r));
+  const minC = Math.min(...transformed.map((cell) => cell.c));
+
+  console.info('transformedMinC', minC, 'targetC', c);
 
   let pastedCount = 0;
-  clipboard.value.forEach(({ r: origR, c: origC, color }) => {
-    // Calculate offset from the top-left corner of the selection
+  transformed.forEach(({ r: origR, c: origC, color }) => {
+    // Calculate offset from the top-left corner of the transformed selection
     const offsetR = origR - minR;
     const offsetC = origC - minC;
 
     // Calculate the target column for this cell
     const targetCol = c + offsetC;
 
-    // Apply peyote adjustment based on source vs target column relationship
+    // Apply peyote adjustment based on transformed source vs target column relationship
+    // Different logic for normal paste vs mirrored paste
     let cellAdjustment = 0;
     const sourceIsOdd = minC % 2 === 1;
     const targetIsOdd = targetCol % 2 === 1;
+    const cellColIsOdd = origC % 2 === 1;
 
-    console.info('sourceIsOdd', sourceIsOdd, 'targetIsOdd', targetIsOdd);
+    console.info(
+      `mirrorMode=${mirrorMode}, sourceIsOdd=${sourceIsOdd}, targetIsOdd=${targetIsOdd}, cellColIsOdd=${cellColIsOdd}`,
+    );
 
-    if (sourceIsOdd && !targetIsOdd) {
-      // Case 3: Odd → Even: shift even columns one row higher
-      if (origC % 2 === 1) {
-        cellAdjustment = 0;
+    if (mirrorMode === 'none') {
+      // Normal paste mode - use original logic
+      if (sourceIsOdd && !targetIsOdd) {
+        // Case 3: Odd → Even: shift even columns one row higher
+        if (cellColIsOdd) {
+          cellAdjustment = 0;
+        } else {
+          cellAdjustment = -1;
+        }
+        console.info(
+          `Odd→Even: sourceCol=${minC}, targetCol=${targetCol}, cellAdjustment=${cellAdjustment}`,
+        );
+      } else if (!sourceIsOdd && targetIsOdd) {
+        // Case 2: Even → Odd: shift odd columns one row higher
+        if (cellColIsOdd) {
+          cellAdjustment = -1;
+        } else {
+          cellAdjustment = -2;
+        }
+        console.info(
+          `Even→Odd: sourceCol=${minC}, targetCol=${targetCol}, cellAdjustment=${cellAdjustment}`,
+        );
       } else {
+        // Case 1: Same column type (even→even, odd→odd): standard adjustment
         cellAdjustment = -1;
-      }
-      console.info(
-        `Odd→Even: sourceCol=${minC}, targetCol=${targetCol}, cellAdjustment=${cellAdjustment}`,
-      );
-    } else if (!sourceIsOdd && targetIsOdd) {
-      // Case 2: Even → Odd: shift odd columns one row higher
-      console.info(
-        `Even→Odd: sourceCol=${minC}, targetCol=${targetCol}, cellAdjustment=${cellAdjustment}`,
-      );
-      if (origC % 2 === 1) {
-        cellAdjustment = -1;
-      } else {
-        cellAdjustment = -2;
+        console.info(
+          `Same type: sourceCol=${minC}, targetCol=${targetCol}, cellAdjustment=${cellAdjustment}`,
+        );
       }
     } else {
-      // Case 1: Same column type (even→even, odd→odd): no adjustment needed
-      console.info(
-        `Same type: sourceCol=${minC}, targetCol=${targetCol}, cellAdjustment=${cellAdjustment}`,
-      );
-      cellAdjustment = -1;
+      // Mirror mode - use adjusted logic for mirrored patterns
+      if (sourceIsOdd && !targetIsOdd) {
+        // Case 3: Odd → Even: shift even columns one row higher
+        if (cellColIsOdd) {
+          cellAdjustment = 0;
+        } else {
+          cellAdjustment = -1;
+        }
+        console.info(
+          `Mirror Odd→Even: sourceCol=${minC}, targetCol=${targetCol}, cellAdjustment=${cellAdjustment}`,
+        );
+      } else if (!sourceIsOdd && targetIsOdd) {
+        // Case 2: Even → Odd: shift odd columns one row higher
+        if (cellColIsOdd) {
+          cellAdjustment = -1;
+        } else {
+          cellAdjustment = -2;
+        }
+        console.info(
+          `Mirror Even→Odd: sourceCol=${minC}, targetCol=${targetCol}, cellAdjustment=${cellAdjustment}`,
+        );
+      } else {
+        // Case 1: Same column type (even→even, odd→odd)
+        // For mirrored patterns, maintain relative positioning
+        cellAdjustment = 0;
+        console.info(
+          `Mirror Same type: sourceCol=${minC}, targetCol=${targetCol}, cellAdjustment=${cellAdjustment}`,
+        );
+      }
     }
 
     console.info('cellAdjustment', cellAdjustment);
@@ -2290,18 +2504,44 @@ function pasteAtPosition(r, c) {
   // Note: We don't cancel paste mode here to allow multiple pastes
 }
 
-function enablePasteMode() {
+function enablePasteMode(mode = 'none') {
   if (clipboard.value) {
+    pasteMirrorMode.value = mode;
     isPasteMode.value = true;
   }
 }
 
 function cancelPasteMode() {
   isPasteMode.value = false;
+  pasteMirrorMode.value = 'none';
 }
 
 function hasClipboardContent() {
   return clipboard.value && clipboard.value.length > 0;
+}
+
+function getTransformedClipboard(mirrorMode = 'none') {
+  if (!clipboard.value) return [];
+
+  const minR = Math.min(...clipboard.value.map((cell) => cell.r));
+  const minC = Math.min(...clipboard.value.map((cell) => cell.c));
+  const maxR = Math.max(...clipboard.value.map((cell) => cell.r));
+  const maxC = Math.max(...clipboard.value.map((cell) => cell.c));
+
+  return clipboard.value.map(({ r, c, color }) => {
+    let newR = r;
+    let newC = c;
+
+    if (mirrorMode === 'horizontal') {
+      // Flip horizontally across vertical axis of selection box
+      newC = minC + (maxC - c);
+    } else if (mirrorMode === 'vertical') {
+      // Flip vertically across horizontal axis of selection box
+      newR = minR + (maxR - r);
+    }
+
+    return { r: newR, c: newC, color };
+  });
 }
 
 function mirrorSelection() {
@@ -2353,35 +2593,55 @@ function mirrorSelectionVertical() {
 }
 
 function undo() {
-  if (historyIndex.value > 0) {
-    isUndoRedoOperation.value = true;
-    historyIndex.value--;
-    const previousState = history.value[historyIndex.value];
-    grid.splice(0, grid.length, ...previousState);
-    isUndoRedoOperation.value = false;
-    console.info('Undo performed:', {
-      historyIndex: historyIndex.value,
-      historyLength: history.value.length,
-    });
-  } else {
+  if (historyIndex.value <= 0) {
     console.warn('No more undo history available');
+    return;
   }
+
+  // Save current state before undo (in case user wants to redo)
+  if (pendingHistorySave.value) {
+    saveToHistory();
+    pendingHistorySave.value = false;
+  }
+
+  isUndoRedoOperation.value = true;
+  historyIndex.value--;
+  const previousState = JSON.parse(JSON.stringify(history.value[historyIndex.value]));
+  
+  // Clear and restore grid
+  grid.splice(0, grid.length);
+  previousState.forEach(row => {
+    grid.push([...row]);
+  });
+  
+  isUndoRedoOperation.value = false;
+  console.info('Undo performed:', {
+    historyIndex: historyIndex.value,
+    historyLength: history.value.length,
+  });
 }
 
 function redo() {
-  if (historyIndex.value < history.value.length - 1) {
-    isUndoRedoOperation.value = true;
-    historyIndex.value++;
-    const nextState = history.value[historyIndex.value];
-    grid.splice(0, grid.length, ...nextState);
-    isUndoRedoOperation.value = false;
-    console.info('Redo performed:', {
-      historyIndex: historyIndex.value,
-      historyLength: history.value.length,
-    });
-  } else {
+  if (historyIndex.value >= history.value.length - 1) {
     console.warn('No more redo history available');
+    return;
   }
+
+  isUndoRedoOperation.value = true;
+  historyIndex.value++;
+  const nextState = JSON.parse(JSON.stringify(history.value[historyIndex.value]));
+  
+  // Clear and restore grid
+  grid.splice(0, grid.length);
+  nextState.forEach(row => {
+    grid.push([...row]);
+  });
+  
+  isUndoRedoOperation.value = false;
+  console.info('Redo performed:', {
+    historyIndex: historyIndex.value,
+    historyLength: history.value.length,
+  });
 }
 
 function changeAllBeadsToColor() {
@@ -2875,11 +3135,24 @@ function rowOffsetStyle(rowIndex) {
   };
 }
 
+// Check if a cell is in the current selection rectangle
+function isCellInSelectionRect(r, c) {
+  if (!isSelectingRect.value || !rectStartCell.value || !rectEndCell.value) {
+    return false;
+  }
+  const minR = Math.min(rectStartCell.value.r, rectEndCell.value.r);
+  const maxR = Math.max(rectStartCell.value.r, rectEndCell.value.r);
+  const minC = Math.min(rectStartCell.value.c, rectEndCell.value.c);
+  const maxC = Math.max(rectStartCell.value.c, rectEndCell.value.c);
+  return r >= minR && r <= maxR && c >= minC && c <= maxC;
+}
+
 // استایل هر سل (درج رنگ و اندازه)
 function cellStyle(r, c) {
   const cellValue = grid[r]?.[c] || backgroundColor.value;
   const isSelected = selection.value.includes(`${r},${c}`);
   const isPasteTarget = isPasteMode.value;
+  const isInRect = isCellInSelectionRect(r, c);
 
   // Check if the cell value is an image (data URL or bead image URL)
   const isImage =
@@ -2893,11 +3166,13 @@ function cellStyle(r, c) {
     boxSizing: 'border-box',
     border: isSelected
       ? '2px solid #3b82f6'
-      : isPasteTarget
-        ? '1px solid #f59e0b'
-        : '1px solid #e5e7eb',
+      : isInRect
+        ? '2px solid #10b981'
+        : isPasteTarget
+          ? '1px solid #f59e0b'
+          : '1px solid #e5e7eb',
     cursor: isPasteTarget ? 'crosshair' : 'pointer',
-    opacity: isPasteTarget ? 0.9 : 1,
+    opacity: isPasteTarget ? 0.9 : isInRect ? 0.8 : 1,
   };
 
   if (isImage) {
