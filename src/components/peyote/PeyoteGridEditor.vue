@@ -910,7 +910,10 @@
         'pinned-active': pinnedSection,
       }"
     >
-      <div v-if="showImageSection" class="image-section">
+      <div
+        v-if="showImageSection"
+        class="image-section"
+      >
         <div class="upload-section grid grid-cols-2 gap-2">
           <label class="upload-label">
             <span class="upload-text">📁 آپلود فایل txt grid</span>
@@ -1113,10 +1116,14 @@
           <div class="section-header">
             <!-- showImageSection button -->
             <button
-              class="show-image-section-btn text-blue-500 !mt-2"
+              class="show-image-section-btn !mt-2 text-blue-500"
               @click="showImageSection = !showImageSection"
             >
-              {{ showImageSection ? '🔍 Show Image Section' : '🔍 Hide Image Section' }}
+              {{
+                showImageSection
+                  ? '🔍 Show Image Section'
+                  : '🔍 Hide Image Section'
+              }}
             </button>
           </div>
         </div>
@@ -1629,9 +1636,13 @@ function initializeGrid(initialPattern = null) {
   const newGrid = Array.from({ length: rows.value }, () =>
     Array.from({ length: cols.value }, () => backgroundColor.value),
   );
-  
+
   // If initial pattern is provided, restore from it
-  if (initialPattern && Array.isArray(initialPattern) && initialPattern.length > 0) {
+  if (
+    initialPattern &&
+    Array.isArray(initialPattern) &&
+    initialPattern.length > 0
+  ) {
     // Convert 1D pattern array to 2D grid matrix
     for (let r = 0; r < rows.value; r++) {
       for (let c = 0; c < cols.value; c++) {
@@ -1642,7 +1653,7 @@ function initializeGrid(initialPattern = null) {
       }
     }
   }
-  
+
   grid.splice(0, grid.length, ...newGrid);
   gridInitialized.value = true;
   console.info('Grid initialized:', {
@@ -1739,7 +1750,8 @@ function saveToHistory() {
 
   // Check if the current state is different from the last saved state
   const lastState = history.value[historyIndex.value];
-  const isDifferent = !lastState || JSON.stringify(currentState) !== JSON.stringify(lastState);
+  const isDifferent =
+    !lastState || JSON.stringify(currentState) !== JSON.stringify(lastState);
 
   if (isDifferent) {
     // Add current state to history
@@ -1788,7 +1800,7 @@ watch(
   ([newPattern, newRows, newCols], [oldPattern]) => {
     // Only restore if grid is initialized and props actually changed
     if (!gridInitialized.value) return;
-    
+
     // If pattern changed and we have a new pattern, restore it
     if (
       newPattern &&
@@ -1799,14 +1811,14 @@ watch(
       // Update dimensions if provided
       if (newRows && newRows !== rows.value) rows.value = newRows;
       if (newCols && newCols !== cols.value) cols.value = newCols;
-      
+
       // Wait for dimensions to update, then restore grid
       nextTick(() => {
         initializeGrid(newPattern);
       });
     }
   },
-  { deep: true }
+  { deep: true },
 );
 
 watch([rows, cols], ([newRows, newCols], [oldRows, oldCols]) => {
@@ -2099,21 +2111,26 @@ function handleCellMouseEnter(r, c) {
 
 function handleMouseUp() {
   // Finalize rectangle selection before ending operation
-  if (tool.value === 'selectRect' && isSelectingRect.value && rectStartCell.value && rectEndCell.value) {
+  if (
+    tool.value === 'selectRect' &&
+    isSelectingRect.value &&
+    rectStartCell.value &&
+    rectEndCell.value
+  ) {
     selectCellsInRectangle(
       rectStartCell.value.r,
       rectStartCell.value.c,
       rectEndCell.value.r,
-      rectEndCell.value.c
+      rectEndCell.value.c,
     );
     isSelectingRect.value = false;
     rectStartCell.value = null;
     rectEndCell.value = null;
   }
-  
+
   // End any pending operation when mouse is released
   endOperation();
-  
+
   isMouseDown.value = false;
   isDragging.value = false;
   lastPaintedCell.value = null;
@@ -2225,7 +2242,7 @@ function selectCellsInRectangle(startR, startC, endR, endC) {
   const maxR = Math.max(startR, endR);
   const minC = Math.min(startC, endC);
   const maxC = Math.max(startC, endC);
-  
+
   const newSelection = [];
   for (let r = minR; r <= maxR; r++) {
     for (let c = minC; c <= maxC; c++) {
@@ -2234,9 +2251,9 @@ function selectCellsInRectangle(startR, startC, endR, endC) {
       }
     }
   }
-  
+
   // Add to selection (avoid duplicates)
-  newSelection.forEach(key => {
+  newSelection.forEach((key) => {
     if (!selection.value.includes(key)) {
       selection.value.push(key);
     }
@@ -2606,14 +2623,16 @@ function undo() {
 
   isUndoRedoOperation.value = true;
   historyIndex.value--;
-  const previousState = JSON.parse(JSON.stringify(history.value[historyIndex.value]));
-  
+  const previousState = JSON.parse(
+    JSON.stringify(history.value[historyIndex.value]),
+  );
+
   // Clear and restore grid
   grid.splice(0, grid.length);
-  previousState.forEach(row => {
+  previousState.forEach((row) => {
     grid.push([...row]);
   });
-  
+
   isUndoRedoOperation.value = false;
   console.info('Undo performed:', {
     historyIndex: historyIndex.value,
@@ -2629,14 +2648,16 @@ function redo() {
 
   isUndoRedoOperation.value = true;
   historyIndex.value++;
-  const nextState = JSON.parse(JSON.stringify(history.value[historyIndex.value]));
-  
+  const nextState = JSON.parse(
+    JSON.stringify(history.value[historyIndex.value]),
+  );
+
   // Clear and restore grid
   grid.splice(0, grid.length);
-  nextState.forEach(row => {
+  nextState.forEach((row) => {
     grid.push([...row]);
   });
-  
+
   isUndoRedoOperation.value = false;
   console.info('Redo performed:', {
     historyIndex: historyIndex.value,
@@ -3207,7 +3228,7 @@ onMounted(() => {
   } else {
     // Initialize with default empty grid
     initializeGrid();
-    
+
     // یک موج نمونه در ستون‌ها (نمایشی) - only if no initial pattern
     for (let j = 0; j < cols.value; j++) {
       const rr = Math.floor(
@@ -3278,21 +3299,21 @@ onUnmounted(() => {
 .last-saved-info {
   text-align: center;
   padding: 6px;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  background: var(--surface-muted);
   border-radius: 6px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
   margin-bottom: 10px;
 }
 
 .last-saved-info small {
   font-size: 11px;
-  color: #6c757d;
+  color: var(--text-muted);
 }
 
 /* استایل دکمه‌های رنگ پس‌زمینه */
 .background-color-section {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 1px solid #dee2e6;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
@@ -3315,7 +3336,7 @@ onUnmounted(() => {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 2px solid #dee2e6;
+  border: 2px solid var(--border);
   cursor: pointer;
   padding: 0;
   transition: all 0.2s ease;
@@ -3338,8 +3359,8 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   padding: 20px;
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 2px solid #dee2e6;
+  background: var(--surface);
+  border: 2px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(10px);
@@ -3356,7 +3377,7 @@ onUnmounted(() => {
   justify-content: center;
   gap: 10px;
   padding: 15px 25px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--accent);
   border: 2px dashed rgba(255, 255, 255, 0.3);
   border-radius: 12px;
   cursor: pointer;
@@ -3368,14 +3389,14 @@ onUnmounted(() => {
 }
 
 .upload-label:hover {
-  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  background: var(--accent-hover);
   border-color: rgba(255, 255, 255, 0.5);
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
 }
 .upload-text {
   font-size: 14px;
-  color: #333;
+  color: var(--text);
 }
 .upload-input {
   display: none;
@@ -3385,8 +3406,8 @@ onUnmounted(() => {
   height: auto;
   overflow: hidden;
   border-radius: 12px;
-  border: 2px solid #dee2e6;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 2px solid var(--border);
+  background: var(--surface-muted);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3402,7 +3423,7 @@ onUnmounted(() => {
   display: flex;
   gap: 20px;
   padding: 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--bg);
 }
 
 .main-content {
@@ -3419,14 +3440,14 @@ onUnmounted(() => {
   right: 0;
   width: 260px;
   height: calc(100vh - 168px);
-  background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
-  border-left: 1px solid #dee2e6;
+  background: var(--surface-muted);
+  border-left: 1px solid var(--border);
   z-index: 1000;
   overflow-y: auto;
   padding: 12px;
   box-shadow: -2px 0 8px rgba(0, 0, 0, 0.08);
   scrollbar-width: thin;
-  scrollbar-color: #adb5bd #f8f9fa;
+  scrollbar-color: var(--border-strong) var(--surface-muted);
 }
 
 .controls-panel::-webkit-scrollbar {
@@ -3434,30 +3455,30 @@ onUnmounted(() => {
 }
 
 .controls-panel::-webkit-scrollbar-track {
-  background: #f8f9fa;
+  background: var(--surface-muted);
 }
 
 .controls-panel::-webkit-scrollbar-thumb {
-  background: #adb5bd;
+  background: var(--border-strong);
   border-radius: 3px;
 }
 
 .controls-panel::-webkit-scrollbar-thumb:hover {
-  background: #6c757d;
+  background: var(--text-muted);
 }
 
 .controls-header {
   text-align: center;
   margin-bottom: 12px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #dee2e6;
+  border-bottom: 1px solid var(--border);
 }
 
 .controls-header h3 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #495057;
+  color: var(--text);
 }
 
 .controls-content {
@@ -3470,8 +3491,8 @@ onUnmounted(() => {
 .color-section,
 .tools-section,
 .export-section {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 1px solid #dee2e6;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
@@ -3493,7 +3514,7 @@ onUnmounted(() => {
   margin: 0 0 8px 0;
   font-size: 13px;
   font-weight: 600;
-  color: #495057;
+  color: var(--text);
 }
 
 .dimension-inputs {
@@ -3512,15 +3533,15 @@ onUnmounted(() => {
 
 .dimension-text {
   font-size: 12px;
-  color: #6c757d;
+  color: var(--text-muted);
   font-weight: 500;
 }
 
 .dimension-input {
   width: 60px;
-  color: #495057;
+  color: var(--text);
   padding: 6px 8px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 12px;
   background: #ffffff;
@@ -3530,12 +3551,12 @@ onUnmounted(() => {
 
 .dimension-input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
 }
 
 .dimension-input:hover {
-  border-color: #adb5bd;
+  border-color: var(--border-strong);
 }
 
 .orientation-toggle-group {
@@ -3546,25 +3567,25 @@ onUnmounted(() => {
 .orientation-toggle-btn {
   flex: 1;
   padding: 6px 12px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 11px;
   background: #ffffff;
-  color: #6c757d;
+  color: var(--text-muted);
   cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 
 .orientation-toggle-btn:hover {
-  border-color: #adb5bd;
-  background: #f8f9fa;
+  border-color: var(--border-strong);
+  background: var(--surface-muted);
 }
 
 .orientation-toggle-btn.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--accent);
   color: #ffffff;
-  border-color: #667eea;
+  border-color: var(--accent);
   box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
 }
 
@@ -3579,7 +3600,7 @@ onUnmounted(() => {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 2px solid #dee2e6;
+  border: 2px solid var(--border);
   cursor: pointer;
   padding: 0;
   transition: all 0.2s ease;
@@ -3593,12 +3614,12 @@ onUnmounted(() => {
 
 .color-value {
   font-size: 12px;
-  color: #495057;
+  color: var(--text);
   font-weight: 500;
-  background: #f8f9fa;
+  background: var(--surface-muted);
   padding: 4px 8px;
   border-radius: 4px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
   min-width: 60px;
   text-align: center;
 }
@@ -3614,11 +3635,11 @@ onUnmounted(() => {
   margin: 0;
   font-size: 13px;
   font-weight: 600;
-  color: #495057;
+  color: var(--text);
 }
 
 .clear-colors-btn {
-  background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+  background: var(--danger);
   color: white;
   padding: 6px 10px;
   border-radius: 6px;
@@ -3631,7 +3652,7 @@ onUnmounted(() => {
 }
 
 .clear-colors-btn:hover {
-  background-color: #d32f2f;
+  background-color: var(--danger-hover);
   transform: translateY(-1px);
 }
 
@@ -3648,7 +3669,7 @@ onUnmounted(() => {
   border-radius: 50%;
   cursor: pointer;
   position: relative;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
   transition: all 0.2s ease;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
@@ -3662,7 +3683,7 @@ onUnmounted(() => {
   position: absolute;
   top: -6px;
   right: -6px;
-  background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+  background: var(--danger);
   color: white;
   width: 18px;
   height: 18px;
@@ -3707,8 +3728,8 @@ onUnmounted(() => {
 }
 
 .tool-btn:hover {
-  background-color: #e0e0e0;
-  border-color: #ccc;
+  background-color: var(--border-strong);
+  border-color: var(--border-strong);
   transform: translateY(-1px);
 }
 
@@ -3718,58 +3739,58 @@ onUnmounted(() => {
 }
 
 .tool-btn.active {
-  background-color: #4caf50;
+  background-color: var(--success);
   color: white;
-  border-color: #4caf50;
+  border-color: var(--success);
 }
 
 .tool-btn.primary {
-  background-color: #4caf50;
+  background-color: var(--success);
   color: white;
-  border-color: #4caf50;
+  border-color: var(--success);
 }
 
 .tool-btn.primary:hover {
-  background-color: #388e3c;
-  border-color: #388e3c;
+  background-color: var(--success-hover);
+  border-color: var(--success-hover);
 }
 
 .tool-btn.secondary {
-  background-color: #2196f3;
+  background-color: var(--info);
   color: white;
-  border-color: #2196f3;
+  border-color: var(--info);
 }
 
 .tool-btn.secondary:hover {
-  background-color: #1976d2;
-  border-color: #1976d2;
+  background-color: var(--info-hover);
+  border-color: var(--info-hover);
 }
 
 .tool-btn.success {
-  background-color: #4caf50;
+  background-color: var(--success);
   color: white;
-  border-color: #4caf50;
+  border-color: var(--success);
 }
 
 .tool-btn.success:hover {
-  background-color: #388e3c;
-  border-color: #388e3c;
+  background-color: var(--success-hover);
+  border-color: var(--success-hover);
 }
 
 .tool-btn.danger {
-  background-color: #f44336;
+  background-color: var(--danger);
   color: white;
-  border-color: #f44336;
+  border-color: var(--danger);
 }
 
 .tool-btn.danger:hover {
-  background-color: #d32f2f;
-  border-color: #d32f2f;
+  background-color: var(--danger-hover);
+  border-color: var(--danger-hover);
 }
 
 .background-color-section {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 1px solid #dee2e6;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
@@ -3792,7 +3813,7 @@ onUnmounted(() => {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 2px solid #dee2e6;
+  border: 2px solid var(--border);
   cursor: pointer;
   padding: 0;
   transition: all 0.2s ease;
@@ -3837,53 +3858,53 @@ onUnmounted(() => {
 }
 
 .export-btn:hover {
-  background-color: #e0e0e0;
-  border-color: #ccc;
+  background-color: var(--border-strong);
+  border-color: var(--border-strong);
   transform: translateY(-1px);
 }
 
 .export-btn.primary {
-  background-color: #4caf50;
+  background-color: var(--success);
   color: white;
-  border-color: #4caf50;
+  border-color: var(--success);
 }
 
 .export-btn.primary:hover {
-  background-color: #388e3c;
-  border-color: #388e3c;
+  background-color: var(--success-hover);
+  border-color: var(--success-hover);
 }
 
 .export-btn.success {
-  background-color: #4caf50;
+  background-color: var(--success);
   color: white;
-  border-color: #4caf50;
+  border-color: var(--success);
 }
 
 .export-btn.success:hover {
-  background-color: #388e3c;
-  border-color: #388e3c;
+  background-color: var(--success-hover);
+  border-color: var(--success-hover);
 }
 
 .export-btn.info {
-  background-color: #2196f3;
+  background-color: var(--info);
   color: white;
-  border-color: #2196f3;
+  border-color: var(--info);
 }
 
 .export-btn.info:hover {
-  background-color: #1976d2;
-  border-color: #1976d2;
+  background-color: var(--info-hover);
+  border-color: var(--info-hover);
 }
 
 .export-btn.warning {
-  background-color: #ff9800;
+  background-color: var(--warning);
   color: white;
-  border-color: #ff9800;
+  border-color: var(--warning);
 }
 
 .export-btn.warning:hover {
-  background-color: #f57c00;
-  border-color: #f57c00;
+  background-color: var(--warning-hover);
+  border-color: var(--warning-hover);
 }
 
 .save-load-buttons {
@@ -3916,11 +3937,11 @@ onUnmounted(() => {
   margin: 0;
   font-size: 13px;
   font-weight: 600;
-  color: #495057;
+  color: var(--text);
 }
 
 .clear-colors-btn {
-  background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+  background: var(--danger);
   color: white;
   padding: 6px 10px;
   border-radius: 6px;
@@ -3933,7 +3954,7 @@ onUnmounted(() => {
 }
 
 .clear-colors-btn:hover {
-  background-color: #d32f2f;
+  background-color: var(--danger-hover);
   transform: translateY(-1px);
 }
 
@@ -3950,7 +3971,7 @@ onUnmounted(() => {
   border-radius: 50%;
   cursor: pointer;
   position: relative;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
   transition: all 0.2s ease;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
@@ -3964,7 +3985,7 @@ onUnmounted(() => {
   position: absolute;
   top: -6px;
   right: -6px;
-  background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+  background: var(--danger);
   color: white;
   width: 18px;
   height: 18px;
@@ -4009,70 +4030,70 @@ onUnmounted(() => {
 }
 
 .tool-btn:hover {
-  background-color: #e0e0e0;
-  border-color: #ccc;
+  background-color: var(--border-strong);
+  border-color: var(--border-strong);
   transform: translateY(-1px);
 }
 
 .tool-btn.active {
-  background-color: #4caf50;
+  background-color: var(--success);
   color: white;
-  border-color: #4caf50;
+  border-color: var(--success);
 }
 
 .tool-btn.primary {
-  background-color: #4caf50;
+  background-color: var(--success);
   color: white;
-  border-color: #4caf50;
+  border-color: var(--success);
 }
 
 .tool-btn.primary:hover {
-  background-color: #388e3c;
-  border-color: #388e3c;
+  background-color: var(--success-hover);
+  border-color: var(--success-hover);
 }
 
 .tool-btn.secondary {
-  background-color: #2196f3;
+  background-color: var(--info);
   color: white;
-  border-color: #2196f3;
+  border-color: var(--info);
 }
 
 .tool-btn.secondary:hover {
-  background-color: #1976d2;
-  border-color: #1976d2;
+  background-color: var(--info-hover);
+  border-color: var(--info-hover);
 }
 
 .tool-btn.danger {
-  background-color: #f44336;
+  background-color: var(--danger);
   color: white;
-  border-color: #f44336;
+  border-color: var(--danger);
 }
 
 .tool-btn.danger:hover {
-  background-color: #d32f2f;
-  border-color: #d32f2f;
+  background-color: var(--danger-hover);
+  border-color: var(--danger-hover);
 }
 
 .tool-btn.success {
-  background-color: #4caf50;
+  background-color: var(--success);
   color: white;
-  border-color: #4caf50;
+  border-color: var(--success);
 }
 
 .tool-btn.success:hover {
-  background-color: #388e3c;
-  border-color: #388e3c;
+  background-color: var(--success-hover);
+  border-color: var(--success-hover);
 }
 
 .tool-btn.info {
-  background-color: #2196f3;
+  background-color: var(--info);
   color: white;
-  border-color: #2196f3;
+  border-color: var(--info);
 }
 
 .tool-btn.info:hover {
-  background-color: #1976d2;
-  border-color: #1976d2;
+  background-color: var(--info-hover);
+  border-color: var(--info-hover);
 }
 
 .export-section {
@@ -4097,53 +4118,53 @@ onUnmounted(() => {
 }
 
 .export-btn:hover {
-  background-color: #e0e0e0;
-  border-color: #ccc;
+  background-color: var(--border-strong);
+  border-color: var(--border-strong);
   transform: translateY(-1px);
 }
 
 .export-btn.primary {
-  background-color: #4caf50;
+  background-color: var(--success);
   color: white;
-  border-color: #4caf50;
+  border-color: var(--success);
 }
 
 .export-btn.primary:hover {
-  background-color: #388e3c;
-  border-color: #388e3c;
+  background-color: var(--success-hover);
+  border-color: var(--success-hover);
 }
 
 .export-btn.success {
-  background-color: #4caf50;
+  background-color: var(--success);
   color: white;
-  border-color: #4caf50;
+  border-color: var(--success);
 }
 
 .export-btn.success:hover {
-  background-color: #388e3c;
-  border-color: #388e3c;
+  background-color: var(--success-hover);
+  border-color: var(--success-hover);
 }
 
 .export-btn.info {
-  background-color: #2196f3;
+  background-color: var(--info);
   color: white;
-  border-color: #2196f3;
+  border-color: var(--info);
 }
 
 .export-btn.info:hover {
-  background-color: #1976d2;
-  border-color: #1976d2;
+  background-color: var(--info-hover);
+  border-color: var(--info-hover);
 }
 
 .export-btn.warning {
-  background-color: #ff9800;
+  background-color: var(--warning);
   color: white;
-  border-color: #ff9800;
+  border-color: var(--warning);
 }
 
 .export-btn.warning:hover {
-  background-color: #f57c00;
-  border-color: #f57c00;
+  background-color: var(--warning-hover);
+  border-color: var(--warning-hover);
 }
 
 .grid-container {
@@ -4183,21 +4204,21 @@ onUnmounted(() => {
 .last-saved-info {
   text-align: center;
   padding: 6px;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  background: var(--surface-muted);
   border-radius: 6px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
   margin-bottom: 10px;
 }
 
 .last-saved-info small {
   font-size: 11px;
-  color: #6c757d;
+  color: var(--text-muted);
 }
 
 /* استایل دکمه‌های رنگ پس‌زمینه */
 .background-color-section {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 1px solid #dee2e6;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
@@ -4206,8 +4227,8 @@ onUnmounted(() => {
 
 /* Image section styles */
 .image-section {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 1px solid #dee2e6;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
@@ -4231,9 +4252,9 @@ onUnmounted(() => {
   max-height: 200px;
   overflow-y: auto;
   padding: 4px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: #f8f9fa;
+  background: var(--surface-muted);
 }
 
 .image-item {
@@ -4255,8 +4276,8 @@ onUnmounted(() => {
 }
 
 .image-item.selected {
-  border-color: #667eea;
-  background: linear-gradient(135deg, #f8f9ff 0%, #e6f0ff 100%);
+  border-color: var(--accent);
+  background: var(--accent-soft);
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
@@ -4265,12 +4286,12 @@ onUnmounted(() => {
   height: 40px;
   object-fit: cover;
   border-radius: 4px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
 }
 
 .image-name {
   font-size: 10px;
-  color: #6c757d;
+  color: var(--text-muted);
   margin-top: 4px;
   text-align: center;
   font-weight: 500;
@@ -4279,7 +4300,7 @@ onUnmounted(() => {
 .recent-images-section {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #e9ecef;
+  border-top: 1px solid var(--border);
 }
 
 .recent-images-header {
@@ -4293,11 +4314,11 @@ onUnmounted(() => {
   margin: 0;
   font-size: 13px;
   font-weight: 600;
-  color: #495057;
+  color: var(--text);
 }
 
 .clear-images-btn {
-  background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+  background: var(--danger);
   color: white;
   padding: 4px 8px;
   border-radius: 4px;
@@ -4310,7 +4331,7 @@ onUnmounted(() => {
 }
 
 .clear-images-btn:hover {
-  background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+  background: var(--danger-hover);
   transform: translateY(-1px);
 }
 
@@ -4340,8 +4361,8 @@ onUnmounted(() => {
 }
 
 .recent-image-item.selected {
-  border-color: #667eea;
-  background: linear-gradient(135deg, #f8f9ff 0%, #e6f0ff 100%);
+  border-color: var(--accent);
+  background: var(--accent-soft);
   box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
 }
 
@@ -4350,14 +4371,14 @@ onUnmounted(() => {
   height: 32px;
   object-fit: cover;
   border-radius: 3px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
 }
 
 .remove-image-btn {
   position: absolute;
   top: -4px;
   right: -4px;
-  background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+  background: var(--danger);
   color: white;
   width: 16px;
   height: 16px;
@@ -4384,7 +4405,7 @@ onUnmounted(() => {
 .selection-mode-indicator {
   margin-bottom: 10px;
   padding: 8px 12px;
-  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  background: var(--accent-soft);
   border-radius: 6px;
   border: 1px solid #90caf9;
 }
@@ -4392,12 +4413,12 @@ onUnmounted(() => {
 .mode-text {
   font-size: 12px;
   font-weight: 600;
-  color: #1976d2;
+  color: var(--info-hover);
 }
 
 .mode-section {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 1px solid #dee2e6;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
@@ -4413,7 +4434,7 @@ onUnmounted(() => {
   margin: 0 0 8px 0;
   font-size: 13px;
   font-weight: 600;
-  color: #495057;
+  color: var(--text);
 }
 
 .mode-toggle {
@@ -4431,10 +4452,10 @@ onUnmounted(() => {
 .mode-btn {
   flex: 1;
   padding: 8px 12px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
   border-radius: 6px;
   background: #ffffff;
-  color: #495057;
+  color: var(--text);
   cursor: pointer;
   font-size: 12px;
   font-weight: 500;
@@ -4443,15 +4464,15 @@ onUnmounted(() => {
 }
 
 .mode-btn:hover {
-  background: #f8f9fa;
-  border-color: #adb5bd;
+  background: var(--surface-muted);
+  border-color: var(--border-strong);
   transform: translateY(-1px);
 }
 
 .mode-btn.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--accent);
   color: white;
-  border-color: #667eea;
+  border-color: var(--accent);
   box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
 }
 
@@ -4475,7 +4496,7 @@ onUnmounted(() => {
 
 .pin-btn {
   background: transparent;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
   border-radius: 6px;
   width: 32px;
   height: 32px;
@@ -4485,24 +4506,24 @@ onUnmounted(() => {
   cursor: pointer;
   font-size: 16px;
   transition: all 0.2s ease;
-  color: #6c757d;
+  color: var(--text-muted);
 }
 
 .pin-btn:hover {
-  background: #f8f9fa;
-  border-color: #adb5bd;
+  background: var(--surface-muted);
+  border-color: var(--border-strong);
   transform: scale(1.1);
 }
 
 .pin-btn.pinned {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--accent);
   color: white;
-  border-color: #667eea;
+  border-color: var(--accent);
   box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
 }
 
 .pin-btn.pinned:hover {
-  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  background: var(--accent-hover);
   transform: scale(1.1);
 }
 
@@ -4512,8 +4533,8 @@ onUnmounted(() => {
   top: 50px;
   left: 0;
   right: 0;
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border-bottom: 2px solid #667eea;
+  background: var(--surface);
+  border-bottom: 2px solid var(--accent);
   z-index: 1800;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   max-height: 200px;
@@ -4527,7 +4548,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--accent);
   color: white;
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   flex-shrink: 0;
@@ -4572,7 +4593,7 @@ onUnmounted(() => {
 }
 
 .pinned-section-content::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--surface-sunken);
   border-radius: 3px;
 }
 
@@ -4599,7 +4620,7 @@ onUnmounted(() => {
     align-items: center;
     justify-content: space-between;
     padding: 8px 12px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--accent);
     color: white;
     position: fixed;
     top: 0;
@@ -4656,8 +4677,8 @@ onUnmounted(() => {
     top: 50px;
     left: 0;
     right: 0;
-    background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
-    border-bottom: 1px solid #dee2e6;
+    background: var(--surface-muted);
+    border-bottom: 1px solid var(--border);
     z-index: 1500;
     max-height: 0;
     overflow: hidden;
@@ -4678,16 +4699,16 @@ onUnmounted(() => {
   }
 
   .mobile-image-section {
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-    border: 1px solid #dee2e6;
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   }
 
   .mobile-controls-content {
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-    border: 1px solid #dee2e6;
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);

@@ -30,7 +30,10 @@ const textureLoader = new THREE.TextureLoader();
 const textureCache = new Map(); // url -> THREE.Texture
 
 function isImageColor(value) {
-  return typeof value === 'string' && value.startsWith('/miyuki-beads-designer/beads/');
+  return (
+    typeof value === 'string' &&
+    value.startsWith('/miyuki-beads-designer/beads/')
+  );
 }
 
 function getBeadMaterial(colorLike, textureRotation = 0) {
@@ -50,11 +53,11 @@ function getBeadMaterial(colorLike, textureRotation = 0) {
       texture.colorSpace = THREE.SRGBColorSpace;
       textureCache.set(url, texture);
     }
-    
+
     // Clone texture to avoid affecting cached version
     const clonedTexture = texture.clone();
     clonedTexture.rotation = textureRotation; // چرخش texture بر حسب رادیان
-    
+
     const material = new THREE.MeshPhysicalMaterial({
       color: 0xffffff,
       map: clonedTexture,
@@ -96,10 +99,10 @@ function createBeads() {
     for (let x = 0; x < props.cols; x++) {
       const idx = y * props.cols + x;
       const colorOrUrl = props.pattern[idx] || '#ffffff';
-      
+
       // محاسبه چرخش texture
       const textureRotationRadians = (props.textureRotation * Math.PI) / 180; // تبدیل درجه به رادیان
-      
+
       const beadMaterial = getBeadMaterial(colorOrUrl, textureRotationRadians);
       const bead = new THREE.Mesh(beadGeometry, beadMaterial);
       bead.position.set((x - halfCols) * 1.2, -(y - halfRows) * 1.2, 0);
@@ -183,7 +186,7 @@ onBeforeUnmount(() => {
   if (renderer) renderer.dispose();
   disposeBeads();
   // Clear texture cache
-  textureCache.forEach(texture => texture.dispose());
+  textureCache.forEach((texture) => texture.dispose());
   textureCache.clear();
 });
 </script>

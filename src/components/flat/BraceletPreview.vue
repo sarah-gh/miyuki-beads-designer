@@ -93,7 +93,10 @@ const textureLoader = new THREE.TextureLoader();
 const textureCache = new Map(); // url -> THREE.Texture
 
 function isImageColor(value) {
-  return typeof value === 'string' && value.startsWith('/miyuki-beads-designer/beads/');
+  return (
+    typeof value === 'string' &&
+    value.startsWith('/miyuki-beads-designer/beads/')
+  );
 }
 
 function getBeadMaterial(colorLike, textureRotation = 0) {
@@ -113,11 +116,11 @@ function getBeadMaterial(colorLike, textureRotation = 0) {
       texture.colorSpace = THREE.SRGBColorSpace;
       textureCache.set(url, texture);
     }
-    
+
     // Clone texture to avoid affecting cached version
     const clonedTexture = texture.clone();
     clonedTexture.rotation = textureRotation; // چرخش texture بر حسب رادیان
-    
+
     const material = new THREE.MeshPhysicalMaterial({
       color: 0xffffff,
       map: clonedTexture,
@@ -154,12 +157,10 @@ function createCurvedBracelet() {
   if (!scene) return;
   clearBeads();
 
-
   // پارامترهای هندسی دستبند
   const radius = 20; // شعاع خمیدگی دستبند
   const arcAngle = Math.PI * 1.55; // حدود 243 درجه (مشابه عکس)
   const startAngle = -arcAngle / 2;
-
 
   // ابعاد مهره‌ها را برای قرارگیری صحیح روی انحنا محاسبه می‌کنیم
   // طرح عمودی (16×80) رو افقی روی دستبند نشون می‌دیم
@@ -197,7 +198,6 @@ function createCurvedBracelet() {
         colorHex = props.pattern[idx] || '#ffffff';
       }
 
-
       // بررسی اعتبار رنگ
       if (!colorHex || colorHex === '#' || colorHex.length < 3) {
         colorHex = '#ffffff';
@@ -209,8 +209,9 @@ function createCurvedBracelet() {
       }
 
       // محاسبه چرخش texture
-      const textureRotationRadians = (localTextureRotation.value * Math.PI) / 180; // تبدیل درجه به رادیان
-      
+      const textureRotationRadians =
+        (localTextureRotation.value * Math.PI) / 180; // تبدیل درجه به رادیان
+
       const beadMaterial = getBeadMaterial(colorHex, textureRotationRadians);
 
       // مرکز هر مهره در وسط بازه‌اش قرار می‌گیرد تا فاصله عرضی صفر شود
@@ -318,7 +319,7 @@ onBeforeUnmount(() => {
   if (renderer) renderer.dispose();
   clearBeads();
   // Clear texture cache
-  textureCache.forEach(texture => texture.dispose());
+  textureCache.forEach((texture) => texture.dispose());
   textureCache.clear();
 });
 
@@ -332,7 +333,7 @@ defineExpose({ downloadImage });
   align-items: center;
   gap: 24px;
   padding: 24px;
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  background: var(--surface-muted);
   min-height: 100vh;
   font-family: 'Vazirmatn', 'Tahoma', sans-serif;
 }
@@ -345,14 +346,14 @@ defineExpose({ downloadImage });
 .title {
   font-size: 2.5rem;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--dark);
   margin: 0 0 8px 0;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .subtitle {
   font-size: 1.1rem;
-  color: #64748b;
+  color: var(--text-muted);
   margin: 0;
   font-weight: 400;
 }
@@ -440,7 +441,7 @@ defineExpose({ downloadImage });
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  background: var(--info);
   color: white;
   box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
 }
@@ -448,7 +449,7 @@ defineExpose({ downloadImage });
 .btn-primary:hover {
   transform: translateY(-2px);
   box-shadow: 0 12px 25px rgba(59, 130, 246, 0.4);
-  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  background: var(--info-hover);
 }
 
 .btn-primary:active {
@@ -478,7 +479,7 @@ defineExpose({ downloadImage });
 
 .control-label {
   font-size: 1rem;
-  color: #1e293b;
+  color: var(--dark);
   font-weight: 600;
   text-align: center;
 }
@@ -493,7 +494,7 @@ defineExpose({ downloadImage });
   flex: 1;
   height: 8px;
   border-radius: 4px;
-  background: linear-gradient(to right, #e2e8f0, #3b82f6);
+  background: var(--border-strong);
   outline: none;
   -webkit-appearance: none;
   appearance: none;
@@ -505,14 +506,14 @@ defineExpose({ downloadImage });
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #3b82f6;
+  background: var(--info);
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
   transition: all 0.2s ease;
 }
 
 .rotation-slider::-webkit-slider-thumb:hover {
-  background: #2563eb;
+  background: var(--info);
   box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
   transform: scale(1.1);
 }
@@ -521,7 +522,7 @@ defineExpose({ downloadImage });
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #3b82f6;
+  background: var(--info);
   cursor: pointer;
   border: none;
   box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
@@ -530,7 +531,7 @@ defineExpose({ downloadImage });
 .slider-value {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #3b82f6;
+  color: var(--info);
   min-width: 50px;
   text-align: center;
 }
@@ -554,14 +555,14 @@ defineExpose({ downloadImage });
 
 .info-label {
   font-size: 0.9rem;
-  color: #64748b;
+  color: var(--text-muted);
   font-weight: 500;
 }
 
 .info-value {
   font-size: 1.3rem;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--dark);
 }
 
 /* Responsive Design */

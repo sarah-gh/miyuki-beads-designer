@@ -22,5 +22,5 @@ defineProps({
   beadId: { type: String, default: '' },
 });
 
-defineEmits(['click'])
+defineEmits(['click']);
 </script>

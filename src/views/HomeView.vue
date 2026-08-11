@@ -5,25 +5,25 @@
       <div class="header-content">
         <div class="header-actions mt-3! flex items-center gap-2">
           <button
-            class="rounded-md bg-cyan-950 px-4! py-1! text-[14px] text-white"
+            class="theme-btn px-4! py-1! text-[14px]"
             @click="toggleGridEditor"
           >
             ویرایشگر شبکه
           </button>
           <button
-            class="rounded-md bg-blue-900 px-4! py-1! text-[14px] text-white"
+            class="theme-btn px-4! py-1! text-[14px]"
             @click="toggleMiyukiBeads"
           >
             نمایش مهره‌ها
           </button>
           <button
-            class="rounded-md bg-emerald-900 px-4! py-1! text-[14px] text-white"
+            class="theme-btn px-4! py-1! text-[14px]"
             @click="toggleBraceletPreview"
           >
             پیش‌نمایش دستبند
           </button>
           <button
-            class="rounded-md bg-emerald-900 px-4! py-1! text-[14px] text-white"
+            class="theme-btn-primary px-4! py-1! text-[14px]"
             @click="startWorking"
           >
             مراحل اجرا
@@ -59,25 +59,25 @@
         <!-- Mobile Action Buttons -->
         <div class="mobile-actions">
           <button
-            class="mobile-action-btn bg-cyan-950"
+            class="mobile-action-btn"
             @click="toggleGridEditor"
           >
             ویرایشگر شبکه
           </button>
           <button
-            class="mobile-action-btn bg-blue-900"
+            class="mobile-action-btn"
             @click="toggleMiyukiBeads"
           >
             نمایش مهره‌ها
           </button>
           <button
-            class="mobile-action-btn bg-emerald-900"
+            class="mobile-action-btn"
             @click="toggleBraceletPreview"
           >
             پیش‌نمایش دستبند
           </button>
           <button
-            class="mobile-action-btn bg-emerald-900"
+            class="mobile-action-btn mobile-action-btn-primary"
             @click="startWorking"
           >
             مراحل اجرا
@@ -155,6 +155,10 @@ const props = defineProps({
   }
 });
 
+// The hamburger state lives in App.vue, so ask it to close the panel after
+// an action runs. On desktop the panel is already closed and this is a no-op.
+const emit = defineEmits(['close-mobile-header']);
+
 const rows = ref(16);
 const cols = ref(80);
 const pattern = ref(Array(16 * 80).fill('#ffffff'));
@@ -168,6 +172,7 @@ function toggleGridEditor() {
   isMiyukiBeadsVisible.value = false;
   isBraceletPreviewVisible.value = false;
   isWorking.value = false;
+  emit('close-mobile-header');
 }
 
 function toggleMiyukiBeads() {
@@ -175,6 +180,7 @@ function toggleMiyukiBeads() {
   isGridEditorVisible.value = false;
   isBraceletPreviewVisible.value = false;
   isWorking.value = false;
+  emit('close-mobile-header');
 }
 
 function toggleBraceletPreview() {
@@ -182,6 +188,7 @@ function toggleBraceletPreview() {
   isMiyukiBeadsVisible.value = false;
   isGridEditorVisible.value = false;
   isWorking.value = false;
+  emit('close-mobile-header');
 }
 
 function startWorking() {
@@ -189,6 +196,7 @@ function startWorking() {
   isGridEditorVisible.value = false;
   isMiyukiBeadsVisible.value = false;
   isBraceletPreviewVisible.value = false;
+  emit('close-mobile-header');
 }
 
 function handleUpdateGrid(matrix) {
@@ -208,14 +216,14 @@ function handleUpdateGrid(matrix) {
 <style scoped>
 .home-container {
   min-height: calc(100vh - 78px);
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--bg);
   padding: 20px;
 }
 
 @media (max-width: 768px) {
   .home-container {
     min-height: auto;
-    max-height: calc(100vh - 38px);
+    max-height: calc(100vh - 58px);
     overflow-y: auto;
   }
 }
@@ -233,32 +241,35 @@ function handleUpdateGrid(matrix) {
   justify-content: space-between;
   align-items: center;
   text-align: center;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border-radius: 15px;
+  background: var(--surface);
+  border-radius: 12px;
   padding: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--border);
   min-width: 100px;
 }
 
 .stat-number {
   font-size: .8rem;
   font-weight: bold;
-  color: white;
+  color: var(--text);
   margin-bottom: 5px;
 }
 
 .stat-label {
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-muted);
   font-size: 0.9rem;
 }
 
 /* Content Container */
 .content-container {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--surface);
+  /* Load-bearing, not decorative: backdrop-filter makes this element the
+     containing block for the position:fixed panels the editors render
+     inside it. Removing it lets those panels escape to the viewport and
+     cover the app header. */
   backdrop-filter: blur(10px);
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  border: 1px solid var(--border);
   overflow: hidden;
   min-height: calc(100vh - 160px);
 }
@@ -269,7 +280,7 @@ function handleUpdateGrid(matrix) {
 
 @media (max-width: 768px) {
   .content-container {
-    min-height: calc(100vh - 60px);
+    min-height: calc(100vh - 110px);
     max-height: auto;
     overflow-y: auto;
   }
@@ -321,12 +332,12 @@ function handleUpdateGrid(matrix) {
 /* Mobile Header Panel */
 .mobile-header-panel {
   position: fixed;
-  top: 78px;
+  top: 50px;
   left: 0;
   right: 0;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 6px 16px rgba(41, 37, 36, 0.08);
   transform: translateY(-100%);
   transition: transform 0.3s ease-in-out;
   z-index: 999;
@@ -353,18 +364,25 @@ function handleUpdateGrid(matrix) {
 .mobile-action-btn {
   padding: 10px 15px;
   border-radius: 8px;
-  color: white;
+  background: var(--surface-muted);
+  color: var(--text);
   font-size: 14px;
   font-weight: 500;
-  border: none;
+  border: 1px solid var(--border-strong);
   cursor: pointer;
   transition: all 0.3s ease;
   text-align: center;
 }
 
+.mobile-action-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 .mobile-action-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(41, 37, 36, 0.15);
 }
 
 .mobile-stats {
@@ -374,23 +392,22 @@ function handleUpdateGrid(matrix) {
 }
 
 .mobile-stat-item {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
+  background: var(--surface-muted);
   border-radius: 10px;
   padding: 10px;
   text-align: center;
-  border: 1px solid rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border);
 }
 
 .mobile-stat-number {
   font-size: 16px;
   font-weight: bold;
-  color: black;
+  color: var(--text);
   margin-bottom: 4px;
 }
 
 .mobile-stat-label {
-  color: rgba(0, 0, 0, 0.8);
+  color: var(--text-muted);
   font-size: 12px;
 }
 

@@ -5,24 +5,28 @@ A comprehensive web-based application for designing and creating beautiful bead 
 ## ✨ Features
 
 ### 🎯 **Flat Grid Designer**
+
 - Create 2D bead patterns with customizable dimensions
 - Intuitive grid-based interface for pattern design
 - Color palette management with recent colors
 - Export and import pattern designs
 
 ### 🧵 **Weaving Grid Editor**
+
 - Advanced weaving pattern creation tools
 - Customizable grid dimensions (8-160 columns, 8-400 rows)
 - Adjustable bead sizes (6-28px)
 - Professional weaving design interface
 
 ### 🔮 **3D Visualization**
+
 - Real-time 3D preview of bead patterns
 - Interactive 3D view with orbit controls
 - Realistic bead rendering using Three.js
 - Responsive 3D canvas
 
 ### 🎨 **Design Tools**
+
 - Color picker with hex color support
 - Recent colors management
 - Multiple drawing tools (brush, fill, line, etc.)
@@ -31,23 +35,27 @@ A comprehensive web-based application for designing and creating beautiful bead 
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Node.js v20 or higher
 - NPM v10 or higher
 
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/yourusername/miyuki-beads-designer.git
    cd miyuki-beads-designer
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 3. **Start development server**
+
    ```bash
    npm run dev
    ```
@@ -57,15 +65,15 @@ A comprehensive web-based application for designing and creating beautiful bead 
 
 ## 🛠️ Available Scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server with hot-reload |
-| `npm run build` | Build for production |
-| `npm run preview` | Preview production build |
-| `npm run test:unit` | Run unit tests with Vitest |
-| `npm run test:e2e` | Run end-to-end tests with Playwright |
-| `npm run lint` | Lint code with ESLint |
-| `npm run format` | Format code with Prettier |
+| Command             | Description                              |
+| ------------------- | ---------------------------------------- |
+| `npm run dev`       | Start development server with hot-reload |
+| `npm run build`     | Build for production                     |
+| `npm run preview`   | Preview production build                 |
+| `npm run test:unit` | Run unit tests with Vitest               |
+| `npm run test:e2e`  | Run end-to-end tests with Playwright     |
+| `npm run lint`      | Lint code with ESLint                    |
+| `npm run format`    | Format code with Prettier                |
 
 ## 🏗️ Project Structure
 
@@ -92,6 +100,7 @@ src/
 ## 🎨 Usage Guide
 
 ### Creating a Flat Pattern
+
 1. Navigate to the **Flat Grid** tab
 2. Use the grid editor to place beads
 3. Select colors from the color picker
@@ -99,6 +108,7 @@ src/
 5. Preview in 3D using the 3D view
 
 ### Creating a Weaving Pattern
+
 1. Navigate to the **Weaving Grid** tab
 2. Adjust grid dimensions using the sliders
 3. Choose your bead size
@@ -108,11 +118,13 @@ src/
 ## 🧪 Testing
 
 ### Unit Tests
+
 ```bash
 npm run test:unit
 ```
 
 ### End-to-End Tests
+
 ```bash
 # Install Playwright browsers
 npx playwright install
@@ -124,16 +136,19 @@ npm run test:e2e
 ## 🚀 Deployment
 
 ### Build for Production
+
 ```bash
 npm run build
 ```
 
 ### Preview Production Build
+
 ```bash
 npm run preview
 ```
 
 ### deploy
+
 npm run build
 npm run deploy
 

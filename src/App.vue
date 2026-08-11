@@ -13,11 +13,7 @@
           <RouterLink to="/peyote-grid">Peyote Grid</RouterLink>
         </div>
         <!-- Mobile Toggle Button -->
-        <button 
-          class="mobile-toggle-btn md:hidden"
-          :class="{ 'active': isMobileHeaderOpen }"
-          @click="toggleMobileHeader"
-        >
+        <button class="mobile-toggle-btn md:hidden" :class="{ active: isMobileHeaderOpen }" @click="toggleMobileHeader">
           <span class="hamburger-line"></span>
           <span class="hamburger-line"></span>
           <span class="hamburger-line"></span>
@@ -26,7 +22,10 @@
     </header>
     <!-- Main Content -->
     <main class="main-content">
-      <RouterView :is-mobile-header-open="isMobileHeaderOpen" />
+      <RouterView
+        :is-mobile-header-open="isMobileHeaderOpen"
+        @close-mobile-header="isMobileHeaderOpen = false"
+      />
     </main>
   </div>
 </template>
@@ -62,7 +61,7 @@ onMounted(() => {
 }
 
 .app-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--accent);
   color: white;
   padding: 10px 0;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
@@ -177,7 +176,7 @@ onMounted(() => {
 }
 
 .app-footer {
-  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  background: var(--dark);
   color: white;
   padding: 20px 0;
   text-align: center;
@@ -192,11 +191,11 @@ onMounted(() => {
 
 /* Dark mode styles */
 .dark-mode .app-header {
-  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  background: var(--dark);
 }
 
 .dark-mode .app-footer {
-  background: linear-gradient(135deg, #1a252f 0%, #2c3e50 100%);
+  background: var(--dark-2);
 }
 
 /* Responsive design */

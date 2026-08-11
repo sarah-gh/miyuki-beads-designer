@@ -56,7 +56,7 @@ function getBeadMaterial(colorLike, textureRotation = 0) {
         undefined,
         (error) => {
           console.error('Error loading texture:', url, error);
-        }
+        },
       );
       // Also set immediately for initial instance (will update once loaded)
       texture.colorSpace = THREE.SRGBColorSpace;
@@ -133,13 +133,13 @@ function createBeads() {
       const bead = new THREE.Mesh(beadGeometry, beadMaterial);
 
       // Apply peyote brick pattern: odd columns are shifted down by half a bead height
-      const isOddColumn = (x % 2) === 1;
+      const isOddColumn = x % 2 === 1;
       const peyoteOffset = isOddColumn ? 0.6 : 0; // Half of bead height (1.1/2 ≈ 0.6)
 
       bead.position.set(
         (x - halfCols) * 1.2,
         -(y - halfRows) * 1.2 - peyoteOffset,
-        0
+        0,
       );
 
       scene.add(bead);
@@ -218,16 +218,16 @@ onBeforeUnmount(() => {
   if (renderer && renderer.__resizeObserver && container.value) {
     renderer.__resizeObserver.disconnect();
   }
-  
+
   // Dispose all beads and their materials
   disposeBeads();
-  
+
   // Dispose cached textures
   textureCache.forEach((texture) => {
     texture.dispose();
   });
   textureCache.clear();
-  
+
   if (controls) controls.dispose();
   if (renderer) renderer.dispose();
 });

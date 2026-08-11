@@ -2940,7 +2940,7 @@ async function changeAllBeadsToColor() {
   display: flex;
   gap: 20px;
   padding: 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--bg);
 }
 
 .controls-panel {
@@ -2951,14 +2951,14 @@ async function changeAllBeadsToColor() {
   right: 0;
   width: 260px;
   height: calc(100vh - 168px);
-  background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
-  border-left: 1px solid #dee2e6;
+  background: var(--surface-muted);
+  border-left: 1px solid var(--border);
   z-index: 1000;
   overflow-y: auto;
   padding: 12px;
   box-shadow: -2px 0 8px rgba(0, 0, 0, 0.08);
   scrollbar-width: thin;
-  scrollbar-color: #adb5bd #f8f9fa;
+  scrollbar-color: var(--border-strong) var(--surface-muted);
 }
 
 .controls-panel::-webkit-scrollbar {
@@ -2966,30 +2966,30 @@ async function changeAllBeadsToColor() {
 }
 
 .controls-panel::-webkit-scrollbar-track {
-  background: #f8f9fa;
+  background: var(--surface-muted);
 }
 
 .controls-panel::-webkit-scrollbar-thumb {
-  background: #adb5bd;
+  background: var(--border-strong);
   border-radius: 3px;
 }
 
 .controls-panel::-webkit-scrollbar-thumb:hover {
-  background: #6c757d;
+  background: var(--text-muted);
 }
 
 .controls-header {
   text-align: center;
   margin-bottom: 12px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #dee2e6;
+  border-bottom: 1px solid var(--border);
 }
 
 .controls-header h3 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #495057;
+  color: var(--text);
 }
 
 .controls-content {
@@ -3006,8 +3006,8 @@ async function changeAllBeadsToColor() {
 .image-section,
 .tools-section,
 .export-section {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 1px solid #dee2e6;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
@@ -3036,7 +3036,7 @@ async function changeAllBeadsToColor() {
   margin: 0 0 8px 0;
   font-size: 13px;
   font-weight: 600;
-  color: #495057;
+  color: var(--text);
 }
 
 .dimension-inputs {
@@ -3055,15 +3055,15 @@ async function changeAllBeadsToColor() {
 
 .dimension-text {
   font-size: 12px;
-  color: #6c757d;
+  color: var(--text-muted);
   font-weight: 500;
 }
 
 .dimension-input {
   width: 60px;
-  color: #495057;
+  color: var(--text);
   padding: 6px 8px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 12px;
   background: #ffffff;
@@ -3073,12 +3073,12 @@ async function changeAllBeadsToColor() {
 
 .dimension-input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
 }
 
 .dimension-input:hover {
-  border-color: #adb5bd;
+  border-color: var(--border-strong);
 }
 
 .color-picker-container {
@@ -3092,7 +3092,7 @@ async function changeAllBeadsToColor() {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 2px solid #dee2e6;
+  border: 2px solid var(--border);
   cursor: pointer;
   padding: 0;
   transition: all 0.2s ease;
@@ -3106,12 +3106,12 @@ async function changeAllBeadsToColor() {
 
 .color-value {
   font-size: 12px;
-  color: #495057;
+  color: var(--text);
   font-weight: 500;
-  background: #f8f9fa;
+  background: var(--surface-muted);
   padding: 4px 8px;
   border-radius: 4px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
   min-width: 60px;
   text-align: center;
 }
@@ -3127,11 +3127,11 @@ async function changeAllBeadsToColor() {
   margin: 0;
   font-size: 13px;
   font-weight: 600;
-  color: #495057;
+  color: var(--text);
 }
 
 .clear-colors-btn {
-  background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+  background: var(--danger);
   color: white;
   padding: 6px 10px;
   border-radius: 6px;
@@ -3144,7 +3144,7 @@ async function changeAllBeadsToColor() {
 }
 
 .clear-colors-btn:hover {
-  background-color: #d32f2f;
+  background-color: var(--danger-hover);
   transform: translateY(-1px);
 }
 
@@ -3161,7 +3161,7 @@ async function changeAllBeadsToColor() {
   border-radius: 50%;
   cursor: pointer;
   position: relative;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
   transition: all 0.2s ease;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
@@ -3175,7 +3175,7 @@ async function changeAllBeadsToColor() {
   position: absolute;
   top: -6px;
   right: -6px;
-  background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+  background: var(--danger);
   color: white;
   width: 18px;
   height: 18px;
@@ -3220,70 +3220,70 @@ async function changeAllBeadsToColor() {
 }
 
 .tool-btn:hover {
-  background-color: #e0e0e0;
-  border-color: #ccc;
+  background-color: var(--border-strong);
+  border-color: var(--border-strong);
   transform: translateY(-1px);
 }
 
 .tool-btn.active {
-  background-color: #4caf50;
+  background-color: var(--success);
   color: white;
-  border-color: #4caf50;
+  border-color: var(--success);
 }
 
 .tool-btn.primary {
-  background-color: #4caf50;
+  background-color: var(--success);
   color: white;
-  border-color: #4caf50;
+  border-color: var(--success);
 }
 
 .tool-btn.primary:hover {
-  background-color: #388e3c;
-  border-color: #388e3c;
+  background-color: var(--success-hover);
+  border-color: var(--success-hover);
 }
 
 .tool-btn.secondary {
-  background-color: #2196f3;
+  background-color: var(--info);
   color: white;
-  border-color: #2196f3;
+  border-color: var(--info);
 }
 
 .tool-btn.secondary:hover {
-  background-color: #1976d2;
-  border-color: #1976d2;
+  background-color: var(--info-hover);
+  border-color: var(--info-hover);
 }
 
 .tool-btn.danger {
-  background-color: #f44336;
+  background-color: var(--danger);
   color: white;
-  border-color: #f44336;
+  border-color: var(--danger);
 }
 
 .tool-btn.danger:hover {
-  background-color: #d32f2f;
-  border-color: #d32f2f;
+  background-color: var(--danger-hover);
+  border-color: var(--danger-hover);
 }
 
 .tool-btn.success {
-  background-color: #4caf50;
+  background-color: var(--success);
   color: white;
-  border-color: #4caf50;
+  border-color: var(--success);
 }
 
 .tool-btn.success:hover {
-  background-color: #388e3c;
-  border-color: #388e3c;
+  background-color: var(--success-hover);
+  border-color: var(--success-hover);
 }
 
 .tool-btn.info {
-  background-color: #2196f3;
+  background-color: var(--info);
   color: white;
-  border-color: #2196f3;
+  border-color: var(--info);
 }
 
 .tool-btn.info:hover {
-  background-color: #1976d2;
-  border-color: #1976d2;
+  background-color: var(--info-hover);
+  border-color: var(--info-hover);
 }
 
 .export-section {
@@ -3308,53 +3308,53 @@ async function changeAllBeadsToColor() {
 }
 
 .export-btn:hover {
-  background-color: #e0e0e0;
-  border-color: #ccc;
+  background-color: var(--border-strong);
+  border-color: var(--border-strong);
   transform: translateY(-1px);
 }
 
 .export-btn.primary {
-  background-color: #4caf50;
+  background-color: var(--success);
   color: white;
-  border-color: #4caf50;
+  border-color: var(--success);
 }
 
 .export-btn.primary:hover {
-  background-color: #388e3c;
-  border-color: #388e3c;
+  background-color: var(--success-hover);
+  border-color: var(--success-hover);
 }
 
 .export-btn.success {
-  background-color: #4caf50;
+  background-color: var(--success);
   color: white;
-  border-color: #4caf50;
+  border-color: var(--success);
 }
 
 .export-btn.success:hover {
-  background-color: #388e3c;
-  border-color: #388e3c;
+  background-color: var(--success-hover);
+  border-color: var(--success-hover);
 }
 
 .export-btn.info {
-  background-color: #2196f3;
+  background-color: var(--info);
   color: white;
-  border-color: #2196f3;
+  border-color: var(--info);
 }
 
 .export-btn.info:hover {
-  background-color: #1976d2;
-  border-color: #1976d2;
+  background-color: var(--info-hover);
+  border-color: var(--info-hover);
 }
 
 .export-btn.warning {
-  background-color: #ff9800;
+  background-color: var(--warning);
   color: white;
-  border-color: #ff9800;
+  border-color: var(--warning);
 }
 
 .export-btn.warning:hover {
-  background-color: #f57c00;
-  border-color: #f57c00;
+  background-color: var(--warning-hover);
+  border-color: var(--warning-hover);
 }
 
 .grid-container {
@@ -3394,21 +3394,21 @@ async function changeAllBeadsToColor() {
 .last-saved-info {
   text-align: center;
   padding: 6px;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  background: var(--surface-muted);
   border-radius: 6px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
   margin-bottom: 10px;
 }
 
 .last-saved-info small {
   font-size: 11px;
-  color: #6c757d;
+  color: var(--text-muted);
 }
 
 /* استایل دکمه‌های رنگ پس‌زمینه */
 .background-color-section {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 1px solid #dee2e6;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
@@ -3431,7 +3431,7 @@ async function changeAllBeadsToColor() {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 2px solid #dee2e6;
+  border: 2px solid var(--border);
   cursor: pointer;
   padding: 0;
   transition: all 0.2s ease;
@@ -3454,8 +3454,8 @@ async function changeAllBeadsToColor() {
   flex-direction: column;
   align-items: center;
   padding: 20px;
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 2px solid #dee2e6;
+  background: var(--surface);
+  border: 2px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(10px);
@@ -3472,7 +3472,7 @@ async function changeAllBeadsToColor() {
   justify-content: center;
   gap: 10px;
   padding: 15px 25px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--accent);
   border: 2px dashed rgba(255, 255, 255, 0.3);
   border-radius: 12px;
   cursor: pointer;
@@ -3484,14 +3484,14 @@ async function changeAllBeadsToColor() {
 }
 
 .upload-label:hover {
-  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  background: var(--accent-hover);
   border-color: rgba(255, 255, 255, 0.5);
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
 }
 .upload-text {
   font-size: 14px;
-  color: #333;
+  color: var(--text);
 }
 .upload-input {
   display: none;
@@ -3501,8 +3501,8 @@ async function changeAllBeadsToColor() {
   height: auto;
   overflow: hidden;
   border-radius: 12px;
-  border: 2px solid #dee2e6;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 2px solid var(--border);
+  background: var(--surface-muted);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3518,8 +3518,8 @@ async function changeAllBeadsToColor() {
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 2px solid #dee2e6;
+  background: var(--surface);
+  border: 2px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(10px);
@@ -3533,8 +3533,8 @@ async function changeAllBeadsToColor() {
   gap: 0.5px;
   width: fit-content;
   height: fit-content;
-  background: #f8f9fa;
-  border: 2px solid #dee2e6;
+  background: var(--surface-muted);
+  border: 2px solid var(--border);
   border-radius: 8px;
   padding: 10px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
@@ -3562,7 +3562,7 @@ async function changeAllBeadsToColor() {
 }
 .center-marker {
   font-size: 16px;
-  color: #ff4757;
+  color: var(--danger);
   font-weight: bold;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
@@ -3577,10 +3577,10 @@ async function changeAllBeadsToColor() {
 .mode-btn {
   flex: 1;
   padding: 8px 12px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
   border-radius: 6px;
   background: #ffffff;
-  color: #495057;
+  color: var(--text);
   cursor: pointer;
   font-size: 12px;
   font-weight: 500;
@@ -3589,15 +3589,15 @@ async function changeAllBeadsToColor() {
 }
 
 .mode-btn:hover {
-  background: #f8f9fa;
-  border-color: #adb5bd;
+  background: var(--surface-muted);
+  border-color: var(--border-strong);
   transform: translateY(-1px);
 }
 
 .mode-btn.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--accent);
   color: white;
-  border-color: #667eea;
+  border-color: var(--accent);
   box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
 }
 
@@ -3613,9 +3613,9 @@ async function changeAllBeadsToColor() {
   max-height: 200px;
   overflow-y: auto;
   padding: 4px;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: #f8f9fa;
+  background: var(--surface-muted);
 }
 
 .image-item {
@@ -3637,8 +3637,8 @@ async function changeAllBeadsToColor() {
 }
 
 .image-item.selected {
-  border-color: #667eea;
-  background: linear-gradient(135deg, #f8f9ff 0%, #e6f0ff 100%);
+  border-color: var(--accent);
+  background: var(--accent-soft);
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
@@ -3647,12 +3647,12 @@ async function changeAllBeadsToColor() {
   height: 40px;
   object-fit: cover;
   border-radius: 4px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
 }
 
 .image-name {
   font-size: 10px;
-  color: #6c757d;
+  color: var(--text-muted);
   margin-top: 4px;
   text-align: center;
   font-weight: 500;
@@ -3661,7 +3661,7 @@ async function changeAllBeadsToColor() {
 .recent-images-section {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #e9ecef;
+  border-top: 1px solid var(--border);
 }
 
 .recent-images-header {
@@ -3675,11 +3675,11 @@ async function changeAllBeadsToColor() {
   margin: 0;
   font-size: 13px;
   font-weight: 600;
-  color: #495057;
+  color: var(--text);
 }
 
 .clear-images-btn {
-  background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+  background: var(--danger);
   color: white;
   padding: 4px 8px;
   border-radius: 4px;
@@ -3692,7 +3692,7 @@ async function changeAllBeadsToColor() {
 }
 
 .clear-images-btn:hover {
-  background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+  background: var(--danger-hover);
   transform: translateY(-1px);
 }
 
@@ -3722,8 +3722,8 @@ async function changeAllBeadsToColor() {
 }
 
 .recent-image-item.selected {
-  border-color: #667eea;
-  background: linear-gradient(135deg, #f8f9ff 0%, #e6f0ff 100%);
+  border-color: var(--accent);
+  background: var(--accent-soft);
   box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
 }
 
@@ -3732,14 +3732,14 @@ async function changeAllBeadsToColor() {
   height: 32px;
   object-fit: cover;
   border-radius: 3px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
 }
 
 .remove-image-btn {
   position: absolute;
   top: -4px;
   right: -4px;
-  background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+  background: var(--danger);
   color: white;
   width: 16px;
   height: 16px;
@@ -3778,9 +3778,9 @@ async function changeAllBeadsToColor() {
 .background-image-picker {
   max-height: 200px;
   overflow-y: auto;
-  border: 1px solid #e9ecef;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: #f8f9fa;
+  background: var(--surface-muted);
   padding: 8px;
 }
 
@@ -3809,8 +3809,8 @@ async function changeAllBeadsToColor() {
 }
 
 .background-image-item.selected {
-  border-color: #667eea;
-  background: linear-gradient(135deg, #f8f9ff 0%, #e6f0ff 100%);
+  border-color: var(--accent);
+  background: var(--accent-soft);
   box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
 }
 
@@ -3819,12 +3819,12 @@ async function changeAllBeadsToColor() {
   height: 32px;
   object-fit: cover;
   border-radius: 3px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
 }
 
 .background-image-name {
   font-size: 9px;
-  color: #6c757d;
+  color: var(--text-muted);
   margin-top: 2px;
   text-align: center;
   font-weight: 500;
@@ -3836,8 +3836,8 @@ async function changeAllBeadsToColor() {
   top: 50px;
   left: 0;
   right: 0;
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border-bottom: 2px solid #667eea;
+  background: var(--surface);
+  border-bottom: 2px solid var(--accent);
   z-index: 1800;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   max-height: 200px;
@@ -3851,7 +3851,7 @@ async function changeAllBeadsToColor() {
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--accent);
   color: white;
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   flex-shrink: 0;
@@ -3901,7 +3901,7 @@ async function changeAllBeadsToColor() {
 
 .pin-btn {
   background: transparent;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
   border-radius: 6px;
   width: 32px;
   height: 32px;
@@ -3911,24 +3911,24 @@ async function changeAllBeadsToColor() {
   cursor: pointer;
   font-size: 16px;
   transition: all 0.2s ease;
-  color: #6c757d;
+  color: var(--text-muted);
 }
 
 .pin-btn:hover {
-  background: #f8f9fa;
-  border-color: #adb5bd;
+  background: var(--surface-muted);
+  border-color: var(--border-strong);
   transform: scale(1.1);
 }
 
 .pin-btn.pinned {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--accent);
   color: white;
-  border-color: #667eea;
+  border-color: var(--accent);
   box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
 }
 
 .pin-btn.pinned:hover {
-  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  background: var(--accent-hover);
   transform: scale(1.1);
 }
 
@@ -3938,7 +3938,7 @@ async function changeAllBeadsToColor() {
 }
 
 .pinned-section-content::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--surface-sunken);
   border-radius: 3px;
 }
 
@@ -3970,7 +3970,7 @@ async function changeAllBeadsToColor() {
     align-items: center;
     justify-content: space-between;
     padding: 8px 12px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--accent);
     color: white;
     position: fixed;
     top: 0;
@@ -4027,8 +4027,8 @@ async function changeAllBeadsToColor() {
     top: 50px;
     left: 0;
     right: 0;
-    background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
-    border-bottom: 1px solid #dee2e6;
+    background: var(--surface-muted);
+    border-bottom: 1px solid var(--border);
     z-index: 1500;
     max-height: 0;
     overflow: hidden;
@@ -4049,16 +4049,16 @@ async function changeAllBeadsToColor() {
   }
 
   .mobile-image-section {
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-    border: 1px solid #dee2e6;
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   }
 
   .mobile-controls-content {
-    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-    border: 1px solid #dee2e6;
+    background: var(--surface);
+    border: 1px solid var(--border);
     border-radius: 8px;
     padding: 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);

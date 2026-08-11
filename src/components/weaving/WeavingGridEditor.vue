@@ -186,7 +186,7 @@
             | ستون‌ها: {{ cols }} × ردیف‌ها: {{ rows }}
           </div>
         </div>
-        
+
         <div class="canvas-container">
           <canvas
             ref="canvas"
@@ -209,8 +209,8 @@
             </label>
           </div>
           <div class="text-xs text-gray-600">
-            نکته: "حالت اجرچینی" هر ردیف زوج یا فرد را نیم مهره جابه‌جا می‌کند تا
-            ظاهر بافت Brick Stitch شبیه‌سازی شود.
+            نکته: "حالت اجرچینی" هر ردیف زوج یا فرد را نیم مهره جابه‌جا می‌کند
+            تا ظاهر بافت Brick Stitch شبیه‌سازی شود.
           </div>
         </div>
       </div>
@@ -478,7 +478,13 @@ function handleTxtUpload(e) {
       try {
         const content = e.target.result.trim();
         const colors = JSON.parse(content);
-        if (Array.isArray(colors) && colors.every(color => typeof color === 'string' && color.match(/^#[0-9A-Fa-f]{6}$/))) {
+        if (
+          Array.isArray(colors) &&
+          colors.every(
+            (color) =>
+              typeof color === 'string' && color.match(/^#[0-9A-Fa-f]{6}$/),
+          )
+        ) {
           // Convert 1D array to 2D grid
           const gridData = [];
           for (let r = 0; r < rows.value; r++) {
@@ -545,7 +551,7 @@ onBeforeUnmount(() => {
   padding: 20px;
   padding-top: 0px;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--bg);
 }
 
 .controls-panel {
@@ -556,14 +562,14 @@ onBeforeUnmount(() => {
   right: 0;
   width: 100%;
   height: 200px;
-  background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
-  border-left: 2px solid #dee2e6;
+  background: var(--surface-muted);
+  border-left: 2px solid var(--border);
   z-index: 1000;
   overflow-y: auto;
   padding: 20px;
   box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
   scrollbar-width: thin;
-  scrollbar-color: #adb5bd #f8f9fa;
+  scrollbar-color: var(--border-strong) var(--surface-muted);
 }
 
 .controls-panel::-webkit-scrollbar {
@@ -571,23 +577,23 @@ onBeforeUnmount(() => {
 }
 
 .controls-panel::-webkit-scrollbar-track {
-  background: #f8f9fa;
+  background: var(--surface-muted);
 }
 
 .controls-panel::-webkit-scrollbar-thumb {
-  background: #adb5bd;
+  background: var(--border-strong);
   border-radius: 4px;
 }
 
 .controls-panel::-webkit-scrollbar-thumb:hover {
-  background: #6c757d;
+  background: var(--text-muted);
 }
 
 .controls-header {
   text-align: center;
   margin-bottom: 20px;
   padding-bottom: 15px;
-  border-bottom: 2px solid #dee2e6;
+  border-bottom: 2px solid var(--border);
 }
 
 .controls-content {
@@ -610,8 +616,8 @@ onBeforeUnmount(() => {
 .color-section,
 .tools-section,
 .export-section {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 2px solid #dee2e6;
+  background: var(--surface);
+  border: 2px solid var(--border);
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
@@ -649,7 +655,7 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 6px;
   border-radius: 3px;
-  background: #dee2e6;
+  background: var(--border);
   outline: none;
 }
 
@@ -659,7 +665,7 @@ onBeforeUnmount(() => {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #667eea;
+  background: var(--accent);
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
@@ -668,7 +674,7 @@ onBeforeUnmount(() => {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #667eea;
+  background: var(--accent);
   cursor: pointer;
   border: none;
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
@@ -676,13 +682,13 @@ onBeforeUnmount(() => {
 
 .dimension-value {
   font-size: 12px;
-  color: #667eea;
+  color: var(--accent);
   font-weight: 600;
   text-align: center;
-  background: #f8f9fa;
+  background: var(--surface-muted);
   padding: 4px 8px;
   border-radius: 6px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
 }
 
 .color-picker-container {
@@ -696,7 +702,7 @@ onBeforeUnmount(() => {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 3px solid #dee2e6;
+  border: 3px solid var(--border);
   cursor: pointer;
   padding: 0;
   transition: all 0.3s ease;
@@ -710,12 +716,12 @@ onBeforeUnmount(() => {
 
 .color-value {
   font-size: 14px;
-  color: #333;
+  color: var(--text);
   font-weight: 500;
-  background: #f8f9fa;
+  background: var(--surface-muted);
   padding: 5px 10px;
   border-radius: 6px;
-  border: 1px solid #dee2e6;
+  border: 1px solid var(--border);
   min-width: 80px;
   text-align: center;
 }
@@ -728,7 +734,7 @@ onBeforeUnmount(() => {
 }
 
 .clear-colors-btn {
-  background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+  background: var(--danger);
   color: white;
   padding: 8px 12px;
   border-radius: 8px;
@@ -741,7 +747,7 @@ onBeforeUnmount(() => {
 }
 
 .clear-colors-btn:hover {
-  background-color: #d32f2f;
+  background-color: var(--danger-hover);
 }
 
 .recent-colors-grid {
@@ -757,7 +763,7 @@ onBeforeUnmount(() => {
   border-radius: 50%;
   cursor: pointer;
   position: relative;
-  border: 2px solid #dee2e6;
+  border: 2px solid var(--border);
   transition: all 0.3s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -771,7 +777,7 @@ onBeforeUnmount(() => {
   position: absolute;
   top: -8px;
   right: -8px;
-  background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+  background: var(--danger);
   color: white;
   width: 24px;
   height: 24px;
@@ -816,36 +822,36 @@ onBeforeUnmount(() => {
 }
 
 .tool-btn:hover {
-  background-color: #e0e0e0;
-  border-color: #ccc;
+  background-color: var(--border-strong);
+  border-color: var(--border-strong);
 }
 
 .tool-btn.active {
-  background-color: #4caf50;
+  background-color: var(--success);
   color: white;
-  border-color: #4caf50;
+  border-color: var(--success);
 }
 
 .tool-btn.primary {
-  background-color: #4caf50;
+  background-color: var(--success);
   color: white;
-  border-color: #4caf50;
+  border-color: var(--success);
 }
 
 .tool-btn.primary:hover {
-  background-color: #388e3c;
-  border-color: #388e3c;
+  background-color: var(--success-hover);
+  border-color: var(--success-hover);
 }
 
 .tool-btn.secondary {
-  background-color: #2196f3;
+  background-color: var(--info);
   color: white;
-  border-color: #2196f3;
+  border-color: var(--info);
 }
 
 .tool-btn.secondary:hover {
-  background-color: #1976d2;
-  border-color: #1976d2;
+  background-color: var(--info-hover);
+  border-color: var(--info-hover);
 }
 
 .export-section {
@@ -870,30 +876,30 @@ onBeforeUnmount(() => {
 }
 
 .export-btn:hover {
-  background-color: #e0e0e0;
-  border-color: #ccc;
+  background-color: var(--border-strong);
+  border-color: var(--border-strong);
 }
 
 .export-btn.primary {
-  background-color: #4caf50;
+  background-color: var(--success);
   color: white;
-  border-color: #4caf50;
+  border-color: var(--success);
 }
 
 .export-btn.primary:hover {
-  background-color: #388e3c;
-  border-color: #388e3c;
+  background-color: var(--success-hover);
+  border-color: var(--success-hover);
 }
 
 .export-btn.success {
-  background-color: #4caf50;
+  background-color: var(--success);
   color: white;
-  border-color: #4caf50;
+  border-color: var(--success);
 }
 
 .export-btn.success:hover {
-  background-color: #388e3c;
-  border-color: #388e3c;
+  background-color: var(--success-hover);
+  border-color: var(--success-hover);
 }
 
 .grid-container {
@@ -911,8 +917,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: center;
   padding: 20px;
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 2px solid #dee2e6;
+  background: var(--surface);
+  border: 2px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(10px);
@@ -931,7 +937,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   gap: 10px;
   padding: 15px 25px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--accent);
   border: 2px dashed rgba(255, 255, 255, 0.3);
   border-radius: 12px;
   cursor: pointer;
@@ -944,7 +950,7 @@ onBeforeUnmount(() => {
 }
 
 .upload-label:hover {
-  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  background: var(--accent-hover);
   border-color: rgba(255, 255, 255, 0.5);
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
@@ -964,8 +970,8 @@ onBeforeUnmount(() => {
   height: auto;
   overflow: hidden;
   border-radius: 12px;
-  border: 2px solid #dee2e6;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 2px solid var(--border);
+  background: var(--surface-muted);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -983,8 +989,8 @@ onBeforeUnmount(() => {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 2px solid #dee2e6;
+  background: var(--surface);
+  border: 2px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
   backdrop-filter: blur(10px);
@@ -995,7 +1001,7 @@ onBeforeUnmount(() => {
 .canvas-header {
   margin-bottom: 15px;
   padding-bottom: 10px;
-  border-bottom: 1px solid #dee2e6;
+  border-bottom: 1px solid var(--border);
 }
 
 .canvas-container {
@@ -1004,16 +1010,16 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   overflow: auto;
-  border: 2px dashed #dee2e6;
+  border: 2px dashed var(--border);
   border-radius: 8px;
-  background: #f8f9fa;
+  background: var(--surface-muted);
   padding: 20px;
   margin-bottom: 15px;
 }
 
 .canvas-info {
   padding-top: 15px;
-  border-top: 1px solid #dee2e6;
+  border-top: 1px solid var(--border);
 }
 
 canvas {
@@ -1028,7 +1034,7 @@ canvas {
   .grid-container {
     flex-direction: column;
   }
-  
+
   .image-section {
     max-width: none;
   }
@@ -1041,15 +1047,14 @@ canvas {
     height: auto;
     order: 2;
   }
-  
+
   .grid-container {
     margin-right: 0;
     order: 1;
   }
-  
+
   .editor-container {
     flex-direction: column;
   }
 }
 </style>
-  

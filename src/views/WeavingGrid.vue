@@ -1,37 +1,39 @@
 <template>
   <div class="home-container">
-    <header class="app-header flex items-start justify-between mb-3!">
+    <header class="app-header mb-3! flex items-start justify-between">
       <div class="header-content">
         <div class="logo-section">
-          <h1 class="app-title text-2xl">🎨 Miyuki Beads Designer - Flat Style</h1>
+          <h1 class="app-title text-2xl">
+            🎨 Miyuki Beads Designer - Flat Style
+          </h1>
         </div>
         <div class="header-actions mt-3! flex items-center gap-2">
           <button
-            class="rounded-md bg-cyan-950 px-4! py-2! text-[18px] text-white"
+            class="theme-btn px-4! py-2! text-[18px]"
             @click="toggleGridEditor"
           >
             ویرایشگر شبکه
           </button>
           <button
-            class="rounded-md bg-blue-900 px-4! py-2! text-[18px] text-white"
+            class="theme-btn px-4! py-2! text-[18px]"
             @click="togglePeyoteGridEditor"
           >
             ویرایشگر شبکه پیچ
           </button>
           <button
-            class="rounded-md bg-blue-900 px-4! py-2! text-[18px] text-white"
+            class="theme-btn px-4! py-2! text-[18px]"
             @click="toggleMiyukiBeads"
           >
             نمایش مهره‌ها
           </button>
           <button
-            class="rounded-md bg-emerald-900 px-4! py-2! text-[18px] text-white"
+            class="theme-btn px-4! py-2! text-[18px]"
             @click="toggleBraceletPreview"
           >
             پیش‌نمایش دستبند
           </button>
           <button
-            class="rounded-md bg-emerald-900 px-4! py-2! text-[18px] text-white"
+            class="theme-btn-primary px-4! py-2! text-[18px]"
             @click="startWorking"
           >
             مراحل اجرا
@@ -169,32 +171,30 @@ function handleUpdateGrid(matrix) {
 <style scoped>
 .home-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--bg);
   padding: 20px;
 }
 
 .app-header {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
+  background: var(--surface);
   border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--border);
   padding: 20px;
   margin-bottom: 20px;
 }
 
 .app-title {
-  color: white;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  color: var(--text);
 }
 
 .header-actions button {
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 2px rgba(41, 37, 36, 0.06);
 }
 
 .header-actions button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 10px rgba(41, 37, 36, 0.12);
 }
 
 .stats-section {
@@ -205,31 +205,33 @@ function handleUpdateGrid(matrix) {
 
 .stat-item {
   text-align: center;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border-radius: 15px;
+  background: var(--surface);
+  border-radius: 12px;
   padding: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--border);
   min-width: 100px;
 }
 
 .stat-number {
   font-size: 1.2rem;
   font-weight: bold;
-  color: white;
+  color: var(--text);
   margin-bottom: 5px;
 }
 
 .stat-label {
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-muted);
   font-size: 0.9rem;
 }
 
 .content-container {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--surface);
+  /* Load-bearing, not decorative: backdrop-filter makes this element the
+     containing block for the position:fixed panels the editors render
+     inside it. Removing it lets those panels escape to the viewport. */
   backdrop-filter: blur(10px);
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  border: 1px solid var(--border);
   overflow: hidden;
 }
 
@@ -244,12 +246,12 @@ function handleUpdateGrid(matrix) {
     gap: 20px;
     align-items: center;
   }
-  
+
   .header-actions {
     flex-direction: column;
     gap: 10px;
   }
-  
+
   .header-actions button {
     width: 100%;
   }
@@ -259,7 +261,7 @@ function handleUpdateGrid(matrix) {
   .home-container {
     padding: 10px;
   }
-  
+
   .app-title {
     font-size: 1.5rem;
   }
