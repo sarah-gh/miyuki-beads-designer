@@ -13,7 +13,11 @@
           <RouterLink to="/peyote-grid">Peyote Grid</RouterLink>
         </div>
         <!-- Mobile Toggle Button -->
-        <button class="mobile-toggle-btn md:hidden" :class="{ active: isMobileHeaderOpen }" @click="toggleMobileHeader">
+        <button
+          class="mobile-toggle-btn md:hidden"
+          :class="{ active: isMobileHeaderOpen }"
+          @click="toggleMobileHeader"
+        >
           <span class="hamburger-line"></span>
           <span class="hamburger-line"></span>
           <span class="hamburger-line"></span>
@@ -27,12 +31,16 @@
         @close-mobile-header="isMobileHeaderOpen = false"
       />
     </main>
+
+    <!-- Offers "add to home screen" the first time the browser says it's installable -->
+    <InstallPrompt />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
 import { RouterView } from 'vue-router';
+import InstallPrompt from './components/InstallPrompt.vue';
 
 // App.vue loaded
 
@@ -63,7 +71,8 @@ onMounted(() => {
 .app-header {
   background: var(--accent);
   color: white;
-  padding: 10px 0;
+  /* In standalone mode the header sits under the status bar / notch. */
+  padding: calc(10px + env(safe-area-inset-top)) 0 10px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   position: sticky;
   top: 0;
