@@ -6,14 +6,63 @@
       rel="icon"
       href="/miyuki-beads-designer/favicon.ico"
     />
+    <link
+      rel="apple-touch-icon"
+      href="/miyuki-beads-designer/apple-touch-icon.png"
+    />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <title>Miyuki Beads</title>
-    <script type="module" crossorigin src="/miyuki-beads-designer/assets/index-B48Eae23.js"></script>
-    <link rel="stylesheet" crossorigin href="/miyuki-beads-designer/assets/index-BxmFcP8e.css">
-  </head>
+    <meta
+      name="description"
+      content="Design flat, peyote and weaving bead patterns for Miyuki beads, with a live 3D preview of your bracelet."
+    />
+    <meta
+      name="theme-color"
+      content="#9e7b62"
+    />
+    <!-- iOS home-screen app: full screen, no Safari chrome -->
+    <meta
+      name="mobile-web-app-capable"
+      content="yes"
+    />
+    <meta
+      name="apple-mobile-web-app-capable"
+      content="yes"
+    />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta
+      name="apple-mobile-web-app-title"
+      content="Miyuki Beads"
+    />
+    <title>Miyuki Beads Designer</title>
+    <script>
+      // Restores the route that 404.html encoded into the query string, before
+      // vue-router boots. See public/404.html.
+      (function (l) {
+        if (l.search[1] === '/') {
+          var decoded = l.search
+            .slice(1)
+            .split('&')
+            .map(function (s) {
+              return s.replace(/~and~/g, '&');
+            })
+            .join('?');
+          window.history.replaceState(
+            null,
+            null,
+            l.pathname.slice(0, -1) + decoded + l.hash,
+          );
+        }
+      })(window.location);
+    </script>
+    <script type="module" crossorigin src="/miyuki-beads-designer/assets/index-Dlctchbw.js"></script>
+    <link rel="stylesheet" crossorigin href="/miyuki-beads-designer/assets/index-DFR6Qgvp.css">
+  <link rel="manifest" href="/miyuki-beads-designer/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/miyuki-beads-designer/registerSW.js"></script></head>
   <body>
     <div id="app"></div>
   </body>

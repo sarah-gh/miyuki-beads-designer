@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/miyuki-beads-designer/sw.js', { scope: '/miyuki-beads-designer/' })})}
