@@ -23,15 +23,15 @@ export default defineConfig({
         name: 'Miyuki Beads Designer',
         short_name: 'Miyuki Beads',
         description:
-          'طراحی الگوی مرواریدبافی میوکی — شبکهٔ تخت، پیوت و بافت، همراه با پیش‌نمای سه‌بعدی دستبند.',
-        lang: 'fa',
-        dir: 'rtl',
+          'Design flat, peyote and weaving bead patterns for Miyuki beads, with a live 3D preview of your bracelet.',
+        lang: 'en',
+        dir: 'ltr',
         start_url: BASE,
         scope: BASE,
         display: 'standalone',
         orientation: 'any',
-        background_color: '#f5f2ed',
-        theme_color: '#9e7b62',
+        background_color: '#f6efe9',
+        theme_color: '#a86f67',
         categories: ['graphics', 'productivity', 'lifestyle'],
         icons: [
           {
@@ -58,13 +58,13 @@ export default defineConfig({
           {
             name: 'Flat Grid',
             short_name: 'Flat',
-            url: `${BASE}`,
+            url: `${BASE}projects?mode=flat`,
             icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }],
           },
           {
             name: 'Weaving Grid',
             short_name: 'Weaving',
-            url: `${BASE}weaving-grid`,
+            url: `${BASE}projects?mode=weaving`,
             icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }],
           },
           {
@@ -76,7 +76,7 @@ export default defineConfig({
           {
             name: 'Peyote Grid',
             short_name: 'Peyote',
-            url: `${BASE}peyote-grid`,
+            url: `${BASE}projects?mode=peyote`,
             icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }],
           },
         ],
@@ -85,7 +85,7 @@ export default defineConfig({
         // Every route chunk and every bead swatch is precached, so all pages of
         // the app open in standalone mode even with no network.
         globPatterns: [
-          '**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff,woff2}',
+          '**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp,woff,woff2,glb}',
         ],
         // Deep links like /miyuki-beads-designer/peyote-grid are client-side
         // routes; hand them back to index.html instead of 404-ing.

@@ -1,1649 +1,514 @@
 <template>
-  <div class="peyote-editor-container overflow-auto">
-    <!-- Mobile Control Bar -->
-    <div class="mobile-control-bar">
-      <button
-        class="mobile-menu-btn"
-        :class="{ active: isMobilePanelOpen }"
-        @click="toggleMobilePanel"
+  <div class="peyote-editor">
+    <!-- ===== Header: project name + file actions ===== -->
+    <AppPortal to="header-start">
+      <EditableTitle v-model="projectName" />
+      <SavedBadge
+        class="peyote-editor__saved"
+        :timestamp="lastSavedTime"
+      />
+    </AppPortal>
+
+    <AppPortal to="header">
+      <FileActions
+        :export-items="exportItems"
+        :more-items="moreItems"
+        @new="newPattern"
+        @open="openProjects"
+        @import="handleTxtUpload"
+      />
+    </AppPortal>
+
+    <!-- ===== Toolbar: zoom & view toggles (only while the editor is shown) ===== -->
+    <AppPortal to="toolbar-center">
+      <div
+        v-if="active"
+        class="peyote-editor__view-controls"
       >
-        <span class="menu-icon">☰</span>
-        <span class="menu-text">ابزارها</span>
-      </button>
-      <div class="mobile-title">🎨 ویرایشگر Peyote</div>
-    </div>
-
-    <!-- Pinned Section (Mobile Only) -->
-    <div
-      v-if="pinnedSection"
-      class="pinned-section"
-    >
-      <div class="pinned-section-header">
-        <h4 class="pinned-section-title">
-          {{ getSectionTitle(pinnedSection) }}
-        </h4>
-        <button
-          class="unpin-btn"
-          title="Unpin Section"
-          @click="unpinSection"
-        >
-          ✕
-        </button>
+        <ZoomControls
+          v-model="zoom"
+          class="peyote-editor__zoom"
+          @fit="canvasRef?.fitToScreen()"
+          @fit-width="canvasRef?.fitWidth()"
+        />
+        <span class="peyote-editor__toolbar-sep"></span>
+        <BaseButton
+          size="sm"
+          icon="maximize"
+          icon-only
+          variant="ghost"
+          title="Fit to screen (0)"
+          aria-label="Fit to screen"
+          @click="canvasRef?.fitToScreen()"
+        />
+        <BaseButton
+          size="sm"
+          icon="hand"
+          icon-only
+          variant="ghost"
+          :active="panMode"
+          :pressed="panMode"
+          title="Hand tool — drag to move the pattern (H, or hold Space)"
+          aria-label="Hand tool"
+          @click="togglePanMode"
+        />
+        <span class="peyote-editor__toolbar-sep hide-on-phone"></span>
+        <BaseButton
+          size="sm"
+          icon="grid"
+          icon-only
+          variant="ghost"
+          class="hide-on-phone"
+          :active="showGridLines"
+          :pressed="showGridLines"
+          title="Show grid lines"
+          aria-label="Show grid lines"
+          @click="showGridLines = !showGridLines"
+        />
+        <BaseButton
+          size="sm"
+          :icon="showReference && selectedImage ? 'eye' : 'eyeOff'"
+          icon-only
+          variant="ghost"
+          class="hide-on-phone"
+          :active="showReference && !!selectedImage"
+          :pressed="showReference && !!selectedImage"
+          :disabled="!selectedImage"
+          :title="
+            selectedImage
+              ? 'Show reference image'
+              : 'Add a reference image in the Reference tab'
+          "
+          aria-label="Show reference image"
+          @click="showReference = !showReference"
+        />
       </div>
-      <div class="pinned-section-content">
-        <!-- Dimensions Section -->
-        <div
-          v-if="pinnedSection === 'dimensions'"
-          class="pinned-dimensions"
-        >
-          <div class="dimension-inputs">
-            <label class="dimension-label">
-              <span class="dimension-text">ردیف‌ها:</span>
-              <input
-                v-model.number="rows"
-                type="number"
-                min="1"
-                class="dimension-input"
-              />
-            </label>
-            <label class="dimension-label">
-              <span class="dimension-text">ستون‌ها:</span>
-              <input
-                v-model.number="cols"
-                type="number"
-                min="1"
-                class="dimension-input"
-              />
-            </label>
-            <label class="dimension-label">
-              <span class="dimension-text">عرض سل:</span>
-              <input
-                v-model.number="cellWidth"
-                type="number"
-                min="5"
-                max="50"
-                class="dimension-input"
-              />
-            </label>
-            <label class="dimension-label">
-              <span class="dimension-text">ارتفاع سل:</span>
-              <input
-                v-model.number="cellHeight"
-                type="number"
-                min="5"
-                max="50"
-                class="dimension-input"
-              />
-            </label>
-            <div class="dimension-label">
-              <span class="dimension-text">جهت گرید:</span>
-              <div class="orientation-toggle-group">
-                <button
-                  class="orientation-toggle-btn"
-                  :class="{ active: gridOrientation === 'vertical' }"
-                  @click="gridOrientation = 'vertical'"
-                >
-                  ↕️ عمودی
-                </button>
-                <button
-                  class="orientation-toggle-btn"
-                  :class="{ active: gridOrientation === 'horizontal' }"
-                  @click="gridOrientation = 'horizontal'"
-                >
-                  ↔️ افقی
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+    </AppPortal>
 
-        <!-- Color Section -->
-        <div
-          v-if="pinnedSection === 'color'"
-          class="pinned-color"
-        >
-          <div class="color-picker-container">
-            <input
-              v-model="selectedColor"
-              type="color"
-              class="color-picker"
-            />
-            <span class="color-value">{{ selectedColor }}</span>
-          </div>
-          <div class="recent-colors-header">
-            <h4 class="text-sm font-semibold text-gray-700">🔄 رنگ‌های اخیر</h4>
-            <button
-              v-if="recentColors.length > 0"
-              class="clear-colors-btn"
-              title="پاک کردن تمام رنگ‌ها"
-              @click="clearRecentColors"
-            >
-              🗑️ پاک کردن
-            </button>
-          </div>
-          <div class="recent-colors-grid">
-            <div
-              v-for="color in recentColors"
-              :key="color"
-              class="color-swatch"
-              :style="{ backgroundColor: color }"
-              :title="color"
-              @click="selectedColor = color"
-            >
-              <button
-                class="remove-color-btn"
-                @click.stop="removeRecentColor(color)"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        </div>
+    <!-- ===== Body ===== -->
+    <div class="peyote-editor__body">
+      <ToolSidebar
+        class="peyote-editor__tools"
+        :items="toolItems"
+      />
 
-        <!-- Mode Section -->
+      <div class="peyote-editor__workspace">
         <div
-          v-if="pinnedSection === 'mode'"
-          class="pinned-mode"
+          v-if="isPasteMode"
+          class="peyote-editor__banner"
+          role="status"
         >
-          <div class="mode-toggle">
-            <button
-              class="mode-btn"
-              :class="{ active: selectionMode === 'color' }"
-              @click="setColorMode"
-            >
-              🎨 رنگ
-            </button>
-            <button
-              class="mode-btn"
-              :class="{ active: selectionMode === 'image' }"
-              @click="setImageMode"
-            >
-              🖼️ تصویر
-            </button>
-          </div>
-        </div>
-
-        <!-- Image Section -->
-        <div
-          v-if="pinnedSection === 'image'"
-          class="pinned-image"
-        >
-          <div class="image-picker-container">
-            <div class="available-images-grid">
-              <div
-                v-for="image in availableImages"
-                :key="image.name"
-                class="image-item"
-                :class="{ selected: selectedBeadImage?.url === image.url }"
-                @click="selectBeadImage(image)"
-              >
-                <img
-                  :src="image.url"
-                  :alt="image.displayName"
-                  class="bead-image"
-                />
-                <span class="image-name">{{ image.displayName }}</span>
-              </div>
-            </div>
-          </div>
-          <div
-            v-if="recentImages.length > 0"
-            class="recent-images-section"
+          <BaseIcon
+            name="target"
+            :size="16"
+          />
+          <span
+            >Click a bead to paste the copied beads{{
+              pasteMirrorLabel
+            }}.</span
           >
-            <div class="recent-images-header">
-              <h4 class="text-sm font-semibold text-gray-700">
-                🔄 تصاویر اخیر
-              </h4>
-              <button
-                class="clear-images-btn"
-                title="پاک کردن تمام تصاویر"
-                @click="clearRecentImages"
-              >
-                🗑️ پاک کردن
-              </button>
-            </div>
-            <div class="recent-images-grid">
-              <div
-                v-for="image in recentImages"
-                :key="image.url"
-                class="recent-image-item"
-                :class="{ selected: selectedBeadImage?.url === image.url }"
-                @click="selectBeadImage(image)"
-              >
-                <img
-                  :src="image.url"
-                  :alt="image.displayName"
-                  class="recent-bead-image"
-                />
-                <button
-                  class="remove-image-btn"
-                  @click.stop="removeRecentImage(image)"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-          </div>
+          <BaseButton
+            size="sm"
+            variant="ghost"
+            icon="x"
+            @click="cancelPasteMode"
+            >Cancel</BaseButton
+          >
         </div>
 
-        <!-- Tools Section -->
         <div
-          v-if="pinnedSection === 'tools'"
-          class="pinned-tools"
+          class="peyote-editor__stage"
+          :class="referenceSideBySide ? 'is-side' : 'is-below'"
         >
-          <div class="tools-grid">
-            <button
-              class="tool-btn primary"
-              :class="{ active: tool === 'paint' }"
-              @click="setTool('paint')"
-            >
-              🖌️ Paint
-            </button>
-            <button
-              class="tool-btn primary"
-              :class="{ active: tool === 'fill' }"
-              @click="setTool('fill')"
-            >
-              🪣 Fill
-            </button>
-            <button
-              class="tool-btn secondary"
-              :class="{ active: tool === 'select' }"
-              @click="setTool('select')"
-            >
-              📐 Select
-            </button>
-            <button
-              class="tool-btn secondary"
-              :class="{ active: tool === 'selectRect' }"
-              @click="setTool('selectRect')"
-            >
-              📦 Select Rectangle
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="copySelection"
-            >
-              📋 Copy
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="cutSelection"
-            >
-              ✂️ Cut
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="pasteAtCenter"
-            >
-              📍 Paste at Center
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="pasteAtCenter('horizontal')"
-            >
-              📍 Paste at Center (Mirror H)
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="pasteAtCenter('vertical')"
-            >
-              📍 Paste at Center (Mirror V)
-            </button>
-            <button
-              class="tool-btn secondary"
-              :disabled="!hasClipboardContent()"
-              @click="enablePasteMode()"
-            >
-              🎯 Enable Click-to-Paste
-            </button>
-            <button
-              class="tool-btn secondary"
-              :disabled="!hasClipboardContent()"
-              @click="enablePasteMode('horizontal')"
-            >
-              🎯 Click-to-Paste (Mirror H)
-            </button>
-            <button
-              class="tool-btn secondary"
-              :disabled="!hasClipboardContent()"
-              @click="enablePasteMode('vertical')"
-            >
-              🎯 Click-to-Paste (Mirror V)
-            </button>
-            <button
-              v-if="isPasteMode"
-              class="tool-btn danger"
-              @click="cancelPasteMode"
-            >
-              ❌ Cancel Click-to-Paste
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="clearSelection"
-            >
-              🗑️ Clear Selection
-            </button>
-            <button
-              class="tool-btn secondary"
-              :disabled="selection.length === 0"
-              @click="mirrorSelection"
-            >
-              🔄 Mirror Selection
-            </button>
-            <button
-              class="tool-btn secondary"
-              :disabled="selection.length === 0"
-              @click="mirrorSelectionVertical"
-            >
-              ↕️ Mirror Selection Vertical
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="undo"
-            >
-              ↩️ Undo
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="redo"
-            >
-              ↪️ Redo
-            </button>
-          </div>
-        </div>
-
-        <!-- Export Section -->
-        <div
-          v-if="pinnedSection === 'export'"
-          class="pinned-export"
-        >
-          <div class="save-load-buttons">
-            <button
-              class="export-btn success"
-              @click="saveGridToLocalStorage"
-            >
-              💾 ذخیره گرید
-            </button>
-            <button
-              class="export-btn info"
-              @click="loadGridFromLocalStorage"
-            >
-              📂 بارگذاری اخرین ذخیره
-            </button>
-          </div>
-          <div class="grid grid-cols-2 gap-2">
-            <button
-              class="export-btn primary"
-              @click="emit('update-grid', getGridMatrix())"
-            >
-              🚀 ارسال به 3D
-            </button>
-            <button
-              class="export-btn success"
-              @click="exportGridAsImage"
-            >
-              📷 خروجی عکس
-            </button>
-            <button
-              class="export-btn info"
-              @click="exportGridAsHighQualityImage"
-            >
-              🖼️ خروجی HD
-            </button>
-            <button
-              class="export-btn warning"
-              @click="exportGridAsTxt"
-            >
-              📄 خروجی TXT
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Mobile Dropdown Panel -->
-    <div
-      class="mobile-dropdown-panel"
-      :class="{ open: isMobilePanelOpen }"
-    >
-      <div class="mobile-panel-content">
-        <!-- Image Section for Mobile -->
-        <div class="mobile-image-section">
-          <div class="upload-section grid grid-cols-2 gap-2">
-            <label class="upload-label">
-              <span class="upload-text">📁 آپلود فایل txt grid</span>
-              <input
-                type="file"
-                accept=".txt"
-                class="upload-input"
-                @change="handleTxtUpload"
-              />
-            </label>
-            <label class="upload-label">
-              <span class="upload-text">📁 آپلود تصویر</span>
-              <input
-                type="file"
-                accept="image/*"
-                class="upload-input"
-                @change="handleImageUpload"
-              />
-            </label>
-          </div>
-          <div
-            v-if="selectedImage"
-            class="image-preview"
+          <figure
+            v-if="showReferencePane"
+            class="peyote-editor__reference"
           >
             <img
               :src="selectedImage"
-              alt="تصویر انتخاب شده"
-              class="preview-image"
+              alt="Reference image"
             />
-          </div>
-        </div>
-
-        <!-- Controls Panel Content for Mobile -->
-        <div class="mobile-controls-content">
-          <div class="controls-header">
-            <h3 class="mb-4 text-lg font-bold text-gray-800">
-              🎨 ابزارهای طراحی
-            </h3>
-          </div>
-
-          <div class="controls-content">
-            <!-- تنظیمات ابعاد -->
-            <div class="dimensions-section">
-              <div class="section-header">
-                <h4 class="mb-2 text-sm font-semibold text-gray-700">
-                  📐 ابعاد شبکه
-                </h4>
-                <button
-                  class="pin-btn"
-                  :class="{ pinned: pinnedSection === 'dimensions' }"
-                  :title="
-                    pinnedSection === 'dimensions'
-                      ? 'Unpin Section'
-                      : 'Pin Section'
-                  "
-                  @click="pinSection('dimensions')"
-                >
-                  {{ pinnedSection === 'dimensions' ? '📌' : '📌' }}
-                </button>
-              </div>
-              <div class="dimension-inputs">
-                <label class="dimension-label">
-                  <span class="dimension-text">ردیف‌ها:</span>
-                  <input
-                    v-model.number="rows"
-                    type="number"
-                    min="1"
-                    class="dimension-input"
-                  />
-                </label>
-                <label class="dimension-label">
-                  <span class="dimension-text">ستون‌ها:</span>
-                  <input
-                    v-model.number="cols"
-                    type="number"
-                    min="1"
-                    class="dimension-input"
-                  />
-                </label>
-                <label class="dimension-label">
-                  <span class="dimension-text">عرض سل:</span>
-                  <input
-                    v-model.number="cellWidth"
-                    type="number"
-                    min="5"
-                    max="50"
-                    class="dimension-input"
-                  />
-                </label>
-                <label class="dimension-label">
-                  <span class="dimension-text">ارتفاع سل:</span>
-                  <input
-                    v-model.number="cellHeight"
-                    type="number"
-                    min="5"
-                    max="50"
-                    class="dimension-input"
-                  />
-                </label>
-              </div>
-            </div>
-
-            <!-- انتخاب رنگ -->
-            <div class="color-section">
-              <div class="section-header">
-                <h4 class="mb-2 text-sm font-semibold text-gray-700">
-                  🎨 انتخاب رنگ
-                </h4>
-                <button
-                  class="pin-btn"
-                  :class="{ pinned: pinnedSection === 'color' }"
-                  :title="
-                    pinnedSection === 'color' ? 'Unpin Section' : 'Pin Section'
-                  "
-                  @click="pinSection('color')"
-                >
-                  {{ pinnedSection === 'color' ? '📌' : '📌' }}
-                </button>
-              </div>
-              <div class="color-picker-container">
-                <input
-                  v-model="selectedColor"
-                  type="color"
-                  class="color-picker"
-                />
-                <span class="color-value">{{ selectedColor }}</span>
-              </div>
-              <div class="recent-colors-header mt-3!">
-                <h4 class="text-sm font-semibold text-gray-700">
-                  🔄 رنگ‌های اخیر
-                </h4>
-                <button
-                  v-if="recentColors.length > 0"
-                  class="clear-colors-btn"
-                  title="پاک کردن تمام رنگ‌ها"
-                  @click="clearRecentColors"
-                >
-                  🗑️ پاک کردن
-                </button>
-              </div>
-              <div class="recent-colors-grid">
-                <div
-                  v-for="color in recentColors"
-                  :key="color"
-                  class="color-swatch"
-                  :style="{ backgroundColor: color }"
-                  :title="color"
-                  @click="selectedColor = color"
-                >
-                  <button
-                    class="remove-color-btn"
-                    @click.stop="removeRecentColor(color)"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- انتخاب حالت رنگ یا تصویر -->
-            <div class="mode-section">
-              <div class="section-header">
-                <h4 class="mb-2 text-sm font-semibold text-gray-700">
-                  🎨 حالت طراحی
-                </h4>
-                <button
-                  class="pin-btn"
-                  :class="{ pinned: pinnedSection === 'mode' }"
-                  :title="
-                    pinnedSection === 'mode' ? 'Unpin Section' : 'Pin Section'
-                  "
-                  @click="pinSection('mode')"
-                >
-                  {{ pinnedSection === 'mode' ? '📌' : '📌' }}
-                </button>
-              </div>
-              <div class="mode-toggle">
-                <button
-                  class="mode-btn"
-                  :class="{ active: selectionMode === 'color' }"
-                  @click="setColorMode"
-                >
-                  🎨 رنگ
-                </button>
-                <button
-                  class="mode-btn"
-                  :class="{ active: selectionMode === 'image' }"
-                  @click="setImageMode"
-                >
-                  🖼️ تصویر
-                </button>
-              </div>
-            </div>
-
-            <!-- انتخاب تصویر مهره -->
-            <div
-              v-if="selectionMode === 'image'"
-              class="mode-section"
+            <button
+              type="button"
+              class="peyote-editor__reference-close"
+              aria-label="Hide reference image"
+              title="Hide reference image"
+              @click="showReference = false"
             >
-              <div class="section-header">
-                <h4 class="mb-2 text-sm font-semibold text-gray-700">
-                  🖼️ انتخاب تصویر مهره
-                </h4>
-                <button
-                  class="pin-btn"
-                  :class="{ pinned: pinnedSection === 'image' }"
-                  :title="
-                    pinnedSection === 'image' ? 'Unpin Section' : 'Pin Section'
-                  "
-                  @click="pinSection('image')"
-                >
-                  {{ pinnedSection === 'image' ? '📌' : '📌' }}
-                </button>
-              </div>
-              <div class="image-picker-container">
-                <div class="available-images-grid">
-                  <div
-                    v-for="image in availableImages"
-                    :key="image.name"
-                    class="image-item"
-                    :class="{ selected: selectedBeadImage?.url === image.url }"
-                    @click="selectBeadImage(image)"
-                  >
-                    <img
-                      :src="image.url"
-                      :alt="image.displayName"
-                      class="bead-image"
-                    />
-                    <span class="image-name">{{ image.displayName }}</span>
-                  </div>
-                </div>
-              </div>
-              <div
-                v-if="recentImages.length > 0"
-                class="recent-images-section"
+              <BaseIcon
+                name="x"
+                :size="14"
+              />
+            </button>
+          </figure>
+
+          <BeadCanvas
+            ref="canvasRef"
+            v-model:zoom="zoom"
+            class="peyote-editor__canvas"
+            :cells="canvasCells"
+            :columns="cols"
+            :row-count="rows"
+            :cell-width="cellWidth"
+            :cell-height="cellHeight"
+            :selection="canvasSelection"
+            :show-grid-lines="showGridLines"
+            :show-rulers="showRulers"
+            :pan-mode="panMode"
+            :stagger="gridOrientation === 'vertical' ? 'columns' : 'rows'"
+            :color-of="beadSwatch"
+            :draw-bead="drawDelicaBead"
+            :image-prefix="BEAD_IMAGE_PREFIX"
+            @stroke-start="startStroke"
+            @stroke-move="moveStroke"
+            @stroke-end="endStroke"
+            @stroke-cancel="cancelStroke"
+            @hover="hoverIndex = $event"
+          >
+            <!-- Phone / tablet: buttons that open the side panel as a sheet -->
+            <div
+              v-if="isCompact"
+              class="peyote-editor__fabs"
+            >
+              <button
+                type="button"
+                class="peyote-editor__fab"
+                aria-label="Colours"
+                @click="openSheet('colors')"
               >
-                <div class="recent-images-header">
-                  <h4 class="text-sm font-semibold text-gray-700">
-                    🔄 تصاویر اخیر
-                  </h4>
-                  <button
-                    class="clear-images-btn"
-                    title="پاک کردن تمام تصاویر"
-                    @click="clearRecentImages"
-                  >
-                    🗑️ پاک کردن
-                  </button>
-                </div>
-                <div class="recent-images-grid">
-                  <div
-                    v-for="image in recentImages"
-                    :key="image.url"
-                    class="recent-image-item"
-                    :class="{ selected: selectedBeadImage?.url === image.url }"
-                    @click="selectBeadImage(image)"
-                  >
-                    <img
-                      :src="image.url"
-                      :alt="image.displayName"
-                      class="recent-bead-image"
-                    />
-                    <button
-                      class="remove-image-btn"
-                      @click.stop="removeRecentImage(image)"
-                    >
-                      ×
-                    </button>
-                  </div>
-                </div>
-              </div>
+                <span
+                  class="peyote-editor__fab-swatch"
+                  :style="currentPaintStyle"
+                ></span>
+              </button>
+              <button
+                type="button"
+                class="peyote-editor__fab"
+                aria-label="Properties"
+                @click="openSheet('properties')"
+              >
+                <BaseIcon
+                  name="sliders"
+                  :size="20"
+                />
+              </button>
+              <button
+                type="button"
+                class="peyote-editor__fab"
+                aria-label="Reference image"
+                @click="openSheet('reference')"
+              >
+                <BaseIcon
+                  name="image"
+                  :size="20"
+                />
+              </button>
             </div>
-
-            <!-- ابزارهای اصلی -->
-            <div class="tools-section">
-              <div class="section-header">
-                <h4 class="mb-2 text-sm font-semibold text-gray-700">
-                  🛠️ ابزارها
-                </h4>
-                <button
-                  class="pin-btn"
-                  :class="{ pinned: pinnedSection === 'tools' }"
-                  :title="
-                    pinnedSection === 'tools' ? 'Unpin Section' : 'Pin Section'
-                  "
-                  @click="pinSection('tools')"
-                >
-                  {{ pinnedSection === 'tools' ? '📌' : '📌' }}
-                </button>
-              </div>
-              <div class="tools-grid">
-                <button
-                  class="tool-btn primary"
-                  :class="{ active: tool === 'paint' }"
-                  @click="setTool('paint')"
-                >
-                  🖌️ Paint
-                </button>
-                <button
-                  class="tool-btn primary"
-                  :class="{ active: tool === 'fill' }"
-                  @click="setTool('fill')"
-                >
-                  🪣 Fill
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  :class="{ active: tool === 'select' }"
-                  @click="setTool('select')"
-                >
-                  📐 Select
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  @click="copySelection"
-                >
-                  📋 Copy
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  @click="cutSelection"
-                >
-                  ✂️ Cut
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  @click="pasteAtCenter"
-                >
-                  📍 Paste at Center
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  @click="pasteAtCenter('horizontal')"
-                >
-                  📍 Paste at Center (Mirror H)
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  @click="pasteAtCenter('vertical')"
-                >
-                  📍 Paste at Center (Mirror V)
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  :disabled="!hasClipboardContent()"
-                  @click="enablePasteMode()"
-                >
-                  🎯 Enable Click-to-Paste
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  :disabled="!hasClipboardContent()"
-                  @click="enablePasteMode('horizontal')"
-                >
-                  🎯 Click-to-Paste (Mirror H)
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  :disabled="!hasClipboardContent()"
-                  @click="enablePasteMode('vertical')"
-                >
-                  🎯 Click-to-Paste (Mirror V)
-                </button>
-                <button
-                  v-if="isPasteMode"
-                  class="tool-btn danger"
-                  @click="cancelPasteMode"
-                >
-                  ❌ Cancel Click-to-Paste
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  @click="clearSelection"
-                >
-                  🗑️ Clear Selection
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  :disabled="selection.length === 0"
-                  @click="mirrorSelection"
-                >
-                  🔄 Mirror Selection
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  :disabled="selection.length === 0"
-                  @click="mirrorSelectionVertical"
-                >
-                  ↕️ Mirror Selection Vertical
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  @click="undo"
-                >
-                  ↩️ Undo
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  @click="redo"
-                >
-                  ↪️ Redo
-                </button>
-              </div>
-
-              <!-- دکمه تغییر رنگ تمام مهره‌ها -->
-              <div class="background-color-section !mt-4">
-                <h4 class="mb-2 text-sm font-semibold text-gray-700">
-                  🎨 پس‌زمینه
-                </h4>
-                <div class="background-color-controls">
-                  <input
-                    v-model="backgroundColor"
-                    type="color"
-                    class="color-picker"
-                    title="انتخاب رنگ پس‌زمینه"
-                  />
-                  <button
-                    class="tool-btn success"
-                    @click="changeAllBeadsToColor"
-                  >
-                    🎨 تغییر تمام مهره‌ها
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- دکمه‌های خروجی -->
-            <div class="export-section">
-              <div class="section-header">
-                <h4 class="mb-2 text-sm font-semibold text-gray-700">
-                  📤 خروجی
-                </h4>
-                <button
-                  class="pin-btn"
-                  :class="{ pinned: pinnedSection === 'export' }"
-                  :title="
-                    pinnedSection === 'export' ? 'Unpin Section' : 'Pin Section'
-                  "
-                  @click="pinSection('export')"
-                >
-                  {{ pinnedSection === 'export' ? '📌' : '📌' }}
-                </button>
-              </div>
-
-              <!-- دکمه‌های ذخیره و بارگذاری -->
-              <div class="save-load-buttons mb-3">
-                <button
-                  class="export-btn success"
-                  @click="saveGridToLocalStorage"
-                >
-                  💾 ذخیره گرید
-                </button>
-                <button
-                  class="export-btn info"
-                  @click="loadGridFromLocalStorage"
-                >
-                  📂 بارگذاری اخرین ذخیره
-                </button>
-              </div>
-              <div class="grid grid-cols-2 gap-2">
-                <button
-                  class="export-btn primary"
-                  @click="emit('update-grid', getGridMatrix())"
-                >
-                  🚀 ارسال به 3D
-                </button>
-
-                <button
-                  class="export-btn success"
-                  @click="exportGridAsImage"
-                >
-                  📷 خروجی عکس
-                </button>
-
-                <button
-                  class="export-btn info"
-                  @click="exportGridAsHighQualityImage"
-                >
-                  🖼️ خروجی HD
-                </button>
-
-                <button
-                  class="export-btn warning"
-                  @click="exportGridAsTxt"
-                >
-                  📄 خروجی TXT
-                </button>
-              </div>
-            </div>
-          </div>
+          </BeadCanvas>
         </div>
-      </div>
-    </div>
 
-    <!-- Main content area -->
-    <div
-      class="grid-container max-md:min-h-[calc(100vh_-_310px)] md:max-h-[calc(100vh_-_200px)]"
-      :class="{
-        'pinned-active': pinnedSection,
-      }"
-    >
-      <div
-        v-if="showImageSection"
-        class="image-section"
+        <StatusBar :items="statusItems" />
+      </div>
+
+      <!-- ===== Side panel (desktop) / bottom sheet (phone & tablet) ===== -->
+      <component
+        :is="isCompact ? BottomSheet : 'aside'"
+        v-bind="panelWrapperProps"
       >
-        <div class="upload-section grid grid-cols-2 gap-2">
-          <label class="upload-label">
-            <span class="upload-text">📁 آپلود فایل txt grid</span>
-            <input
-              type="file"
-              accept=".txt"
-              class="upload-input"
-              @change="handleTxtUpload"
-            />
-          </label>
-          <label class="upload-label">
-            <span class="upload-text">📁 آپلود تصویر</span>
-            <input
-              type="file"
-              accept="image/*"
-              class="upload-input"
-              @change="handleImageUpload"
-            />
-          </label>
-        </div>
-        <div
-          v-if="selectedImage"
-          class="image-preview"
+        <template
+          v-if="isCompact"
+          #header
         >
-          <img
-            :src="selectedImage"
-            alt="تصویر انتخاب شده"
-            class="preview-image"
+          <SegmentedControl
+            v-model="panelTab"
+            :options="panelTabs"
+            variant="tabs"
+            size="sm"
           />
-        </div>
-      </div>
-      <div class="main-content">
-        <div class="p-4">
-          <!-- Grid wrapper: flex row so columns sit side-by-side -->
-          <div
-            ref="gridWrapper"
-            class="h-[80vh] overflow-auto rounded border bg-white p-2"
+        </template>
+
+        <div class="peyote-editor__panel-inner">
+          <PanelCard
+            v-if="!isCompact"
+            flush
+            class="peyote-editor__tabs-card"
           >
-            <!-- حالت عمودی: ستون‌ها افقی، ردیف‌ها عمودی -->
-            <div
-              v-if="isGridReady && gridOrientation === 'vertical'"
-              class="flex items-start"
-              :style="{ gap: '0px' }"
+            <div class="peyote-editor__tabs-head">
+              <SegmentedControl
+                v-model="panelTab"
+                :options="panelTabs"
+                variant="tabs"
+                size="md"
+                block
+              />
+            </div>
+            <div class="peyote-editor__tabs-body">
+              <component
+                :is="panelComponent"
+                v-bind="panelProps"
+                v-on="panelListeners"
+              />
+            </div>
+          </PanelCard>
+
+          <component
+            :is="panelComponent"
+            v-else
+            v-bind="panelProps"
+            v-on="panelListeners"
+          />
+
+          <GridDimensionsCard
+            v-model:columns="cols"
+            v-model:rows="rows"
+            :max-columns="MAX_SIZE"
+            :max-rows="MAX_SIZE"
+            hint="Beads outside the new size are removed; the rest are kept."
+          />
+
+          <PanelCard
+            title="Peyote Presets"
+            icon="peyote"
+            collapsible
+          >
+            <select
+              class="peyote-editor__preset"
+              aria-label="Peyote presets"
+              value=""
+              @change="applyPreset"
             >
-              <!-- each column -->
-              <div
-                v-for="c in colsArr"
-                :key="c"
-                class="flex-shrink-0"
-                :style="{ width: cellWidth + 'px' }"
+              <option
+                value=""
+                disabled
               >
-                <!-- column content (stack of cells). we apply translateY to create peyote offset -->
-                <div
-                  class="flex flex-col"
-                  :style="colOffsetStyle(c)"
-                >
-                  <div
-                    v-for="r in rowsArr"
-                    :key="`${r}-${c}`"
-                    class="cell cursor-pointer border-[1px] border-gray-200"
-                    :style="cellStyle(r, c)"
-                    @mousedown="handleCellClick(r, c)"
-                    @mouseenter="handleCellMouseEnter(r, c)"
-                  ></div>
-                </div>
-              </div>
-            </div>
-
-            <!-- حالت افقی: ردیف‌ها افقی، ستون‌ها عمودی -->
-            <div
-              v-else-if="isGridReady && gridOrientation === 'horizontal'"
-              class="flex flex-col items-start"
-              :style="{ gap: '0px' }"
-            >
-              <!-- each row -->
-              <div
-                v-for="r in rowsArr"
-                :key="r"
-                class="flex flex-shrink-0 items-start"
-                :style="{ height: cellHeight + 'px', width: '100%' }"
+                Choose a pattern…
+              </option>
+              <option
+                v-for="preset in peyotePresets"
+                :key="preset.id"
+                :value="preset.id"
               >
-                <!-- row content (cells side-by-side). we apply translateX to create peyote offset -->
-                <div
-                  class="flex items-start"
-                  :style="rowOffsetStyle(r)"
-                >
-                  <div
-                    v-for="c in colsArr"
-                    :key="`${r}-${c}`"
-                    class="cell flex-shrink-0 cursor-pointer border-[1px] border-gray-200"
-                    :style="cellStyle(r, c)"
-                    @mousedown="handleCellClick(r, c)"
-                    @mouseenter="handleCellMouseEnter(r, c)"
-                  ></div>
-                </div>
-              </div>
-            </div>
-
-            <div
-              v-else
-              class="flex h-full items-center justify-center text-gray-500"
-            >
-              Loading grid...
-            </div>
-          </div>
-
-          <p class="mt-2 text-xs text-gray-500">
-            راست‌کلیک = پاک کردن. می‌توانی تعداد ردیف/ستون را در متغیرها تغییر
-            بدهی.
-          </p>
+                {{ preset.name }} ({{ preset.cols }} × {{ preset.rows }})
+              </option>
+            </select>
+            <p class="peyote-editor__hint">
+              Loading a preset replaces the current grid. You can undo it.
+            </p>
+          </PanelCard>
         </div>
-      </div>
+      </component>
     </div>
 
-    <!-- ابزارها - Fixed on the right side -->
-    <div class="controls-panel">
-      <div class="controls-header">
-        <h3 class="mb-4 text-lg font-bold text-gray-800">🎨 ابزارهای طراحی</h3>
-      </div>
-
-      <div class="controls-content">
-        <!-- تنظیمات ابعاد -->
-        <div class="dimensions-section">
-          <div class="section-header">
-            <h4 class="mb-2 text-sm font-semibold text-gray-700">
-              📐 ابعاد شبکه
-            </h4>
-            <button
-              class="pin-btn"
-              :class="{ pinned: pinnedSection === 'dimensions' }"
-              :title="
-                pinnedSection === 'dimensions' ? 'Unpin Section' : 'Pin Section'
-              "
-              @click="pinSection('dimensions')"
-            >
-              {{ pinnedSection === 'dimensions' ? '📌' : '📌' }}
-            </button>
-          </div>
-          <div class="dimension-inputs">
-            <label class="dimension-label">
-              <span class="dimension-text">ردیف‌ها: {{ rows }}</span>
-              <input
-                v-model.number="rows"
-                type="number"
-                min="1"
-                max="200"
-                class="dimension-input"
-              />
-            </label>
-            <label class="dimension-label">
-              <span class="dimension-text">ستون‌ها: {{ cols }}</span>
-              <input
-                v-model.number="cols"
-                type="number"
-                min="1"
-                max="200"
-                class="dimension-input"
-              />
-            </label>
-            <label class="dimension-label">
-              <span class="dimension-text">عرض سل: {{ cellWidth }}px</span>
-              <input
-                v-model.number="cellWidth"
-                type="number"
-                min="5"
-                max="50"
-                class="dimension-input"
-              />
-            </label>
-            <label class="dimension-label">
-              <span class="dimension-text">ارتفاع سل: {{ cellHeight }}px</span>
-              <input
-                v-model.number="cellHeight"
-                type="number"
-                min="5"
-                max="50"
-                class="dimension-input"
-              />
-            </label>
-            <div class="dimension-label">
-              <span class="dimension-text">جهت گرید:</span>
-              <div class="orientation-toggle-group">
-                <button
-                  class="orientation-toggle-btn"
-                  :class="{ active: gridOrientation === 'vertical' }"
-                  @click="gridOrientation = 'vertical'"
-                >
-                  ↕️ عمودی
-                </button>
-                <button
-                  class="orientation-toggle-btn"
-                  :class="{ active: gridOrientation === 'horizontal' }"
-                  @click="gridOrientation = 'horizontal'"
-                >
-                  ↔️ افقی
-                </button>
-              </div>
-            </div>
-          </div>
-          <div class="section-header">
-            <!-- showImageSection button -->
-            <button
-              class="show-image-section-btn !mt-2 text-blue-500"
-              @click="showImageSection = !showImageSection"
-            >
-              {{
-                showImageSection
-                  ? '🔍 Show Image Section'
-                  : '🔍 Hide Image Section'
-              }}
-            </button>
-          </div>
-        </div>
-
-        <!-- انتخاب رنگ -->
-        <div class="color-section">
-          <div class="section-header">
-            <h4 class="mb-2 text-sm font-semibold text-gray-700">
-              🎨 انتخاب رنگ
-            </h4>
-            <button
-              class="pin-btn"
-              :class="{ pinned: pinnedSection === 'color' }"
-              :title="
-                pinnedSection === 'color' ? 'Unpin Section' : 'Pin Section'
-              "
-              @click="pinSection('color')"
-            >
-              {{ pinnedSection === 'color' ? '📌' : '📌' }}
-            </button>
-          </div>
-          <div class="color-picker-container">
-            <input
-              v-model="selectedColor"
-              type="color"
-              class="color-picker"
-              @change="setColorMode"
-            />
-            <span class="color-value">{{ selectedColor }}</span>
-          </div>
-          <div class="recent-colors-header mt-3!">
-            <h4 class="text-sm font-semibold text-gray-700">🔄 رنگ‌های اخیر</h4>
-            <button
-              v-if="recentColors.length > 0"
-              class="clear-colors-btn"
-              title="پاک کردن تمام رنگ‌ها"
-              @click="clearRecentColors"
-            >
-              🗑️ پاک کردن
-            </button>
-          </div>
-          <div class="recent-colors-grid">
-            <div
-              v-for="color in recentColors"
-              :key="color"
-              class="color-swatch"
-              :style="{ backgroundColor: color }"
-              :title="color"
-              @click="selectedColor = color"
-            >
-              <button
-                class="remove-color-btn"
-                @click.stop="removeRecentColor(color)"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- انتخاب حالت رنگ یا تصویر -->
-        <div class="mode-section">
-          <div class="section-header">
-            <h4 class="mb-2 text-sm font-semibold text-gray-700">
-              🎨 حالت طراحی
-            </h4>
-            <button
-              class="pin-btn"
-              :class="{ pinned: pinnedSection === 'mode' }"
-              :title="
-                pinnedSection === 'mode' ? 'Unpin Section' : 'Pin Section'
-              "
-              @click="pinSection('mode')"
-            >
-              {{ pinnedSection === 'mode' ? '📌' : '📌' }}
-            </button>
-          </div>
-          <div class="mode-toggle">
-            <button
-              class="mode-btn"
-              :class="{ active: selectionMode === 'color' }"
-              @click="setColorMode"
-            >
-              🎨 رنگ
-            </button>
-            <button
-              class="mode-btn"
-              :class="{ active: selectionMode === 'image' }"
-              @click="setImageMode"
-            >
-              🖼️ تصویر
-            </button>
-          </div>
-        </div>
-
-        <!-- انتخاب تصویر مهره -->
-        <div
-          v-if="selectionMode === 'image'"
-          class="image-section"
-        >
-          <div class="section-header">
-            <h4 class="mb-2 text-sm font-semibold text-gray-700">
-              🖼️ انتخاب تصویر مهره
-            </h4>
-            <button
-              class="pin-btn"
-              :class="{ pinned: pinnedSection === 'image' }"
-              :title="
-                pinnedSection === 'image' ? 'Unpin Section' : 'Pin Section'
-              "
-              @click="pinSection('image')"
-            >
-              {{ pinnedSection === 'image' ? '📌' : '📌' }}
-            </button>
-          </div>
-          <div class="image-picker-container">
-            <div class="available-images-grid">
-              <div
-                v-for="image in availableImages"
-                :key="image.name"
-                class="image-item"
-                :class="{ selected: selectedBeadImage?.url === image.url }"
-                @click="selectBeadImage(image)"
-              >
-                <img
-                  :src="image.url"
-                  :alt="image.displayName"
-                  class="bead-image"
-                />
-                <span class="image-name">{{ image.displayName }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- تصاویر اخیر -->
-          <div
-            v-if="recentImages.length > 0"
-            class="recent-images-section"
-          >
-            <div class="recent-images-header">
-              <h4 class="text-sm font-semibold text-gray-700">
-                🔄 تصاویر اخیر
-              </h4>
-              <button
-                class="clear-images-btn"
-                title="پاک کردن تمام تصاویر"
-                @click="clearRecentImages"
-              >
-                🗑️ پاک کردن
-              </button>
-            </div>
-            <div class="recent-images-grid">
-              <div
-                v-for="image in recentImages"
-                :key="image.url"
-                class="recent-image-item"
-                :class="{ selected: selectedBeadImage?.url === image.url }"
-                @click="selectBeadImage(image)"
-              >
-                <img
-                  :src="image.url"
-                  :alt="image.displayName"
-                  class="recent-bead-image"
-                />
-                <button
-                  class="remove-image-btn"
-                  @click.stop="removeRecentImage(image)"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ابزارهای اصلی -->
-        <div class="tools-section">
-          <div class="section-header">
-            <h4 class="mb-2 text-sm font-semibold text-gray-700">🛠️ ابزارها</h4>
-            <button
-              class="pin-btn"
-              :class="{ pinned: pinnedSection === 'tools' }"
-              :title="
-                pinnedSection === 'tools' ? 'Unpin Section' : 'Pin Section'
-              "
-              @click="pinSection('tools')"
-            >
-              {{ pinnedSection === 'tools' ? '📌' : '📌' }}
-            </button>
-          </div>
-          <div class="tools-grid">
-            <button
-              class="tool-btn primary"
-              :class="{ active: tool === 'paint' }"
-              @click="setTool('paint')"
-            >
-              🖌️ Paint
-            </button>
-            <button
-              class="tool-btn primary"
-              :class="{ active: tool === 'fill' }"
-              @click="setTool('fill')"
-            >
-              🪣 Fill
-            </button>
-            <button
-              class="tool-btn secondary"
-              :class="{ active: tool === 'select' }"
-              @click="setTool('select')"
-            >
-              📐 Select
-            </button>
-            <button
-              class="tool-btn secondary"
-              :class="{ active: tool === 'selectRect' }"
-              @click="setTool('selectRect')"
-            >
-              📦 Select Rectangle
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="copySelection"
-            >
-              📋 Copy
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="cutSelection"
-            >
-              ✂️ Cut
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="pasteAtCenter"
-            >
-              📍 Paste at Center
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="pasteAtCenter('horizontal')"
-            >
-              📍 Paste at Center (Mirror H)
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="pasteAtCenter('vertical')"
-            >
-              📍 Paste at Center (Mirror V)
-            </button>
-            <button
-              class="tool-btn secondary"
-              :disabled="!hasClipboardContent()"
-              @click="enablePasteMode()"
-            >
-              🎯 Enable Click-to-Paste
-            </button>
-            <button
-              class="tool-btn secondary"
-              :disabled="!hasClipboardContent()"
-              @click="enablePasteMode('horizontal')"
-            >
-              🎯 Click-to-Paste (Mirror H)
-            </button>
-            <button
-              class="tool-btn secondary"
-              :disabled="!hasClipboardContent()"
-              @click="enablePasteMode('vertical')"
-            >
-              🎯 Click-to-Paste (Mirror V)
-            </button>
-            <button
-              v-if="isPasteMode"
-              class="tool-btn danger"
-              @click="cancelPasteMode"
-            >
-              ❌ Cancel Click-to-Paste
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="clearSelection"
-            >
-              🗑️ Clear Selection
-            </button>
-            <button
-              class="tool-btn secondary"
-              :disabled="selection.length === 0"
-              @click="mirrorSelection"
-            >
-              🔄 Mirror Selection
-            </button>
-            <button
-              class="tool-btn secondary"
-              :disabled="selection.length === 0"
-              @click="mirrorSelectionVertical"
-            >
-              ↕️ Mirror Selection Vertical
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="undo"
-            >
-              ↩️ Undo
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="redo"
-            >
-              ↪️ Redo
-            </button>
-          </div>
-
-          <!-- دکمه تغییر رنگ تمام مهره‌ها -->
-          <div class="background-color-section !mt-4">
-            <h4 class="mb-2 text-sm font-semibold text-gray-700">
-              🎨 رنگ پس‌زمینه
-            </h4>
-            <div class="background-color-controls">
-              <input
-                v-model="backgroundColor"
-                type="color"
-                class="color-picker"
-                title="انتخاب رنگ پس‌زمینه"
-              />
-              <button
-                class="tool-btn success"
-                @click="changeAllBeadsToColor"
-              >
-                🎨 تغییر تمام مهره‌ها
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- دکمه‌های خروجی -->
-        <div class="export-section">
-          <div class="section-header">
-            <h4 class="mb-2 text-sm font-semibold text-gray-700">📤 خروجی</h4>
-            <button
-              class="pin-btn"
-              :class="{ pinned: pinnedSection === 'export' }"
-              :title="
-                pinnedSection === 'export' ? 'Unpin Section' : 'Pin Section'
-              "
-              @click="pinSection('export')"
-            >
-              {{ pinnedSection === 'export' ? '📌' : '📌' }}
-            </button>
-          </div>
-
-          <!-- دکمه‌های ذخیره و بارگذاری -->
-          <div class="save-load-buttons mb-3">
-            <button
-              class="export-btn success"
-              @click="saveGridToLocalStorage"
-            >
-              💾 ذخیره گرید
-            </button>
-            <button
-              class="export-btn info"
-              @click="loadGridFromLocalStorage"
-            >
-              📂 بارگذاری اخرین ذخیره
-            </button>
-          </div>
-          <div class="grid grid-cols-2 gap-2">
-            <button
-              class="export-btn primary"
-              @click="emit('update-grid', getGridMatrix())"
-            >
-              🚀 ارسال به 3D
-            </button>
-
-            <button
-              class="export-btn success"
-              @click="exportGridAsImage"
-            >
-              📷 خروجی عکس
-            </button>
-
-            <button
-              class="export-btn info"
-              @click="exportGridAsHighQualityImage"
-            >
-              🖼️ خروجی HD
-            </button>
-
-            <button
-              class="export-btn warning"
-              @click="exportGridAsTxt"
-            >
-              📄 خروجی TXT
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- Hidden picker used by the ⋮ menu -->
+    <FilePickerButton
+      ref="referencePicker"
+      class="sr-only"
+      accept="image/*"
+      tabindex="-1"
+      aria-hidden="true"
+      @change="onReferenceUpload"
+    />
   </div>
 </template>
 
 <script setup>
 import {
-  ref,
-  reactive,
   computed,
-  onMounted,
-  onUnmounted,
-  onBeforeUnmount,
-  watch,
   nextTick,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+  ref,
+  watch,
 } from 'vue';
+import { useMediaQuery } from '@vueuse/core';
+import { useRoute, useRouter } from 'vue-router';
+import {
+  getProject,
+  loadProjectData,
+  renameProject,
+  saveProjectData,
+} from '@/lib/projects/projectStore.js';
+import AppPortal from '@/components/layout/AppPortal.vue';
+import BaseButton from '@/components/ui/BaseButton.vue';
+import BaseIcon from '@/components/ui/BaseIcon.vue';
+import BottomSheet from '@/components/ui/BottomSheet.vue';
+import EditableTitle from '@/components/ui/EditableTitle.vue';
+import FilePickerButton from '@/components/ui/FilePickerButton.vue';
+import PanelCard from '@/components/ui/PanelCard.vue';
+import SavedBadge from '@/components/ui/SavedBadge.vue';
+import SegmentedControl from '@/components/ui/SegmentedControl.vue';
+import StatusBar from '@/components/ui/StatusBar.vue';
+import BeadCanvas from '@/components/editor/BeadCanvas.vue';
+import FileActions from '@/components/editor/FileActions.vue';
+import GridDimensionsCard from '@/components/editor/GridDimensionsCard.vue';
+import PropertiesPanel from '@/components/editor/PropertiesPanel.vue';
+import ReferencePanel from '@/components/editor/ReferencePanel.vue';
+import ToolSidebar from '@/components/editor/ToolSidebar.vue';
+import ZoomControls from '@/components/editor/ZoomControls.vue';
+import {
+  showConfirm,
+  showError,
+  showInfo,
+  showToast,
+} from '@/lib/utils/sweetalert';
+import DelicaColorsPanel from './DelicaColorsPanel.vue';
+import { beadSwatch, defaultDelicaCode, delicaEntry } from './delicaCatalog.js';
+import { peyotePresets } from './peyotePresets.js';
+import { delicaThumbnail, drawDelicaBead } from './delicaThumbnail.js';
 
-// Props for initial grid state
 const props = defineProps({
-  initialPattern: {
-    type: Array,
-    default: null,
-  },
-  initialRows: {
-    type: Number,
-    default: null,
-  },
-  initialCols: {
-    type: Number,
-    default: null,
-  },
+  /** The saved project this editor reads and writes. */
+  projectId: { type: String, required: true },
+  initialOrientation: { type: String, default: 'vertical' },
+  initialPattern: { type: Array, default: null },
+  initialRows: { type: Number, default: null },
+  initialCols: { type: Number, default: null },
+  /** False while another view (3D, steps…) is shown in place of the editor. */
+  active: { type: Boolean, default: true },
 });
 
-const emit = defineEmits(['update-grid']);
+const emit = defineEmits(['update-grid', 'preview-grid']);
 
-// File upload state (only for preview/idea)
-const selectedImage = ref(null);
-const recentImages = ref([]);
-const selectionMode = ref('color'); // 'color' or 'image'
-const showImageSection = ref(true);
-// Bead images for painting
+const BEAD_IMAGE_PREFIX = '/miyuki-beads-designer/beads/';
+const route = useRoute();
+const router = useRouter();
+function openProjects() {
+  // Also used by the Weaving page, so go back to whichever mode is open.
+  router.push({ name: 'projects', query: { mode: route.meta.mode ?? 'peyote' } });
+}
+const MAX_SIZE = 200;
+const HISTORY_LIMIT = 10;
+
+// ---- Pattern state -------------------------------------------------------------------
+const cols = ref(props.initialCols ?? 12); // beads across (columns)
+const rows = ref(props.initialRows ?? 50); // beads down each column
+const cellWidth = ref(15);
+const cellHeight = ref(17);
+const gridOrientation = ref(props.initialOrientation); // 'vertical' | 'horizontal'
+
+const selectedColor = ref(defaultDelicaCode);
+const backgroundColor = ref('#ffffff');
+const backgroundMode = ref('color'); // 'color' | 'image'
+const selectedBackgroundImage = ref(null);
+const selectionMode = ref('color'); // paint with a Delica colour or a bead image
+const recentColors = ref([]);
+
 const availableImages = ref([]);
 const selectedBeadImage = ref(null);
+const recentImages = ref([]);
+const selectedImage = ref(null); // reference image (preview only)
 
-// Mobile panel state
-const isMobilePanelOpen = ref(false);
+const projectName = ref(getProject(props.projectId)?.name || 'Untitled peyote');
+const lastSavedTime = ref(null);
 
-// Pinning state
-const pinnedSection = ref(null);
+// grid[r][c] (rows x cols)
+const grid = reactive([]);
+const gridInitialized = ref(false);
 
-// Toggle mobile panel
-function toggleMobilePanel() {
-  isMobilePanelOpen.value = !isMobilePanelOpen.value;
+// ---- Tools state ---------------------------------------------------------------------
+const tool = ref('paint'); // paint | fill | select | selectRect
+const selection = ref([]); // ["r,c", ...]
+const clipboard = ref(null); // [{ r, c, color }]
+const isPasteMode = ref(false);
+const pasteMirrorMode = ref('none'); // 'none' | 'horizontal' | 'vertical'
+const rectStartCell = ref(null);
+const rectEndCell = ref(null);
+let strokeActive = false;
+
+// ---- History (undo / redo) -----------------------------------------------------------
+const history = ref([]);
+const historyIndex = ref(-1);
+const pendingHistorySave = ref(false);
+
+function getHistoryState() {
+  return {
+    grid: getGridMatrix(),
+    orientation: gridOrientation.value,
+    cellWidth: cellWidth.value,
+    cellHeight: cellHeight.value,
+  };
 }
 
-// Pin/unpin section functions
-function pinSection(sectionName) {
-  if (pinnedSection.value === sectionName) {
-    // If already pinned, unpin it
-    pinnedSection.value = null;
-  } else {
-    // Pin the new section (this will automatically unpin the previous one)
-    pinnedSection.value = sectionName;
-    // Auto-close the mobile menu when pinning a section
-    isMobilePanelOpen.value = false;
+function saveToHistory() {
+  const currentState = getHistoryState();
+  if (historyIndex.value < history.value.length - 1) {
+    history.value = history.value.slice(0, historyIndex.value + 1);
+  }
+  const lastState = history.value[historyIndex.value];
+  if (lastState && JSON.stringify(currentState) === JSON.stringify(lastState))
+    return;
+
+  history.value.push(currentState);
+  historyIndex.value = history.value.length - 1;
+  if (history.value.length > HISTORY_LIMIT) {
+    history.value.shift();
+    historyIndex.value--;
   }
 }
 
-function unpinSection() {
-  pinnedSection.value = null;
+function resetHistory() {
+  pendingHistorySave.value = false;
+  history.value = [getHistoryState()];
+  historyIndex.value = 0;
 }
 
-// Helper functions for pinned section
-function getSectionTitle(sectionName) {
-  const titles = {
-    dimensions: '📐 ابعاد شبکه',
-    color: '🎨 انتخاب رنگ',
-    mode: '🎨 حالت طراحی',
-    image: '🖼️ انتخاب تصویر',
-    tools: '🛠️ ابزارها',
-    export: '📤 خروجی',
-  };
-  return titles[sectionName] || sectionName;
+/** Save the state before an operation (batched until endOperation). */
+function startOperation() {
+  if (!pendingHistorySave.value) {
+    saveToHistory();
+    pendingHistorySave.value = true;
+  }
 }
 
-// تنظیمات — این مقادیر را مطابق نیازت تغییر بده
-// Initialize with props if provided, otherwise use defaults
-const cols = ref(props.initialCols ?? 12); // طول (تعداد ستون‌ها)
-const rows = ref(props.initialRows ?? 50); // عرض (تعداد سطرها در هر ستون)
-const cellWidth = ref(15); // عرض هر خانه (پیکسل)
-const cellHeight = ref(17); // ارتفاع هر خانه (پیکسل)
+function endOperation() {
+  if (pendingHistorySave.value) {
+    nextTick(() => {
+      if (!pendingHistorySave.value) return;
+      saveToHistory();
+      pendingHistorySave.value = false;
+    });
+  }
+}
 
-// جهت گرید: 'vertical' (عمودی) یا 'horizontal' (افقی)
-const gridOrientation = ref('vertical');
+function restoreHistory(index) {
+  const state = history.value[index];
+  rows.value = state.grid.length;
+  cols.value = state.grid[0]?.length ?? 1;
+  gridOrientation.value = state.orientation;
+  cellWidth.value = state.cellWidth;
+  cellHeight.value = state.cellHeight;
+  grid.splice(0, grid.length, ...state.grid.map((row) => [...row]));
+  clearSelection();
+  cancelPasteMode();
+  historyIndex.value = index;
+  emit('update-grid', ...snapshot());
+}
 
-// پالت رنگ‌ها
-const palette = [
-  { key: 'DB-1510', hex: '#efe9df' },
-  { key: 'DB-1503', hex: '#efbfc7' },
-  { key: 'DB-0914', hex: '#d92e5b' },
-  { key: 'DB-1832', hex: '#d39c2a' },
-];
+function undo() {
+  if (pendingHistorySave.value) {
+    saveToHistory();
+    pendingHistorySave.value = false;
+  }
+  if (historyIndex.value > 0) restoreHistory(historyIndex.value - 1);
+}
 
-const selectedColor = ref(palette[2].hex);
-const backgroundColor = ref('#ffffff');
+function redo() {
+  if (historyIndex.value < history.value.length - 1)
+    restoreHistory(historyIndex.value + 1);
+}
 
-// آرایه‌های کمکی برای v-for (0-based indices)
-const colsArr = computed(() => Array.from({ length: cols.value }, (_, i) => i));
-const rowsArr = computed(() => Array.from({ length: rows.value }, (_, i) => i));
+const canUndo = computed(() => historyIndex.value > 0);
+const canRedo = computed(
+  () => historyIndex.value < history.value.length - 1,
+);
 
-// ماتریس grid[r][c] (rows x cols)
-const grid = reactive([]);
-
-// Initialize grid based on current dimensions
+// ---- Grid setup / resize -------------------------------------------------------------
 function initializeGrid(initialPattern = null) {
   const newGrid = Array.from({ length: rows.value }, () =>
     Array.from({ length: cols.value }, () => backgroundColor.value),
   );
-
-  // If initial pattern is provided, restore from it
-  if (
-    initialPattern &&
-    Array.isArray(initialPattern) &&
-    initialPattern.length > 0
-  ) {
-    // Convert 1D pattern array to 2D grid matrix
+  if (Array.isArray(initialPattern) && initialPattern.length > 0) {
     for (let r = 0; r < rows.value; r++) {
       for (let c = 0; c < cols.value; c++) {
         const index = r * cols.value + c;
@@ -1653,314 +518,100 @@ function initializeGrid(initialPattern = null) {
       }
     }
   }
-
   grid.splice(0, grid.length, ...newGrid);
   gridInitialized.value = true;
-  console.info('Grid initialized:', {
-    rows: rows.value,
-    cols: cols.value,
-    gridLength: grid.length,
-    hasInitialPattern: !!initialPattern,
-  });
-
-  // Initialize history with the initial grid state
-  history.value = [JSON.parse(JSON.stringify(grid))];
-  historyIndex.value = 0;
+  resetHistory();
 }
 
-// محاسبه ارتفاع و عرض گرید بر اساس جهت
-// eslint-disable-next-line no-unused-vars
-const gridHeight = computed(() => {
-  if (gridOrientation.value === 'horizontal') {
-    // در حالت افقی: ردیف‌ها افقی هستند، پس ارتفاع = تعداد ستون‌ها × ارتفاع سل
-    return cols.value * cellHeight.value + cellHeight.value;
-  } else {
-    // در حالت عمودی: ردیف‌ها عمودی هستند، پس ارتفاع = تعداد ردیف‌ها × ارتفاع سل
-    return rows.value * cellHeight.value + cellHeight.value;
-  }
-});
-
-// eslint-disable-next-line no-unused-vars
-const gridMinWidth = computed(() => {
-  if (gridOrientation.value === 'horizontal') {
-    // در حالت افقی: ردیف‌ها افقی هستند، پس عرض = تعداد ردیف‌ها × عرض سل
-    return rows.value * cellWidth.value + cellWidth.value;
-  } else {
-    // در حالت عمودی: ستون‌ها افقی هستند، پس عرض = تعداد ستون‌ها × عرض سل
-    return cols.value * cellWidth.value + cellWidth.value;
-  }
-});
-
-// Check if grid is properly initialized
-const isGridReady = computed(() => {
-  const ready =
-    gridInitialized.value &&
-    grid.length === rows.value &&
-    grid.length > 0 &&
-    grid[0]?.length === cols.value;
-  console.info('Grid ready check:', {
-    gridInitialized: gridInitialized.value,
-    gridLength: grid.length,
-    rows: rows.value,
-    cols: cols.value,
-    firstRowLength: grid[0]?.length,
-    ready,
-  });
-  return ready;
-});
-
-// Tool system
-const tool = ref('paint');
-const selection = ref([]);
-const clipboard = ref(null);
-const isPasteMode = ref(false);
-const pasteMirrorMode = ref('none'); // 'none' | 'horizontal' | 'vertical'
-const recentColors = ref([]);
-
-// Mouse drag state
-const isMouseDown = ref(false);
-const isDragging = ref(false);
-const lastPaintedCell = ref(null);
-
-// Rectangle selection state
-const isSelectingRect = ref(false);
-const rectStartCell = ref(null); // {r, c}
-const rectEndCell = ref(null); // {r, c}
-const gridWrapper = ref(null);
-
-// Grid state
-const gridInitialized = ref(false);
-
-// History for undo/redo
-const history = ref([]);
-const historyIndex = ref(-1);
-const isUndoRedoOperation = ref(false);
-const pendingHistorySave = ref(false);
-
-// Function to save current state to history
-function saveToHistory() {
-  if (isUndoRedoOperation.value) return; // Don't save during undo/redo operations
-
-  const currentState = JSON.parse(JSON.stringify(grid));
-
-  // If we're not at the end of history, remove future states
-  if (historyIndex.value < history.value.length - 1) {
-    history.value = history.value.slice(0, historyIndex.value + 1);
-  }
-
-  // Check if the current state is different from the last saved state
-  const lastState = history.value[historyIndex.value];
-  const isDifferent =
-    !lastState || JSON.stringify(currentState) !== JSON.stringify(lastState);
-
-  if (isDifferent) {
-    // Add current state to history
-    history.value.push(currentState);
-    historyIndex.value = history.value.length - 1;
-
-    // Limit history size to 10 actions as requested
-    if (history.value.length > 10) {
-      history.value.shift();
-      historyIndex.value--;
+function resizeGrid(newRows, newCols) {
+  const oldRows = grid.length;
+  const oldCols = grid[0]?.length ?? 0;
+  startOperation();
+  const newGrid = Array.from({ length: newRows }, () =>
+    Array.from({ length: newCols }, () => backgroundColor.value),
+  );
+  for (let r = 0; r < Math.min(oldRows, newRows); r++) {
+    for (let c = 0; c < Math.min(oldCols, newCols); c++) {
+      if (grid[r]?.[c] !== undefined) newGrid[r][c] = grid[r][c];
     }
-
-    console.info('Saved to history:', {
-      historyLength: history.value.length,
-      historyIndex: historyIndex.value,
-    });
-  } else {
-    console.info('State unchanged, skipping history save');
   }
+  grid.splice(0, grid.length, ...newGrid);
+  gridInitialized.value = true;
+  clearSelection();
+  endOperation();
 }
 
-// Function to mark the start of an operation (for batching)
-function startOperation() {
-  if (!pendingHistorySave.value) {
-    // Save the state before the operation starts (so we can undo to this state)
-    saveToHistory();
-    pendingHistorySave.value = true;
+watch([rows, cols], ([newRows, newCols]) => {
+  if (!gridInitialized.value) return;
+  const validRows = Math.max(1, Math.min(MAX_SIZE, newRows || 1));
+  const validCols = Math.max(1, Math.min(MAX_SIZE, newCols || 1));
+  if (validRows !== newRows) rows.value = validRows;
+  if (validCols !== newCols) cols.value = validCols;
+  if (validRows !== grid.length || validCols !== grid[0]?.length) {
+    resizeGrid(validRows, validCols);
   }
-}
+});
 
-// Function to mark the end of an operation
-function endOperation() {
-  if (pendingHistorySave.value) {
-    // Use nextTick to ensure all grid changes are applied before saving
-    nextTick(() => {
-      saveToHistory();
-      pendingHistorySave.value = false;
-    });
-  }
-}
-
-// Watch for dimension changes
-// Watch for props changes to restore grid when switching back
+// Restore the grid when the parent passes a new pattern back in.
 watch(
   () => [props.initialPattern, props.initialRows, props.initialCols],
   ([newPattern, newRows, newCols], [oldPattern]) => {
-    // Only restore if grid is initialized and props actually changed
     if (!gridInitialized.value) return;
-
-    // If pattern changed and we have a new pattern, restore it
     if (
-      newPattern &&
       Array.isArray(newPattern) &&
       newPattern.length > 0 &&
       newPattern !== oldPattern
     ) {
-      // Update dimensions if provided
       if (newRows && newRows !== rows.value) rows.value = newRows;
       if (newCols && newCols !== cols.value) cols.value = newCols;
-
-      // Wait for dimensions to update, then restore grid
-      nextTick(() => {
-        initializeGrid(newPattern);
-      });
+      nextTick(() => withoutAutoSave(() => initializeGrid(newPattern)));
     }
   },
   { deep: true },
 );
 
-watch([rows, cols], ([newRows, newCols], [oldRows, oldCols]) => {
-  // Don't resize if grid is not initialized yet
-  if (!gridInitialized.value) {
-    console.info('Grid not initialized yet, skipping resize');
-    return;
-  }
-
-  // Validate the new dimensions
-  const validRows = Math.max(1, Math.min(200, newRows || 1));
-  const validCols = Math.max(1, Math.min(200, newCols || 1));
-
-  // Update the refs if they were invalid
-  if (validRows !== newRows) rows.value = validRows;
-  if (validCols !== newCols) cols.value = validCols;
-
-  if (validRows !== oldRows || validCols !== oldCols) {
-    console.info('Dimensions changed:', {
-      oldRows,
-      oldCols,
-      newRows: validRows,
-      newCols: validCols,
-    });
-    resizeGrid(validRows, validCols);
-  }
-});
-
-// Watch for color selection changes - removed automatic addition to recent colors
-// Colors are now only added when actually used on the grid (in toggleCell, paintCell, fillArea)
-
-function resizeGrid(newRows, newCols) {
-  const oldRows = rows.value;
-  const oldCols = cols.value;
-  console.info('Resizing grid:', { oldRows, oldCols, newRows, newCols });
-
-  startOperation();
-
-  const newGrid = Array.from({ length: newRows }, () =>
-    Array.from({ length: newCols }, () => backgroundColor.value),
-  );
-
-  // Copy existing data - only if grid is properly initialized
-  if (grid.length > 0 && grid[0] !== undefined) {
-    for (let r = 0; r < Math.min(oldRows, newRows); r++) {
-      for (let c = 0; c < Math.min(oldCols, newCols); c++) {
-        if (grid[r] && grid[r][c] !== undefined) {
-          newGrid[r][c] = grid[r][c];
-        }
-      }
-    }
-  }
-
-  // Clear and repopulate grid
-  grid.splice(0, grid.length, ...newGrid);
-  gridInitialized.value = true;
-  console.info('Grid resized successfully. New grid dimensions:', {
-    rows: newRows,
-    cols: newCols,
-    actualGridLength: grid.length,
-    actualFirstRowLength: grid[0]?.length,
-  });
-
-  endOperation();
-}
-
-// توابع
+// ---- Recent colours & bead images ----------------------------------------------------
 function addToRecentColors(color) {
-  // Don't add background color to recent colors
   if (color === backgroundColor.value) return;
-
-  // Remove color if it already exists to avoid duplicates
   const index = recentColors.value.indexOf(color);
-  if (index > -1) {
-    recentColors.value.splice(index, 1);
-  }
-
-  // Add color to the beginning of the array
+  if (index > -1) recentColors.value.splice(index, 1);
   recentColors.value.unshift(color);
-
-  // Limit to maximum 20 recent colors
-  if (recentColors.value.length > 20) {
+  if (recentColors.value.length > 20)
     recentColors.value = recentColors.value.slice(0, 20);
-  }
 }
 
 function removeRecentColor(color) {
   const index = recentColors.value.indexOf(color);
-  if (index > -1) {
-    recentColors.value.splice(index, 1);
-  }
+  if (index > -1) recentColors.value.splice(index, 1);
 }
 
 function clearRecentColors() {
   recentColors.value = [];
 }
 
-// Image management functions
 function addToRecentImages(image) {
-  // Remove image if it already exists to avoid duplicates
   const index = recentImages.value.findIndex((img) => img.url === image.url);
-  if (index > -1) {
-    recentImages.value.splice(index, 1);
-  }
-
-  // Add image to the beginning of the array
+  if (index > -1) recentImages.value.splice(index, 1);
   recentImages.value.unshift(image);
-
-  // Limit to maximum 10 recent images
-  if (recentImages.value.length > 10) {
+  if (recentImages.value.length > 10)
     recentImages.value = recentImages.value.slice(0, 10);
-  }
 }
 
 function removeRecentImage(image) {
   const index = recentImages.value.findIndex((img) => img.url === image.url);
-  if (index > -1) {
-    recentImages.value.splice(index, 1);
-  }
+  if (index > -1) recentImages.value.splice(index, 1);
 }
 
 function clearRecentImages() {
   recentImages.value = [];
 }
 
-// clearSelectedImage is kept for potential future use with preview image
-// function clearSelectedImage() {
-//   selectedImage.value = null;
-//   // Don't change selectionMode when clearing preview image
-// }
-
-function setColorMode() {
-  selectionMode.value = 'color';
-}
-
-function setImageMode() {
-  // if (selectedBeadImage.value) {
+function selectBeadImage(image) {
+  selectedBeadImage.value = image;
+  addToRecentImages(image);
   selectionMode.value = 'image';
-  // }
 }
 
-// بارگذاری تصاویر موجود در پوشه beads
 function loadAvailableImages() {
   const imageFiles = [
     '310.jpg',
@@ -2030,233 +681,101 @@ function loadAvailableImages() {
     'db732.jpg',
     'db856.jpg',
   ];
-
   availableImages.value = imageFiles.map((filename) => ({
     name: filename,
-    url: `/miyuki-beads-designer/beads/${filename}`,
+    url: `${BEAD_IMAGE_PREFIX}${filename}`,
     displayName: filename.replace('.jpg', ''),
   }));
 }
 
-// انتخاب تصویر مهره
-function selectBeadImage(image) {
-  selectedBeadImage.value = image;
-  addToRecentImages(image);
-  setImageMode(); // Automatically switch to image mode
+// ---- Painting ------------------------------------------------------------------------
+function currentPaintValue() {
+  return selectionMode.value === 'image' && selectedBeadImage.value
+    ? selectedBeadImage.value.url
+    : selectedColor.value;
 }
 
-function setTool(newTool) {
-  tool.value = newTool;
-  clearSelection();
-  cancelPasteMode();
-  // Reset rectangle selection state
-  isSelectingRect.value = false;
-  rectStartCell.value = null;
-  rectEndCell.value = null;
-}
-
-function handleCellClick(r, c) {
-  if (isPasteMode.value) {
-    pasteAtPosition(r, c, pasteMirrorMode.value);
-    return;
-  }
-
-  isMouseDown.value = true;
-  lastPaintedCell.value = `${r},${c}`;
-
-  switch (tool.value) {
-    case 'paint':
-      startOperation(); // Start operation for paint tool
-      toggleCell(r, c);
-      // Don't end operation here - let handleMouseUp do it for drag operations
-      break;
-    case 'fill':
-      startOperation();
-      fillArea(r, c);
-      endOperation();
-      break;
-    case 'select':
-      toggleSelection(r, c);
-      break;
-    case 'selectRect':
-      isSelectingRect.value = true;
-      rectStartCell.value = { r, c };
-      rectEndCell.value = { r, c };
-      break;
-  }
-}
-
-function handleCellMouseEnter(r, c) {
-  if (!isMouseDown.value) return;
-
-  const currentCell = `${r},${c}`;
-  if (currentCell === lastPaintedCell.value) return;
-
-  lastPaintedCell.value = currentCell;
-
-  switch (tool.value) {
-    case 'paint':
-      paintCell(r, c);
-      break;
-    case 'select':
-      toggleSelection(r, c);
-      break;
-    case 'selectRect':
-      if (isSelectingRect.value) {
-        rectEndCell.value = { r, c };
-      }
-      break;
-  }
-}
-
-function handleMouseUp() {
-  // Finalize rectangle selection before ending operation
-  if (
-    tool.value === 'selectRect' &&
-    isSelectingRect.value &&
-    rectStartCell.value &&
-    rectEndCell.value
-  ) {
-    selectCellsInRectangle(
-      rectStartCell.value.r,
-      rectStartCell.value.c,
-      rectEndCell.value.r,
-      rectEndCell.value.c,
-    );
-    isSelectingRect.value = false;
-    rectStartCell.value = null;
-    rectEndCell.value = null;
-  }
-
-  // End any pending operation when mouse is released
-  endOperation();
-
-  isMouseDown.value = false;
-  isDragging.value = false;
-  lastPaintedCell.value = null;
-}
-
-function toggleCell(r, c) {
-  if (grid[r] && grid[r][c] !== undefined) {
-    const currentValue = grid[r][c];
-    const newValue =
-      selectionMode.value === 'image' && selectedBeadImage.value
-        ? selectedBeadImage.value.url
-        : selectedColor.value;
-
-    // Only apply new value if it's different from current value
-    // Don't clear if clicking with the same color
-    if (currentValue !== newValue) {
-      grid[r][c] = newValue;
-
-      // Add to recent colors/images when painting
-      if (newValue === selectedColor.value) {
-        addToRecentColors(selectedColor.value);
-      } else if (
-        selectionMode.value === 'image' &&
-        selectedBeadImage.value &&
-        newValue === selectedBeadImage.value.url
-      ) {
-        addToRecentImages(selectedBeadImage.value);
-      }
-    }
-  }
+function rememberPaintValue(value) {
+  if (value === selectedColor.value) addToRecentColors(value);
+  else if (selectedBeadImage.value?.url === value)
+    addToRecentImages(selectedBeadImage.value);
 }
 
 function paintCell(r, c) {
-  if (grid[r] && grid[r][c] !== undefined) {
-    const newValue =
-      selectionMode.value === 'image' && selectedBeadImage.value
-        ? selectedBeadImage.value.url
-        : selectedColor.value;
-    grid[r][c] = newValue;
-
-    // Add to recent colors/images when painting
-    if (newValue === selectedColor.value) {
-      addToRecentColors(selectedColor.value);
-    } else if (selectionMode.value === 'image' && selectedBeadImage.value) {
-      addToRecentImages(selectedBeadImage.value);
-    }
-  }
+  if (grid[r]?.[c] === undefined) return;
+  const value = currentPaintValue();
+  if (grid[r][c] === value) return;
+  grid[r][c] = value;
+  rememberPaintValue(value);
 }
 
 function fillArea(startR, startC) {
-  if (!grid[startR] || grid[startR][startC] === undefined) return;
-
+  if (grid[startR]?.[startC] === undefined) return;
   const targetValue = grid[startR][startC];
-  const fillValue =
-    selectionMode.value === 'image' && selectedBeadImage.value
-      ? selectedBeadImage.value.url
-      : selectedColor.value;
-
+  const fillValue = currentPaintValue();
   if (targetValue === fillValue) return;
 
   const visited = new Set();
   const stack = [[startR, startC]];
-
   while (stack.length > 0) {
     const [r, c] = stack.pop();
     const key = `${r},${c}`;
-
     if (
       visited.has(key) ||
       r < 0 ||
       r >= rows.value ||
       c < 0 ||
-      c >= cols.value
-    ) {
+      c >= cols.value ||
+      grid[r]?.[c] !== targetValue
+    )
       continue;
-    }
-
-    if (!grid[r] || grid[r][c] !== targetValue) {
-      continue;
-    }
-
     visited.add(key);
     grid[r][c] = fillValue;
-
-    // Add neighbors
     stack.push([r + 1, c], [r - 1, c], [r, c + 1], [r, c - 1]);
   }
-
-  // Add to recent colors/images when filling
-  if (fillValue === selectedColor.value) {
-    addToRecentColors(fillValue);
-  } else if (fillValue === selectedImage.value) {
-    addToRecentImages(fillValue);
-  }
+  rememberPaintValue(fillValue);
 }
 
+function changeAllBeadsToColor() {
+  const value =
+    backgroundMode.value === 'image' && selectedBackgroundImage.value
+      ? selectedBackgroundImage.value.url
+      : backgroundColor.value;
+  fillAllBeads(value);
+}
+
+function fillAllBeads(value) {
+  startOperation();
+  for (let r = 0; r < rows.value; r++) {
+    for (let c = 0; c < cols.value; c++) {
+      if (grid[r]?.[c] !== undefined) grid[r][c] = value;
+    }
+  }
+  endOperation();
+}
+
+// ---- Selection -----------------------------------------------------------------------
 function toggleSelection(r, c) {
   const key = `${r},${c}`;
   const index = selection.value.indexOf(key);
-  if (index > -1) {
-    selection.value.splice(index, 1);
-  } else {
-    selection.value.push(key);
-  }
+  if (index > -1) selection.value.splice(index, 1);
+  else selection.value.push(key);
 }
 
-function selectCellsInRectangle(startR, startC, endR, endC) {
-  const minR = Math.min(startR, endR);
-  const maxR = Math.max(startR, endR);
-  const minC = Math.min(startC, endC);
-  const maxC = Math.max(startC, endC);
-
-  const newSelection = [];
-  for (let r = minR; r <= maxR; r++) {
-    for (let c = minC; c <= maxC; c++) {
-      if (grid[r] && grid[r][c] !== undefined) {
-        newSelection.push(`${r},${c}`);
-      }
+function rectKeys(start, end) {
+  if (!start || !end) return [];
+  const keys = [];
+  for (let r = Math.min(start.r, end.r); r <= Math.max(start.r, end.r); r++) {
+    for (let c = Math.min(start.c, end.c); c <= Math.max(start.c, end.c); c++) {
+      if (grid[r]?.[c] !== undefined) keys.push(`${r},${c}`);
     }
   }
+  return keys;
+}
 
-  // Add to selection (avoid duplicates)
-  newSelection.forEach((key) => {
-    if (!selection.value.includes(key)) {
-      selection.value.push(key);
-    }
+function selectCellsInRectangle(start, end) {
+  rectKeys(start, end).forEach((key) => {
+    if (!selection.value.includes(key)) selection.value.push(key);
   });
 }
 
@@ -2264,268 +783,166 @@ function clearSelection() {
   selection.value = [];
 }
 
-function copySelection() {
-  if (selection.value.length === 0) {
-    console.warn('No cells selected for copying');
-    return;
-  }
-
-  const selectedCells = selection.value.map((key) => {
+function selectedCells() {
+  return selection.value.map((key) => {
     const [r, c] = key.split(',').map(Number);
     return { r, c, color: grid[r]?.[c] || backgroundColor.value };
   });
+}
 
-  clipboard.value = selectedCells;
-  console.info(`Copied ${selectedCells.length} cells to clipboard`);
+function mirrorSelection() {
+  if (selection.value.length === 0) return;
+  startOperation();
+  const cells = selectedCells();
+  const maxC = Math.max(...cells.map((cell) => cell.c));
+  cells.forEach(({ r, c, color }) => {
+    const newC = maxC - c;
+    if (newC >= 0 && newC < cols.value && grid[r]?.[newC] !== undefined) {
+      grid[r][newC] = color;
+    }
+  });
+  endOperation();
+}
 
-  // Clear current selection and enable paste mode
+function mirrorSelectionVertical() {
+  if (selection.value.length === 0) return;
+  startOperation();
+  const cells = selectedCells();
+  const maxR = Math.max(...cells.map((cell) => cell.r));
+  cells.forEach(({ r, c, color }) => {
+    const newR = maxR - r;
+    if (newR >= 0 && newR < rows.value && grid[newR]?.[c] !== undefined) {
+      grid[newR][c] = color;
+    }
+  });
+  endOperation();
+}
+
+// ---- Clipboard -----------------------------------------------------------------------
+const hasClipboard = computed(() => !!clipboard.value?.length);
+
+function copySelection() {
+  if (selection.value.length === 0) return;
+  clipboard.value = selectedCells();
   clearSelection();
   enablePasteMode();
 }
 
 function cutSelection() {
-  if (selection.value.length === 0) {
-    console.warn('No cells selected for cutting');
-    return;
-  }
-
+  if (selection.value.length === 0) return;
   startOperation();
-
-  const selectedCells = selection.value.map((key) => {
-    const [r, c] = key.split(',').map(Number);
-    return { r, c, color: grid[r]?.[c] || backgroundColor.value };
+  clipboard.value = selectedCells();
+  clipboard.value.forEach(({ r, c }) => {
+    if (grid[r]?.[c] !== undefined) grid[r][c] = backgroundColor.value;
   });
-
-  clipboard.value = selectedCells;
-  console.info(`Cut ${selectedCells.length} cells to clipboard`);
-
-  // Clear the selected cells
-  selection.value.forEach((key) => {
-    const [r, c] = key.split(',').map(Number);
-    if (grid[r] && grid[r][c] !== undefined) {
-      grid[r][c] = backgroundColor.value;
-    }
-  });
-
-  // Clear current selection and enable paste mode
   clearSelection();
   enablePasteMode();
-
   endOperation();
 }
 
+function getTransformedClipboard(mirrorMode = 'none') {
+  if (!clipboard.value) return [];
+  const minR = Math.min(...clipboard.value.map((cell) => cell.r));
+  const minC = Math.min(...clipboard.value.map((cell) => cell.c));
+  const maxR = Math.max(...clipboard.value.map((cell) => cell.r));
+  const maxC = Math.max(...clipboard.value.map((cell) => cell.c));
+  return clipboard.value.map(({ r, c, color }) => ({
+    r: mirrorMode === 'vertical' ? minR + (maxR - r) : r,
+    c: mirrorMode === 'horizontal' ? minC + (maxC - c) : c,
+    color,
+  }));
+}
+
 function pasteAtCenter(mirrorMode = 'none') {
-  if (!clipboard.value) {
-    console.warn('No content in clipboard to paste');
-    return;
-  }
-
+  if (!clipboard.value) return;
   startOperation();
-
-  // Clear any current selection
   clearSelection();
-
   const transformed = getTransformedClipboard(mirrorMode);
   if (transformed.length === 0) {
     endOperation();
     return;
   }
 
-  // Calculate the bounds of the copied selection
   const minR = Math.min(...transformed.map((cell) => cell.r));
   const minC = Math.min(...transformed.map((cell) => cell.c));
   const maxR = Math.max(...transformed.map((cell) => cell.r));
   const maxC = Math.max(...transformed.map((cell) => cell.c));
+  const offsetR = Math.floor(rows.value / 2) - (minR + maxR) / 2;
+  const offsetC = Math.floor(cols.value / 2) - (minC + maxC) / 2;
 
-  // Calculate the center of the copied selection
-  const selectionCenterR = (minR + maxR) / 2;
-  const selectionCenterC = (minC + maxC) / 2;
-
-  // Calculate the center of the current grid
-  const gridCenterR = Math.floor(rows.value / 2);
-  const gridCenterC = Math.floor(cols.value / 2);
-
-  // Calculate the offset to center the selection
-  const offsetR = gridCenterR - selectionCenterR;
-  const offsetC = gridCenterC - selectionCenterC;
-
-  // Calculate peyote row adjustment based on column offset difference
-  // Note: peyoteAdjustment is now calculated per-cell in the loop below
-
-  let pastedCount = 0;
   transformed.forEach(({ r, c, color }) => {
-    // Calculate the target column for this cell
     const targetCol = c + offsetC;
-
-    // Apply peyote adjustment based on source vs target column relationship
-    let cellAdjustment = 0;
+    // Peyote: moving between odd and even columns shifts the beads one row.
     const sourceIsOdd = minC % 2 === 1;
     const targetIsOdd = targetCol % 2 === 1;
-
-    if (sourceIsOdd && !targetIsOdd) {
-      // Case 3: Odd → Even: shift even columns one row higher
-      cellAdjustment = -1;
-      console.info(
-        `Odd→Even: sourceCol=${minC}, targetCol=${targetCol}, cellAdjustment=${cellAdjustment}`,
-      );
-    } else if (!sourceIsOdd && targetIsOdd) {
-      // Case 2: Even → Odd: shift odd columns one row higher
-      cellAdjustment = -1;
-      console.info(
-        `Even→Odd: sourceCol=${minC}, targetCol=${targetCol}, cellAdjustment=${cellAdjustment}`,
-      );
-    } else {
-      // Case 1: Same column type (even→even, odd→odd): no adjustment needed
-      console.info(
-        `Same type: sourceCol=${minC}, targetCol=${targetCol}, cellAdjustment=${cellAdjustment}`,
-      );
-    }
-
+    const cellAdjustment = sourceIsOdd !== targetIsOdd ? -1 : 0;
     const newR = r + offsetR + cellAdjustment;
     const newC = targetCol;
-
-    if (newR >= 0 && newR < rows.value && newC >= 0 && newC < cols.value) {
-      if (grid[newR] && grid[newR][newC] !== undefined) {
-        grid[newR][newC] = color;
-        pastedCount++;
-      }
+    if (
+      newR >= 0 &&
+      newR < rows.value &&
+      newC >= 0 &&
+      newC < cols.value &&
+      grid[newR]?.[newC] !== undefined
+    ) {
+      grid[newR][newC] = color;
     }
   });
-
-  console.info(`Pasted ${pastedCount} cells at center with peyote adjustment`);
   endOperation();
 }
 
 function pasteAtPosition(r, c, mirrorMode = 'none') {
   if (!clipboard.value) return;
-
   startOperation();
-
-  // Clear any current selection
   clearSelection();
-
   const transformed = getTransformedClipboard(mirrorMode);
   if (transformed.length === 0) {
     endOperation();
     return;
   }
 
-  // Calculate the bounds of the transformed selection
   const minR = Math.min(...transformed.map((cell) => cell.r));
   const minC = Math.min(...transformed.map((cell) => cell.c));
 
-  console.info('transformedMinC', minC, 'targetC', c);
-
-  let pastedCount = 0;
   transformed.forEach(({ r: origR, c: origC, color }) => {
-    // Calculate offset from the top-left corner of the transformed selection
     const offsetR = origR - minR;
     const offsetC = origC - minC;
-
-    // Calculate the target column for this cell
     const targetCol = c + offsetC;
 
-    // Apply peyote adjustment based on transformed source vs target column relationship
-    // Different logic for normal paste vs mirrored paste
-    let cellAdjustment = 0;
+    // Peyote row adjustment based on source vs target column parity.
     const sourceIsOdd = minC % 2 === 1;
     const targetIsOdd = targetCol % 2 === 1;
     const cellColIsOdd = origC % 2 === 1;
-
-    console.info(
-      `mirrorMode=${mirrorMode}, sourceIsOdd=${sourceIsOdd}, targetIsOdd=${targetIsOdd}, cellColIsOdd=${cellColIsOdd}`,
-    );
-
-    if (mirrorMode === 'none') {
-      // Normal paste mode - use original logic
-      if (sourceIsOdd && !targetIsOdd) {
-        // Case 3: Odd → Even: shift even columns one row higher
-        if (cellColIsOdd) {
-          cellAdjustment = 0;
-        } else {
-          cellAdjustment = -1;
-        }
-        console.info(
-          `Odd→Even: sourceCol=${minC}, targetCol=${targetCol}, cellAdjustment=${cellAdjustment}`,
-        );
-      } else if (!sourceIsOdd && targetIsOdd) {
-        // Case 2: Even → Odd: shift odd columns one row higher
-        if (cellColIsOdd) {
-          cellAdjustment = -1;
-        } else {
-          cellAdjustment = -2;
-        }
-        console.info(
-          `Even→Odd: sourceCol=${minC}, targetCol=${targetCol}, cellAdjustment=${cellAdjustment}`,
-        );
-      } else {
-        // Case 1: Same column type (even→even, odd→odd): standard adjustment
-        cellAdjustment = -1;
-        console.info(
-          `Same type: sourceCol=${minC}, targetCol=${targetCol}, cellAdjustment=${cellAdjustment}`,
-        );
-      }
+    let cellAdjustment;
+    if (sourceIsOdd && !targetIsOdd) {
+      cellAdjustment = cellColIsOdd ? 0 : -1;
+    } else if (!sourceIsOdd && targetIsOdd) {
+      cellAdjustment = cellColIsOdd ? -1 : -2;
     } else {
-      // Mirror mode - use adjusted logic for mirrored patterns
-      if (sourceIsOdd && !targetIsOdd) {
-        // Case 3: Odd → Even: shift even columns one row higher
-        if (cellColIsOdd) {
-          cellAdjustment = 0;
-        } else {
-          cellAdjustment = -1;
-        }
-        console.info(
-          `Mirror Odd→Even: sourceCol=${minC}, targetCol=${targetCol}, cellAdjustment=${cellAdjustment}`,
-        );
-      } else if (!sourceIsOdd && targetIsOdd) {
-        // Case 2: Even → Odd: shift odd columns one row higher
-        if (cellColIsOdd) {
-          cellAdjustment = -1;
-        } else {
-          cellAdjustment = -2;
-        }
-        console.info(
-          `Mirror Even→Odd: sourceCol=${minC}, targetCol=${targetCol}, cellAdjustment=${cellAdjustment}`,
-        );
-      } else {
-        // Case 1: Same column type (even→even, odd→odd)
-        // For mirrored patterns, maintain relative positioning
-        cellAdjustment = 0;
-        console.info(
-          `Mirror Same type: sourceCol=${minC}, targetCol=${targetCol}, cellAdjustment=${cellAdjustment}`,
-        );
-      }
+      cellAdjustment = mirrorMode === 'none' ? -1 : 0;
     }
-
-    console.info('cellAdjustment', cellAdjustment);
 
     const newR = r + offsetR + cellAdjustment;
     const newC = targetCol;
-
-    console.info(
-      `Pasting cell: orig(${origR},${origC}) -> new(${newR},${newC}) offset(${offsetR},${offsetC}) cellAdjustment=${cellAdjustment}`,
-    );
-
-    if (newR >= 0 && newR < rows.value && newC >= 0 && newC < cols.value) {
-      if (grid[newR] && grid[newR][newC] !== undefined) {
-        grid[newR][newC] = color;
-        pastedCount++;
-      }
+    if (
+      newR >= 0 &&
+      newR < rows.value &&
+      newC >= 0 &&
+      newC < cols.value &&
+      grid[newR]?.[newC] !== undefined
+    ) {
+      grid[newR][newC] = color;
     }
   });
-
-  console.info(
-    `Pasted ${pastedCount} cells at position (${r}, ${c}) with per-cell peyote adjustment`,
-  );
   endOperation();
-  // Note: We don't cancel paste mode here to allow multiple pastes
+  // Paste mode stays on so the user can paste several times.
 }
 
 function enablePasteMode(mode = 'none') {
-  if (clipboard.value) {
-    pasteMirrorMode.value = mode;
-    isPasteMode.value = true;
-  }
+  if (!hasClipboard.value) return;
+  panMode.value = false;
+  pasteMirrorMode.value = mode;
+  isPasteMode.value = true;
 }
 
 function cancelPasteMode() {
@@ -2533,158 +950,548 @@ function cancelPasteMode() {
   pasteMirrorMode.value = 'none';
 }
 
-function hasClipboardContent() {
-  return clipboard.value && clipboard.value.length > 0;
+function togglePasteMode(mode) {
+  if (isPasteMode.value && pasteMirrorMode.value === mode) cancelPasteMode();
+  else enablePasteMode(mode);
 }
 
-function getTransformedClipboard(mirrorMode = 'none') {
-  if (!clipboard.value) return [];
+const pasteMirrorLabel = computed(
+  () =>
+    ({ horizontal: ' (mirrored)', vertical: ' (flipped)' })[
+      pasteMirrorMode.value
+    ] ?? '',
+);
 
-  const minR = Math.min(...clipboard.value.map((cell) => cell.r));
-  const minC = Math.min(...clipboard.value.map((cell) => cell.c));
-  const maxR = Math.max(...clipboard.value.map((cell) => cell.r));
-  const maxC = Math.max(...clipboard.value.map((cell) => cell.c));
-
-  return clipboard.value.map(({ r, c, color }) => {
-    let newR = r;
-    let newC = c;
-
-    if (mirrorMode === 'horizontal') {
-      // Flip horizontally across vertical axis of selection box
-      newC = minC + (maxC - c);
-    } else if (mirrorMode === 'vertical') {
-      // Flip vertically across horizontal axis of selection box
-      newR = minR + (maxR - r);
-    }
-
-    return { r: newR, c: newC, color };
-  });
+// ---- Canvas strokes ------------------------------------------------------------------
+function cellOf(index) {
+  return { r: Math.floor(index / cols.value), c: index % cols.value };
 }
 
-function mirrorSelection() {
-  if (selection.value.length === 0) return;
+function startStroke(index) {
+  const { r, c } = cellOf(index);
+  strokeActive = false;
 
-  startOperation();
-
-  const cells = selection.value.map((key) => {
-    const [r, c] = key.split(',').map(Number);
-    return { r, c, color: grid[r]?.[c] || backgroundColor.value };
-  });
-
-  const maxC = Math.max(...cells.map((cell) => cell.c));
-
-  cells.forEach(({ r, c, color }) => {
-    const newC = maxC - c;
-    if (newC >= 0 && newC < cols.value) {
-      if (grid[r] && grid[r][newC] !== undefined) {
-        grid[r][newC] = color;
-      }
-    }
-  });
-
-  endOperation();
-}
-
-function mirrorSelectionVertical() {
-  if (selection.value.length === 0) return;
-
-  startOperation();
-
-  const cells = selection.value.map((key) => {
-    const [r, c] = key.split(',').map(Number);
-    return { r, c, color: grid[r]?.[c] || backgroundColor.value };
-  });
-
-  const maxR = Math.max(...cells.map((cell) => cell.r));
-
-  cells.forEach(({ r, c, color }) => {
-    const newR = maxR - r;
-    if (newR >= 0 && newR < rows.value) {
-      if (grid[newR] && grid[newR][c] !== undefined) {
-        grid[newR][c] = color;
-      }
-    }
-  });
-
-  endOperation();
-}
-
-function undo() {
-  if (historyIndex.value <= 0) {
-    console.warn('No more undo history available');
+  if (isPasteMode.value) {
+    pasteAtPosition(r, c, pasteMirrorMode.value);
     return;
   }
 
-  // Save current state before undo (in case user wants to redo)
+  strokeActive = true;
+  switch (tool.value) {
+    case 'paint':
+      startOperation();
+      paintCell(r, c);
+      break;
+    case 'fill':
+      startOperation();
+      fillArea(r, c);
+      endOperation();
+      strokeActive = false;
+      break;
+    case 'select':
+      toggleSelection(r, c);
+      break;
+    case 'selectRect':
+      rectStartCell.value = { r, c };
+      rectEndCell.value = { r, c };
+      break;
+  }
+}
+
+function moveStroke(path) {
+  if (!strokeActive) return;
+  for (const index of path) {
+    const { r, c } = cellOf(index);
+    if (tool.value === 'paint') paintCell(r, c);
+    else if (tool.value === 'select') toggleSelection(r, c);
+    else if (tool.value === 'selectRect') rectEndCell.value = { r, c };
+  }
+}
+
+function endStroke() {
+  if (tool.value === 'selectRect' && rectStartCell.value) {
+    selectCellsInRectangle(rectStartCell.value, rectEndCell.value);
+  }
+  rectStartCell.value = null;
+  rectEndCell.value = null;
+  strokeActive = false;
+  endOperation();
+}
+
+/** Touch gesture turned into a pinch: drop the accidental stroke. */
+function cancelStroke() {
+  rectStartCell.value = null;
+  rectEndCell.value = null;
+  strokeActive = false;
   if (pendingHistorySave.value) {
-    saveToHistory();
+    const state = history.value[historyIndex.value];
+    if (state) grid.splice(0, grid.length, ...state.grid.map((row) => [...row]));
     pendingHistorySave.value = false;
   }
-
-  isUndoRedoOperation.value = true;
-  historyIndex.value--;
-  const previousState = JSON.parse(
-    JSON.stringify(history.value[historyIndex.value]),
-  );
-
-  // Clear and restore grid
-  grid.splice(0, grid.length);
-  previousState.forEach((row) => {
-    grid.push([...row]);
-  });
-
-  isUndoRedoOperation.value = false;
-  console.info('Undo performed:', {
-    historyIndex: historyIndex.value,
-    historyLength: history.value.length,
-  });
 }
 
-function redo() {
-  if (historyIndex.value >= history.value.length - 1) {
-    console.warn('No more redo history available');
+function setTool(newTool) {
+  tool.value = newTool;
+  clearSelection();
+  cancelPasteMode();
+  rectStartCell.value = null;
+  rectEndCell.value = null;
+}
+
+// ---- Canvas data ---------------------------------------------------------------------
+const canvasCells = computed(() => grid.flat());
+
+const canvasSelection = computed(() => {
+  const keys = new Set(selection.value);
+  if (rectStartCell.value) {
+    rectKeys(rectStartCell.value, rectEndCell.value).forEach((key) =>
+      keys.add(key),
+    );
+  }
+  return [...keys].map((key) => {
+    const [r, c] = key.split(',').map(Number);
+    return r * cols.value + c;
+  });
+});
+
+// ---- View state (not part of the pattern) --------------------------------------------
+const canvasRef = ref(null);
+const referencePicker = ref(null);
+const zoom = ref(1);
+const panMode = ref(false);
+const showGridLines = ref(true);
+const showRulers = ref(true);
+const showReference = ref(true);
+const referenceBeside = ref(true);
+const panelTab = ref('colors');
+const sheetOpen = ref(false);
+const hoverIndex = ref(null);
+
+const isCompact = useMediaQuery('(max-width: 900px)');
+const isPhone = useMediaQuery('(max-width: 640px)');
+
+const showReferencePane = computed(
+  () => !!selectedImage.value && showReference.value,
+);
+const referenceSideBySide = computed(
+  () => referenceBeside.value && !isPhone.value,
+);
+
+function chooseTool(t) {
+  panMode.value = false;
+  setTool(t);
+}
+
+function togglePanMode() {
+  panMode.value = !panMode.value;
+}
+
+const hasSelection = computed(() => selection.value.length > 0);
+
+const toolItems = computed(() => [
+  {
+    id: 'paint',
+    primary: true,
+    label: 'Paint',
+    icon: 'brush',
+    shortcut: 'B',
+    active: tool.value === 'paint' && !panMode.value && !isPasteMode.value,
+    onClick: () => chooseTool('paint'),
+  },
+  {
+    id: 'fill',
+    primary: true,
+    label: 'Fill',
+    icon: 'bucket',
+    shortcut: 'G',
+    active: tool.value === 'fill' && !panMode.value && !isPasteMode.value,
+    onClick: () => chooseTool('fill'),
+  },
+  {
+    id: 'select-rect',
+    primary: true,
+    label: 'Select',
+    icon: 'select',
+    shortcut: 'M',
+    active: tool.value === 'selectRect' && !panMode.value,
+    onClick: () => chooseTool('selectRect'),
+  },
+  {
+    id: 'select',
+    label: 'Pick beads',
+    icon: 'check',
+    shortcut: 'P',
+    active: tool.value === 'select' && !panMode.value,
+    onClick: () => chooseTool('select'),
+  },
+  {
+    id: 'hand',
+    primary: true,
+    label: 'Move',
+    icon: 'hand',
+    shortcut: 'H',
+    toggle: true,
+    active: panMode.value,
+    onClick: togglePanMode,
+  },
+  { divider: true },
+  {
+    id: 'copy',
+    label: 'Copy',
+    icon: 'copy',
+    shortcut: 'Ctrl+C',
+    disabled: !hasSelection.value,
+    onClick: copySelection,
+  },
+  {
+    id: 'cut',
+    label: 'Cut',
+    icon: 'scissors',
+    shortcut: 'Ctrl+X',
+    disabled: !hasSelection.value,
+    onClick: cutSelection,
+  },
+  {
+    id: 'paste-center',
+    label: 'Paste center',
+    icon: 'crosshair',
+    disabled: !hasClipboard.value,
+    onClick: () => pasteAtCenter(),
+  },
+  {
+    id: 'paste-at',
+    label: 'Paste at…',
+    icon: 'target',
+    shortcut: 'Ctrl+V',
+    toggle: true,
+    active: isPasteMode.value && pasteMirrorMode.value === 'none',
+    disabled: !hasClipboard.value,
+    onClick: () => togglePasteMode('none'),
+  },
+  {
+    id: 'paste-mirror',
+    label: 'Paste mirror',
+    icon: 'flipH',
+    toggle: true,
+    active: isPasteMode.value && pasteMirrorMode.value === 'horizontal',
+    disabled: !hasClipboard.value,
+    onClick: () => togglePasteMode('horizontal'),
+  },
+  {
+    id: 'paste-flip',
+    label: 'Paste flip',
+    icon: 'flipV',
+    toggle: true,
+    active: isPasteMode.value && pasteMirrorMode.value === 'vertical',
+    disabled: !hasClipboard.value,
+    onClick: () => togglePasteMode('vertical'),
+  },
+  { divider: true },
+  {
+    id: 'mirror-h',
+    label: 'Mirror',
+    icon: 'flipH',
+    disabled: !hasSelection.value,
+    onClick: mirrorSelection,
+  },
+  {
+    id: 'mirror-v',
+    label: 'Flip',
+    icon: 'flipV',
+    disabled: !hasSelection.value,
+    onClick: mirrorSelectionVertical,
+  },
+  {
+    id: 'deselect',
+    label: 'Deselect',
+    icon: 'deselect',
+    shortcut: 'Esc',
+    disabled: !hasSelection.value,
+    onClick: clearSelection,
+  },
+  { divider: true },
+  {
+    id: 'undo',
+    primary: true,
+    label: 'Undo',
+    icon: 'undo',
+    shortcut: 'Ctrl+Z',
+    disabled: !canUndo.value,
+    onClick: undo,
+  },
+  {
+    id: 'redo',
+    primary: true,
+    label: 'Redo',
+    icon: 'redo',
+    shortcut: 'Ctrl+Y',
+    disabled: !canRedo.value,
+    onClick: redo,
+  },
+]);
+
+// ---- Header menus --------------------------------------------------------------------
+const exportItems = computed(() => [
+  {
+    label: 'Save to this browser',
+    icon: 'save',
+    shortcut: 'Ctrl+S',
+    onSelect: () => saveGridToLocalStorage(),
+  },
+  { divider: true },
+  { heading: 'Download' },
+  { label: 'Image (PNG)', icon: 'camera', onSelect: exportGridAsImage },
+  {
+    label: 'HD image (PNG)',
+    icon: 'image',
+    onSelect: exportGridAsHighQualityImage,
+  },
+  { label: 'Pattern file (TXT)', icon: 'fileText', onSelect: exportGridAsTxt },
+  { divider: true },
+  { label: 'Send to 3D preview', icon: 'rocket', onSelect: previewGrid },
+]);
+
+const moreItems = computed(() => [
+  {
+    label: selectedImage.value
+      ? 'Replace reference image'
+      : 'Upload reference image',
+    icon: 'image',
+    onSelect: () => referencePicker.value?.open(),
+  },
+  { divider: true },
+  { heading: 'Paste at center' },
+  {
+    label: 'Paste mirrored at center',
+    icon: 'flipH',
+    disabled: !hasClipboard.value,
+    onSelect: () => pasteAtCenter('horizontal'),
+  },
+  {
+    label: 'Paste flipped at center',
+    icon: 'flipV',
+    disabled: !hasClipboard.value,
+    onSelect: () => pasteAtCenter('vertical'),
+  },
+  { divider: true },
+  {
+    label: 'Clear recent colours',
+    icon: 'palette',
+    disabled: !recentColors.value.length,
+    onSelect: clearRecentColors,
+  },
+  {
+    label: 'Clear recent bead images',
+    icon: 'trash',
+    disabled: !recentImages.value.length,
+    onSelect: clearRecentImages,
+  },
+  { divider: true },
+  { label: 'Keyboard shortcuts', icon: 'info', onSelect: showShortcuts },
+]);
+
+function showShortcuts() {
+  showInfo(
+    'Keyboard shortcuts',
+    'B Paint · G Fill · M Select area · P Pick beads · H Move · Space+drag Move · Ctrl/⌘+wheel Zoom · + / − Zoom · 0 Fit · Ctrl+Z Undo · Ctrl+Y Redo · Ctrl+C / X Copy, cut · Ctrl+V Paste at… · Ctrl+S Save · Esc Deselect / cancel paste',
+  );
+}
+
+// ---- Side panel ----------------------------------------------------------------------
+const panelTabs = [
+  { value: 'colors', label: 'Colors', icon: 'palette' },
+  { value: 'properties', label: 'Properties', icon: 'sliders' },
+  { value: 'reference', label: 'Reference', icon: 'image' },
+];
+
+const panelComponent = computed(
+  () =>
+    ({
+      colors: DelicaColorsPanel,
+      properties: PropertiesPanel,
+      reference: ReferencePanel,
+    })[panelTab.value],
+);
+
+const panelProps = computed(() => {
+  if (panelTab.value === 'colors') {
+    return {
+      paintMode: selectionMode.value,
+      color: selectedColor.value,
+      recentColors: recentColors.value,
+      beadImages: availableImages.value,
+      recentImages: recentImages.value,
+      selectedImageUrl: selectedBeadImage.value?.url ?? null,
+    };
+  }
+  if (panelTab.value === 'properties') {
+    return {
+      cellWidth: cellWidth.value,
+      cellHeight: cellHeight.value,
+      gridUpright: gridOrientation.value === 'vertical',
+      showGridLines: showGridLines.value,
+      showRulers: showRulers.value,
+      backgroundMode: backgroundMode.value,
+      backgroundColor: backgroundColor.value,
+      backgroundImage: selectedBackgroundImage.value,
+      beadImages: availableImages.value,
+    };
+  }
+  return {
+    image: selectedImage.value,
+    visible: showReference.value,
+    sideBySide: referenceBeside.value,
+  };
+});
+
+const panelListeners = computed(() => {
+  if (panelTab.value === 'colors') {
+    return {
+      'update:paintMode': (v) => (selectionMode.value = v),
+      'update:color': (v) => {
+        selectedColor.value = v;
+        selectionMode.value = 'color';
+      },
+      'select-image': selectBeadImage,
+      'fill-with-bead': (code) => {
+        if (!delicaEntry(code)) return;
+        fillAllBeads(code);
+        addToRecentColors(code);
+      },
+      'remove-recent-color': removeRecentColor,
+      'clear-recent-colors': clearRecentColors,
+      'remove-recent-image': removeRecentImage,
+      'clear-recent-images': clearRecentImages,
+    };
+  }
+  if (panelTab.value === 'properties') {
+    return {
+      'update:cellWidth': (v) => (cellWidth.value = v),
+      'update:cellHeight': (v) => (cellHeight.value = v),
+      'update:gridUpright': (v) =>
+        (gridOrientation.value = v ? 'vertical' : 'horizontal'),
+      'update:showGridLines': (v) => (showGridLines.value = v),
+      'update:showRulers': (v) => (showRulers.value = v),
+      'update:backgroundMode': (v) => (backgroundMode.value = v),
+      'update:backgroundColor': (v) => (backgroundColor.value = v),
+      'update:backgroundImage': (v) => (selectedBackgroundImage.value = v),
+      'apply-background': changeAllBeadsToColor,
+      save: () => saveGridToLocalStorage(),
+      load: openLastSave,
+    };
+  }
+  return {
+    'update:visible': (v) => (showReference.value = v),
+    'update:sideBySide': (v) => (referenceBeside.value = v),
+    upload: onReferenceUpload,
+    remove: () => (selectedImage.value = null),
+  };
+});
+
+const panelWrapperProps = computed(() =>
+  isCompact.value
+    ? {
+        modelValue: sheetOpen.value,
+        'onUpdate:modelValue': (v) => (sheetOpen.value = v),
+        title: 'Design panel',
+      }
+    : { class: 'peyote-editor__panel' },
+);
+
+function openSheet(tab) {
+  if (sheetOpen.value && panelTab.value === tab) {
+    sheetOpen.value = false;
     return;
   }
-
-  isUndoRedoOperation.value = true;
-  historyIndex.value++;
-  const nextState = JSON.parse(
-    JSON.stringify(history.value[historyIndex.value]),
-  );
-
-  // Clear and restore grid
-  grid.splice(0, grid.length);
-  nextState.forEach((row) => {
-    grid.push([...row]);
-  });
-
-  isUndoRedoOperation.value = false;
-  console.info('Redo performed:', {
-    historyIndex: historyIndex.value,
-    historyLength: history.value.length,
-  });
+  panelTab.value = tab;
+  sheetOpen.value = true;
 }
 
-function changeAllBeadsToColor() {
-  startOperation();
-
-  for (let r = 0; r < rows.value; r++) {
-    for (let c = 0; c < cols.value; c++) {
-      if (grid[r] && grid[r][c] !== undefined) {
-        grid[r][c] = backgroundColor.value;
+const currentPaintStyle = computed(() =>
+  selectionMode.value === 'image' && selectedBeadImage.value
+    ? {
+        backgroundImage: `url(${selectedBeadImage.value.url})`,
+        backgroundSize: 'cover',
       }
-    }
+    : {
+        backgroundColor: beadSwatch(selectedColor.value),
+        backgroundImage: delicaEntry(selectedColor.value) ? `url(${delicaThumbnail(selectedColor.value)})` : undefined,
+        backgroundSize: 'cover',
+      },
+);
+
+// ---- Status bar ----------------------------------------------------------------------
+const beadCount = computed(() => rows.value * cols.value);
+
+const toolLabels = {
+  paint: 'Paint',
+  fill: 'Fill',
+  select: 'Pick beads',
+  selectRect: 'Select',
+};
+
+const statusItems = computed(() => {
+  const items = [
+    {
+      key: 'size',
+      value: `${cols.value} x ${rows.value}`,
+      title: 'Columns x rows',
+    },
+    { key: 'beads', value: `${beadCount.value} beads` },
+    {
+      key: 'grams',
+      label: 'grams:',
+      value: (beadCount.value / 190).toFixed(2),
+    },
+  ];
+  if (hoverIndex.value !== null && hoverIndex.value >= 0) {
+    const { r, c } = cellOf(hoverIndex.value);
+    const value = grid[r]?.[c];
+    const entry = delicaEntry(value);
+    items.push({
+      key: 'cursor',
+      label: 'Bead:',
+      value: `col ${c + 1}, row ${r + 1}${entry ? ` · ${entry.code}` : ''}`,
+      hideOnMobile: true,
+    });
   }
+  if (selection.value.length > 0) {
+    items.push({
+      key: 'selection',
+      label: 'Selected:',
+      value: `${selection.value.length} beads`,
+      hideOnMobile: true,
+    });
+  }
+  items.push({
+    key: 'tool',
+    label: 'Tool:',
+    value: panMode.value
+      ? 'Move'
+      : isPasteMode.value
+        ? 'Paste'
+        : toolLabels[tool.value],
+    hideOnMobile: true,
+  });
+  return items;
+});
 
-  endOperation();
-}
-
+// ---- Save / load ---------------------------------------------------------------------
 function getGridMatrix() {
   return grid.map((row) => [...row]);
 }
 
-function saveGridToLocalStorage() {
-  const data = {
+function snapshot() {
+  return [getGridMatrix(), gridOrientation.value];
+}
+
+function previewGrid() {
+  emit('update-grid', ...snapshot());
+  emit('preview-grid');
+}
+
+function buildSaveData() {
+  return {
     grid: getGridMatrix(),
     cols: cols.value,
     rows: rows.value,
@@ -2692,2145 +1499,675 @@ function saveGridToLocalStorage() {
     cellHeight: cellHeight.value,
     selectedColor: selectedColor.value,
     backgroundColor: backgroundColor.value,
-    orientation: gridOrientation.value, // ذخیره جهت گرید
+    orientation: gridOrientation.value,
+    recentColors: recentColors.value,
+    recentImages: recentImages.value,
+    projectName: projectName.value,
+    timestamp: new Date().toISOString(),
   };
-  localStorage.setItem('peyoteGrid', JSON.stringify(data));
+}
+
+function saveGridToLocalStorage({ silent = false } = {}) {
+  try {
+    lastSavedTime.value = saveProjectData(props.projectId, buildSaveData());
+    if (!silent) showToast('Project saved');
+  } catch (error) {
+    if (!silent) showError('Save failed', 'Could not save the grid.');
+    console.error('Error saving peyote grid:', error);
+  }
 }
 
 function loadGridFromLocalStorage() {
-  const saved = localStorage.getItem('peyoteGrid');
-  if (saved) {
-    const data = JSON.parse(saved);
-    cols.value = data.cols || 12;
-    rows.value = data.rows || 36;
-    cellWidth.value = data.cellWidth || 15;
-    cellHeight.value = data.cellHeight || 15;
-    selectedColor.value = data.selectedColor || palette[2].hex;
-    backgroundColor.value = data.backgroundColor || '#ffffff';
+  try {
+    // Returns null when the project is missing or its data is invalid.
+    const data = loadProjectData(props.projectId);
+    if (!data) return false;
 
-    // بارگذاری جهت گرید اگر ذخیره شده باشد
-    if (
-      data.orientation &&
-      (data.orientation === 'vertical' || data.orientation === 'horizontal')
-    ) {
+    cellWidth.value = data.cellWidth || 15;
+    cellHeight.value = data.cellHeight || 17;
+    selectedColor.value = data.selectedColor || defaultDelicaCode;
+    backgroundColor.value = data.backgroundColor || '#ffffff';
+    if (data.orientation === 'vertical' || data.orientation === 'horizontal') {
       gridOrientation.value = data.orientation;
     }
+    if (Array.isArray(data.recentColors))
+      recentColors.value = [...data.recentColors];
+    if (Array.isArray(data.recentImages))
+      recentImages.value = [...data.recentImages];
+    if (typeof data.projectName === 'string' && data.projectName)
+      projectName.value = data.projectName;
 
-    if (data.grid) {
-      resizeGrid(rows.value, cols.value);
-      for (let r = 0; r < rows.value; r++) {
-        for (let c = 0; c < cols.value; c++) {
-          grid[r][c] = data.grid[r] && data.grid[r][c] ? data.grid[r][c] : null;
-        }
+    const loadedRows = Math.min(MAX_SIZE, data.rows);
+    const loadedCols = Math.min(MAX_SIZE, data.cols);
+    rows.value = loadedRows;
+    cols.value = loadedCols;
+    const newGrid = Array.from({ length: loadedRows }, (_, r) =>
+      Array.from(
+        { length: loadedCols },
+        (_, c) => data.grid[r]?.[c] || backgroundColor.value,
+      ),
+    );
+    grid.splice(0, grid.length, ...newGrid);
+    gridInitialized.value = true;
+    lastSavedTime.value = data.timestamp ?? null;
+    clearSelection();
+    cancelPasteMode();
+    resetHistory();
+    emit('update-grid', ...snapshot());
+    return true;
+  } catch (error) {
+    console.error('Error loading peyote grid:', error);
+    return false;
+  }
+}
+
+function openLastSave() {
+  if (loadGridFromLocalStorage()) {
+    showToast('Last saved version loaded');
+  } else {
+    showInfo('Nothing saved yet', 'This project has no saved version.');
+  }
+}
+
+async function newPattern() {
+  const result = await showConfirm(
+    'Start a new pattern?',
+    'All beads will be reset to the background colour. You can undo this.',
+  );
+  if (!result.isConfirmed) return;
+  startOperation();
+  grid.splice(
+    0,
+    grid.length,
+    ...Array.from({ length: rows.value }, () =>
+      Array.from({ length: cols.value }, () => backgroundColor.value),
+    ),
+  );
+  clearSelection();
+  cancelPasteMode();
+  endOperation();
+}
+
+function applyPreset(event) {
+  const preset = peyotePresets.find(({ id }) => id === event.target.value);
+  event.target.value = '';
+  if (!preset) return;
+  saveToHistory();
+  pendingHistorySave.value = false;
+  rows.value = preset.rows;
+  cols.value = preset.cols;
+  gridOrientation.value = preset.orientation;
+  cellWidth.value = preset.cellWidth;
+  cellHeight.value = preset.cellHeight;
+  const cells = Array.from({ length: preset.rows }, (_, row) =>
+    preset.pattern.slice(row * preset.cols, (row + 1) * preset.cols),
+  );
+  grid.splice(0, grid.length, ...cells);
+  setTool('paint');
+  saveToHistory();
+  emit('update-grid', ...snapshot());
+}
+
+watch(projectName, (name) => renameProject(props.projectId, name));
+
+// Auto-save (debounced) and keep the parent's previews up to date.
+// Grids set up from props / defaults are not auto-saved, so opening the
+// editor never overwrites the user's last save.
+let autoSaveTimer = null;
+let changeTimer = null;
+let suppressAutoSave = false;
+
+function withoutAutoSave(fn) {
+  suppressAutoSave = true;
+  fn();
+  nextTick(() => (suppressAutoSave = false));
+}
+
+watch(
+  grid,
+  () => {
+    if (!gridInitialized.value || suppressAutoSave) return;
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(() => {
+      autoSaveTimer = null;
+      saveGridToLocalStorage({ silent: true });
+    }, 1000);
+    clearTimeout(changeTimer);
+    changeTimer = setTimeout(() => emit('update-grid', ...snapshot()), 250);
+  },
+  { deep: true },
+);
+
+// ---- Export --------------------------------------------------------------------------
+function isImageValue(value) {
+  return (
+    typeof value === 'string' &&
+    (value.startsWith('data:image/') || value.startsWith(BEAD_IMAGE_PREFIX))
+  );
+}
+
+async function renderGridToCanvas(scale) {
+  const cw = cellWidth.value * scale;
+  const ch = cellHeight.value * scale;
+  const horizontal = gridOrientation.value === 'horizontal';
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = cols.value * cw + (horizontal ? cw / 2 : 0);
+  canvas.height = rows.value * ch + (horizontal ? 0 : ch / 2);
+
+  ctx.fillStyle = backgroundColor.value;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Load every distinct bead image once.
+  const urls = new Set();
+  grid.forEach((row) =>
+    row.forEach((value) => isImageValue(value) && urls.add(value)),
+  );
+  const images = new Map(
+    await Promise.all(
+      [...urls].map(
+        (url) =>
+          new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve([url, img]);
+            img.onerror = () => resolve([url, null]);
+            img.src = url;
+          }),
+      ),
+    ),
+  );
+
+  for (let r = 0; r < rows.value; r++) {
+    for (let c = 0; c < cols.value; c++) {
+      const value = grid[r][c] || backgroundColor.value;
+      // Peyote offset: odd rows (horizontal) / odd columns (vertical) shift half a bead.
+      const x = c * cw + (horizontal && r % 2 === 1 ? cw / 2 : 0);
+      const y = r * ch + (!horizontal && c % 2 === 1 ? ch / 2 : 0);
+      if (drawDelicaBead(ctx, value, x, y, cw, ch, !horizontal)) continue;
+      if (isImageValue(value)) {
+        const img = images.get(value);
+        if (img) ctx.drawImage(img, x, y, cw, ch);
+      } else {
+        ctx.fillStyle = beadSwatch(value);
+        ctx.fillRect(x, y, cw, ch);
       }
     }
   }
+  return canvas;
+}
+
+function download(href, filename) {
+  const link = document.createElement('a');
+  link.download = filename;
+  link.href = href;
+  link.click();
 }
 
 async function exportGridAsImage() {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-
-  // محاسبه ابعاد canvas بر اساس جهت گرید و peyote offset
-  if (gridOrientation.value === 'horizontal') {
-    // در حالت افقی: ردیف‌ها افقی هستند (rows)، ستون‌ها عمودی هستند (cols)
-    // عرض = ستون‌ها × عرض سل + نیم‌سل برای offset، ارتفاع = ردیف‌ها × ارتفاع سل
-    canvas.width = cols.value * cellWidth.value + cellWidth.value / 2;
-    canvas.height = rows.value * cellHeight.value;
-  } else {
-    // در حالت عمودی: عرض = ستون‌ها × عرض سل، ارتفاع = ردیف‌ها × ارتفاع سل + نیم‌سل برای offset
-    canvas.width = cols.value * cellWidth.value;
-    canvas.height = rows.value * cellHeight.value + cellHeight.value / 2;
-  }
-
-  // Draw background
-  ctx.fillStyle = backgroundColor.value;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Collect all image promises
-  const imagePromises = [];
-  const imageCells = [];
-
-  // First pass: collect all image cells
-  for (let r = 0; r < rows.value; r++) {
-    for (let c = 0; c < cols.value; c++) {
-      const cellValue = grid[r][c] || backgroundColor.value;
-
-      if (
-        cellValue &&
-        (cellValue.startsWith('data:image/') ||
-          cellValue.startsWith('/miyuki-beads-designer/beads/'))
-      ) {
-        const promise = new Promise((resolve) => {
-          const img = new Image();
-          img.onload = () => resolve({ img, r, c });
-          img.onerror = () => resolve({ img: null, r, c }); // Handle image load errors
-          img.src = cellValue;
-        });
-        imagePromises.push(promise);
-        imageCells.push({ r, c });
-      }
-    }
-  }
-
-  // Wait for all images to load
-  const loadedImages = await Promise.all(imagePromises);
-
-  // Draw all cells با اعمال peyote offset
-  for (let r = 0; r < rows.value; r++) {
-    for (let c = 0; c < cols.value; c++) {
-      const cellValue = grid[r][c] || backgroundColor.value;
-
-      // محاسبه موقعیت سل بر اساس جهت گرید و peyote offset
-      let x, y;
-      if (gridOrientation.value === 'horizontal') {
-        // در حالت افقی: ردیف‌ها افقی هستند (rows)، ستون‌ها عمودی هستند (cols)
-        // ردیف‌های فرد (r % 2 === 1) با translateX نیم‌سل راست می‌روند
-        const rowOffset = r % 2 === 1 ? cellWidth.value / 2 : 0;
-        x = c * cellWidth.value + rowOffset; // x بر اساس ستون (c)
-        y = r * cellHeight.value; // y بر اساس ردیف (r)
-      } else {
-        // در حالت عمودی: ستون‌ها افقی هستند، ستون‌های فرد نیم‌سل پایین می‌روند
-        const colOffset = c % 2 === 1 ? cellHeight.value / 2 : 0;
-        x = c * cellWidth.value;
-        y = r * cellHeight.value + colOffset;
-      }
-
-      if (
-        cellValue &&
-        (cellValue.startsWith('data:image/') ||
-          cellValue.startsWith('/miyuki-beads-designer/beads/'))
-      ) {
-        // Find the loaded image for this cell
-        const loadedImage = loadedImages.find(
-          (img) => img.r === r && img.c === c,
-        );
-        if (loadedImage && loadedImage.img) {
-          ctx.drawImage(
-            loadedImage.img,
-            x,
-            y,
-            cellWidth.value,
-            cellHeight.value,
-          );
-        }
-      } else {
-        // Draw color
-        ctx.fillStyle = cellValue;
-        ctx.fillRect(x, y, cellWidth.value, cellHeight.value);
-      }
-    }
-  }
-
-  // Download
-  const link = document.createElement('a');
-  link.download = `peyote-grid-${gridOrientation.value}.png`;
-  link.href = canvas.toDataURL();
-  link.click();
+  const canvas = await renderGridToCanvas(1);
+  download(canvas.toDataURL(), `peyote-grid-${gridOrientation.value}.png`);
 }
 
 async function exportGridAsHighQualityImage() {
-  const scale = 4;
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-
-  // محاسبه ابعاد canvas بر اساس جهت گرید و peyote offset
-  if (gridOrientation.value === 'horizontal') {
-    // در حالت افقی: ردیف‌ها افقی هستند (rows)، ستون‌ها عمودی هستند (cols)
-    // عرض = ستون‌ها × عرض سل + نیم‌سل برای offset، ارتفاع = ردیف‌ها × ارتفاع سل
-    canvas.width = (cols.value * cellWidth.value + cellWidth.value / 2) * scale;
-    canvas.height = rows.value * cellHeight.value * scale;
-  } else {
-    // در حالت عمودی: عرض = ستون‌ها × عرض سل، ارتفاع = ردیف‌ها × ارتفاع سل + نیم‌سل برای offset
-    canvas.width = cols.value * cellWidth.value * scale;
-    canvas.height =
-      (rows.value * cellHeight.value + cellHeight.value / 2) * scale;
-  }
-
-  // Draw background
-  ctx.fillStyle = backgroundColor.value;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  // Collect all image promises
-  const imagePromises = [];
-
-  // First pass: collect all image cells
-  for (let r = 0; r < rows.value; r++) {
-    for (let c = 0; c < cols.value; c++) {
-      const cellValue = grid[r][c] || backgroundColor.value;
-
-      if (
-        cellValue &&
-        (cellValue.startsWith('data:image/') ||
-          cellValue.startsWith('/miyuki-beads-designer/beads/'))
-      ) {
-        const promise = new Promise((resolve) => {
-          const img = new Image();
-          img.onload = () => resolve({ img, r, c });
-          img.onerror = () => resolve({ img: null, r, c }); // Handle image load errors
-          img.src = cellValue;
-        });
-        imagePromises.push(promise);
-      }
-    }
-  }
-
-  // Wait for all images to load
-  const loadedImages = await Promise.all(imagePromises);
-
-  // Draw all cells با اعمال peyote offset
-  for (let r = 0; r < rows.value; r++) {
-    for (let c = 0; c < cols.value; c++) {
-      const cellValue = grid[r][c] || backgroundColor.value;
-
-      // محاسبه موقعیت سل بر اساس جهت گرید و peyote offset
-      let x, y;
-      if (gridOrientation.value === 'horizontal') {
-        // در حالت افقی: ردیف‌ها افقی هستند (rows)، ستون‌ها عمودی هستند (cols)
-        // ردیف‌های فرد (r % 2 === 1) با translateX نیم‌سل راست می‌روند
-        const rowOffset = r % 2 === 1 ? cellWidth.value / 2 : 0;
-        x = (c * cellWidth.value + rowOffset) * scale; // x بر اساس ستون (c)
-        y = r * cellHeight.value * scale; // y بر اساس ردیف (r)
-      } else {
-        // در حالت عمودی: ستون‌ها افقی هستند، ستون‌های فرد نیم‌سل پایین می‌روند
-        const colOffset = c % 2 === 1 ? cellHeight.value / 2 : 0;
-        x = c * cellWidth.value * scale;
-        y = (r * cellHeight.value + colOffset) * scale;
-      }
-
-      const width = cellWidth.value * scale;
-      const height = cellHeight.value * scale;
-
-      if (
-        cellValue &&
-        (cellValue.startsWith('data:image/') ||
-          cellValue.startsWith('/miyuki-beads-designer/beads/'))
-      ) {
-        // Find the loaded image for this cell
-        const loadedImage = loadedImages.find(
-          (img) => img.r === r && img.c === c,
-        );
-        if (loadedImage && loadedImage.img) {
-          ctx.drawImage(loadedImage.img, x, y, width, height);
-        }
-      } else {
-        // Draw color
-        ctx.fillStyle = cellValue;
-        ctx.fillRect(x, y, width, height);
-      }
-    }
-  }
-
-  // Download
-  const link = document.createElement('a');
-  link.download = `peyote-grid-hd-${gridOrientation.value}.png`;
-  link.href = canvas.toDataURL();
-  link.click();
+  const canvas = await renderGridToCanvas(4);
+  download(canvas.toDataURL(), `peyote-grid-hd-${gridOrientation.value}.png`);
 }
 
 function exportGridAsTxt() {
   try {
-    // Convert 2D grid to 1D array for consistency with other components
-    const colors = [];
-    for (let r = 0; r < rows.value; r++) {
-      for (let c = 0; c < cols.value; c++) {
-        const color = grid[r][c] || backgroundColor.value;
-        colors.push(color);
-      }
-    }
-
-    // Create JSON object with grid data and dimensions
     const gridData = {
-      grid: colors,
+      grid: grid.flatMap((row) =>
+        row.map((value) => value || backgroundColor.value),
+      ),
       rows: rows.value,
       cols: cols.value,
-      orientation: gridOrientation.value, // ذخیره جهت گرید
+      orientation: gridOrientation.value,
       type: 'peyote',
       timestamp: new Date().toISOString(),
     };
-
-    // Convert to JSON string
-    const gridDataString = JSON.stringify(gridData, null, 2);
-
-    // Create blob and download
-    const blob = new Blob([gridDataString], {
+    const blob = new Blob([JSON.stringify(gridData, null, 2)], {
       type: 'text/plain;charset=utf-8',
     });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `peyote_grid_${rows.value}x${cols.value}_${gridOrientation.value}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
-    link.click();
+    download(
+      url,
+      `peyote_grid_${rows.value}x${cols.value}_${gridOrientation.value}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`,
+    );
     URL.revokeObjectURL(url);
   } catch (error) {
     console.error('Error exporting TXT file:', error);
+    showError('Export failed', 'Could not create the TXT file.');
   }
 }
 
+function isValidCellValue(value) {
+  return (
+    value === null ||
+    value === backgroundColor.value ||
+    (typeof value === 'string' &&
+      (!!delicaEntry(value) ||
+        /^#[0-9A-Fa-f]{6}$/.test(value) ||
+        isImageValue(value)))
+  );
+}
+
+function loadImportedGrid(fileRows, fileCols, cellAt) {
+  rows.value = Math.min(MAX_SIZE, fileRows);
+  cols.value = Math.min(MAX_SIZE, fileCols);
+  const newGrid = Array.from({ length: rows.value }, (_, r) =>
+    Array.from({ length: cols.value }, (_, c) => cellAt(r, c)),
+  );
+  saveToHistory();
+  pendingHistorySave.value = false;
+  grid.splice(0, grid.length, ...newGrid);
+  clearSelection();
+  cancelPasteMode();
+  saveToHistory();
+  showToast('Pattern imported');
+}
+
 function handleTxtUpload(event) {
-  const file = event.target.files[0];
+  const file = event.target.files?.[0];
   if (!file) return;
 
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
-      const content = e.target.result.trim();
-      console.info('TXT file content:', content);
-      const lines = content.split('\n');
+      const content = String(e.target.result).trim();
 
-      // Check if it's the new JSON format
+      // JSON format (what "Pattern file (TXT)" exports)
       if (content.startsWith('{')) {
-        const parsedContent = JSON.parse(content);
-        if (parsedContent.grid && parsedContent.rows && parsedContent.cols) {
-          // New format: JSON with dimensions
-          const {
-            grid: colors,
-            rows: fileRows,
-            cols: fileCols,
-            orientation: fileOrientation,
-          } = parsedContent;
-
-          console.info(
-            'Parsed colors:',
-            colors.slice(0, 10),
-            '...',
-            'Length:',
-            colors.length,
-          );
-          console.info(
-            'Expected length:',
-            fileRows * fileCols,
-            'Rows:',
+        const parsed = JSON.parse(content);
+        const { grid: colors, rows: fileRows, cols: fileCols } = parsed;
+        if (
+          Array.isArray(colors) &&
+          fileRows &&
+          fileCols &&
+          colors.length === fileRows * fileCols &&
+          colors.every(isValidCellValue)
+        ) {
+          if (
+            parsed.orientation === 'vertical' ||
+            parsed.orientation === 'horizontal'
+          ) {
+            gridOrientation.value = parsed.orientation;
+          }
+          loadImportedGrid(
             fileRows,
-            'Cols:',
             fileCols,
+            (r, c) => colors[r * fileCols + c] ?? backgroundColor.value,
           );
-          console.info('Orientation:', fileOrientation || 'vertical (default)');
-
-          // اعمال جهت گرید اگر در فایل ذخیره شده باشد
-          if (
-            fileOrientation &&
-            (fileOrientation === 'vertical' || fileOrientation === 'horizontal')
-          ) {
-            gridOrientation.value = fileOrientation;
-            console.info('Grid orientation set to:', fileOrientation);
-          }
-
-          if (
-            Array.isArray(colors) &&
-            colors.every(
-              (color) =>
-                color === null ||
-                color === backgroundColor.value ||
-                (typeof color === 'string' &&
-                  (color.match(/^#[0-9A-Fa-f]{6}$/) ||
-                    color.startsWith('data:image/') ||
-                    color.startsWith('/miyuki-beads-designer/beads/'))),
-            )
-          ) {
-            console.info('Color validation passed');
-            if (colors.length === fileRows * fileCols) {
-              console.info('Length validation passed, updating grid...');
-              // Update dimensions first
-              cols.value = fileCols;
-              rows.value = fileRows;
-
-              // Wait for watcher to execute, then update grid
-              nextTick(() => {
-                // Convert 1D array to 2D grid
-                const gridData = [];
-                for (let r = 0; r < fileRows; r++) {
-                  const row = [];
-                  for (let c = 0; c < fileCols; c++) {
-                    const index = r * fileCols + c;
-                    const color = colors[index];
-                    // Use the color if it exists, otherwise use background color
-                    row.push(
-                      color !== null && color !== undefined
-                        ? color
-                        : backgroundColor.value,
-                    );
-                  }
-                  gridData.push(row);
-                }
-                grid.splice(0, grid.length, ...gridData);
-                console.info('Grid loaded from TXT:', {
-                  rows: fileRows,
-                  cols: fileCols,
-                  orientation: gridOrientation.value,
-                  gridData,
-                });
-              });
-              return;
-            } else {
-              console.error(
-                'Length mismatch:',
-                colors.length,
-                'expected',
-                fileRows * fileCols,
-              );
-            }
-          } else {
-            console.error('Color validation failed');
-          }
-        } else {
-          console.error('Missing required fields in JSON');
-        }
-      }
-
-      // Legacy format: text with ██ characters
-      if (lines.length > 2 && lines[0].includes('Peyote Grid')) {
-        // Parse header to get dimensions
-        const headerMatch = lines[0].match(/(\d+)x(\d+)/);
-        if (headerMatch) {
-          const fileCols = parseInt(headerMatch[1]);
-          const fileRows = parseInt(headerMatch[2]);
-
-          // Update dimensions
-          cols.value = fileCols;
-          rows.value = fileRows;
-
-          // Wait for watcher, then parse grid
-          nextTick(() => {
-            const gridData = [];
-            for (let r = 2; r < lines.length && r - 2 < fileRows; r++) {
-              const row = [];
-              const line = lines[r];
-              for (let c = 0; c < fileCols; c++) {
-                const charIndex = c * 2;
-                if (charIndex + 1 < line.length) {
-                  const cell = line.substring(charIndex, charIndex + 2);
-                  // For now, set all non-empty cells to a default color
-                  // In a real implementation, you'd need to map characters to colors
-                  row.push(cell === '██' ? '#FF0000' : backgroundColor.value);
-                } else {
-                  row.push(backgroundColor.value);
-                }
-              }
-              gridData.push(row);
-            }
-            grid.splice(0, grid.length, ...gridData);
-          });
           return;
         }
       }
 
-      console.error('Unsupported TXT format');
+      // Legacy format: text with ██ characters
+      const lines = content.split('\n');
+      const headerMatch =
+        lines.length > 2 &&
+        lines[0].includes('Peyote Grid') &&
+        lines[0].match(/(\d+)x(\d+)/);
+      if (headerMatch) {
+        const fileCols = parseInt(headerMatch[1]);
+        const fileRows = parseInt(headerMatch[2]);
+        loadImportedGrid(fileRows, fileCols, (r, c) =>
+          lines[r + 2]?.substring(c * 2, c * 2 + 2) === '██'
+            ? '#FF0000'
+            : backgroundColor.value,
+        );
+        return;
+      }
+
+      showError('Import failed', 'This file is not a supported peyote grid.');
     } catch (error) {
       console.error('Error parsing TXT file:', error);
+      showError('Import failed', 'Could not read this file.');
     }
   };
   reader.readAsText(file);
 }
 
 function handleImageUpload(event) {
-  const file = event.target.files[0];
+  const file = event.target.files?.[0];
   if (!file) return;
-
   const reader = new FileReader();
   reader.onload = (e) => {
-    const imageDataUrl = e.target.result;
-    selectedImage.value = imageDataUrl;
-    // Don't add to recent images or change mode - this is only for preview/idea
+    selectedImage.value = e.target.result;
   };
   reader.readAsDataURL(file);
 }
 
-// محاسبه‌ی شیفت برای ستون c (0-based): ستون‌های فرد را نیم‌سل پایین می‌بریم
-function colOffsetStyle(colIndex) {
-  const isShifted = colIndex % 2 === 1; // اگر خواستی بالعکسش کن: === 0
-  const translateY = isShifted ? cellHeight.value / 2 : 0;
-  return {
-    transform: `translateY(${translateY}px)`,
-    gap: '0px',
-  };
+function onReferenceUpload(event) {
+  handleImageUpload(event);
+  showReference.value = true;
 }
 
-// محاسبه‌ی شیفت برای ردیف r در حالت افقی (0-based): ردیف‌های فرد را نیم‌سل راست می‌بریم
-function rowOffsetStyle(rowIndex) {
-  const isShifted = rowIndex % 2 === 1; // اگر خواستی بالعکسش کن: === 0
-  const translateX = isShifted ? cellWidth.value / 2 : 0;
-  return {
-    transform: `translateX(${translateX}px)`,
-    gap: '0px',
-  };
+// ---- Keyboard shortcuts --------------------------------------------------------------
+function isTyping(target) {
+  return (
+    target &&
+    (target.isContentEditable ||
+      ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+  );
 }
 
-// Check if a cell is in the current selection rectangle
-function isCellInSelectionRect(r, c) {
-  if (!isSelectingRect.value || !rectStartCell.value || !rectEndCell.value) {
-    return false;
-  }
-  const minR = Math.min(rectStartCell.value.r, rectEndCell.value.r);
-  const maxR = Math.max(rectStartCell.value.r, rectEndCell.value.r);
-  const minC = Math.min(rectStartCell.value.c, rectEndCell.value.c);
-  const maxC = Math.max(rectStartCell.value.c, rectEndCell.value.c);
-  return r >= minR && r <= maxR && c >= minC && c <= maxC;
-}
+function onKeydown(event) {
+  if (!props.active || isTyping(event.target)) return;
+  const key = event.key.toLowerCase();
 
-// استایل هر سل (درج رنگ و اندازه)
-function cellStyle(r, c) {
-  const cellValue = grid[r]?.[c] || backgroundColor.value;
-  const isSelected = selection.value.includes(`${r},${c}`);
-  const isPasteTarget = isPasteMode.value;
-  const isInRect = isCellInSelectionRect(r, c);
-
-  // Check if the cell value is an image (data URL or bead image URL)
-  const isImage =
-    cellValue &&
-    (cellValue.startsWith('data:image/') ||
-      cellValue.startsWith('/miyuki-beads-designer/beads/'));
-
-  const baseStyle = {
-    width: `${cellWidth.value}px`,
-    height: `${cellHeight.value}px`,
-    boxSizing: 'border-box',
-    border: isSelected
-      ? '2px solid #3b82f6'
-      : isInRect
-        ? '2px solid #10b981'
-        : isPasteTarget
-          ? '1px solid #f59e0b'
-          : '1px solid #e5e7eb',
-    cursor: isPasteTarget ? 'crosshair' : 'pointer',
-    opacity: isPasteTarget ? 0.9 : isInRect ? 0.8 : 1,
-  };
-
-  if (isImage) {
-    return {
-      ...baseStyle,
-      backgroundColor: 'transparent',
-      backgroundImage: `url(${cellValue})`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundRepeat: 'no-repeat',
+  if (event.ctrlKey || event.metaKey) {
+    const actions = {
+      z: event.shiftKey ? redo : undo,
+      y: redo,
+      c: copySelection,
+      x: cutSelection,
+      v: () => enablePasteMode(),
+      s: () => saveGridToLocalStorage(),
     };
-  } else {
-    return {
-      ...baseStyle,
-      background: cellValue,
-    };
-  }
-}
-
-// مثال نمونه در mount (اختیاری)
-onMounted(() => {
-  console.info('Component mounted. Initial dimensions:', {
-    rows: rows.value,
-    cols: cols.value,
-    hasInitialPattern: !!props.initialPattern,
-  });
-
-  // Initialize grid first - restore from props if provided
-  if (props.initialPattern && props.initialPattern.length > 0) {
-    // Restore from saved pattern
-    initializeGrid(props.initialPattern);
-  } else {
-    // Initialize with default empty grid
-    initializeGrid();
-
-    // یک موج نمونه در ستون‌ها (نمایشی) - only if no initial pattern
-    for (let j = 0; j < cols.value; j++) {
-      const rr = Math.floor(
-        rows.value / 2 + Math.sin(j / 1.5) * (rows.value / 6),
-      );
-      if (rr >= 0 && rr < rows.value) grid[rr][j] = palette[2].hex;
+    if (actions[key]) {
+      event.preventDefault();
+      actions[key]();
     }
+    return;
   }
+  if (event.altKey) return;
 
-  // Load available bead images
+  if (event.key === 'Escape') {
+    if (isPasteMode.value) cancelPasteMode();
+    else clearSelection();
+  } else if (event.key === '+' || event.key === '=') {
+    canvasRef.value?.setZoom(zoom.value * 1.25);
+  } else if (event.key === '-' || event.key === '_') {
+    canvasRef.value?.setZoom(zoom.value / 1.25);
+  } else if (event.key === '0') {
+    canvasRef.value?.fitToScreen();
+  } else if (key === 'h') {
+    togglePanMode();
+  } else if (key === 'b') {
+    chooseTool('paint');
+  } else if (key === 'g') {
+    chooseTool('fill');
+  } else if (key === 'm') {
+    chooseTool('selectRect');
+  } else if (key === 'p') {
+    chooseTool('select');
+  }
+}
+
+// ---- Lifecycle -----------------------------------------------------------------------
+onMounted(() => {
   loadAvailableImages();
 
-  // Save the initial state to history
-  saveToHistory();
+  withoutAutoSave(() => {
+    if (props.initialPattern?.length) {
+      initializeGrid(props.initialPattern);
+    } else if (!loadGridFromLocalStorage()) {
+      initializeGrid();
+      // A sample wave across the columns so the grid isn't empty.
+      for (let j = 0; j < cols.value; j++) {
+        const rr = Math.floor(
+          rows.value / 2 + Math.sin(j / 1.5) * (rows.value / 6),
+        );
+        if (rr >= 0 && rr < rows.value) grid[rr][j] = defaultDelicaCode;
+      }
+      resetHistory();
+    }
+  });
 
-  // Add global mouseup event listener
-  document.addEventListener('mouseup', handleMouseUp);
+  document.addEventListener('keydown', onKeydown);
 });
 
-// Auto-save grid state before component is unmounted (when switching tabs)
 onBeforeUnmount(() => {
-  // Emit current grid state to parent so it can be restored when switching back
+  document.removeEventListener('keydown', onKeydown);
+  // Leaving the editor: don't lose the last second of edits.
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = null;
+    saveGridToLocalStorage({ silent: true });
+  }
+  clearTimeout(changeTimer);
   if (gridInitialized.value && grid.length > 0) {
-    emit('update-grid', getGridMatrix());
+    emit('update-grid', ...snapshot());
   }
 });
 
-onUnmounted(() => {
-  // Clean up event listener
-  document.removeEventListener('mouseup', handleMouseUp);
-});
+defineExpose({ snapshot, getGridMatrix });
 </script>
 
 <style scoped>
-.grid-container {
+.peyote-editor {
   display: flex;
-  flex-direction: row;
-  gap: 20px;
-  margin-right: 250px;
+  flex-direction: column;
   height: 100%;
-  flex: 1;
-  user-select: none;
-}
-/* استایل دکمه‌های ذخیره و بارگذاری */
-.save-load-buttons {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.save-load-buttons .export-btn {
-  flex: 1;
-  min-width: 100px;
-}
-
-/* بهبود استایل دکمه‌های export */
-.export-section .export-btn {
-  margin-bottom: 6px;
-  transition: all 0.2s ease;
-}
-
-.export-section .export-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
-}
-
-/* استایل نمایش آخرین زمان ذخیره */
-.last-saved-info {
-  text-align: center;
-  padding: 6px;
-  background: var(--surface-muted);
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  margin-bottom: 10px;
-}
-
-.last-saved-info small {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-/* استایل دکمه‌های رنگ پس‌زمینه */
-.background-color-section {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  transition: all 0.2s ease;
-}
-
-.background-color-section:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.background-color-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.background-color-controls .color-picker {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 2px solid var(--border);
-  cursor: pointer;
-  padding: 0;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-}
-
-.background-color-controls .color-picker:hover {
-  transform: scale(1.05);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
-}
-
-.background-color-controls .tool-btn {
-  flex: 1;
-  min-width: 100px;
-}
-
-.image-section {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 20px;
-  background: var(--surface);
-  border: 2px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(10px);
-  height: 100%;
-}
-.upload-section {
-  width: 100%;
-  text-align: center;
-  margin-bottom: 10px;
-}
-.upload-label {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 15px 25px;
-  background: var(--accent);
-  border: 2px dashed rgba(255, 255, 255, 0.3);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  width: 100%;
-  box-sizing: border-box;
-  color: white;
-  font-weight: 500;
-}
-
-.upload-label:hover {
-  background: var(--accent-hover);
-  border-color: rgba(255, 255, 255, 0.5);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-}
-.upload-text {
-  font-size: 14px;
-  color: var(--text);
-}
-.upload-input {
-  display: none;
-}
-.image-preview {
-  width: 100%;
-  height: auto;
-  overflow: hidden;
-  border-radius: 12px;
-  border: 2px solid var(--border);
-  background: var(--surface-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  margin-top: 15px;
-}
-.preview-image {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-.peyote-editor-container {
-  display: flex;
-  gap: 20px;
-  padding: 20px;
-  background: var(--bg);
-}
-
-.main-content {
-  flex: 1;
-  overflow-y: auto;
-  padding-right: 20px;
-}
-
-.controls-panel {
-  display: flex;
-  flex-direction: column;
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 260px;
-  height: calc(100vh - 168px);
-  background: var(--surface-muted);
-  border-left: 1px solid var(--border);
-  z-index: 1000;
-  overflow-y: auto;
-  padding: 12px;
-  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.08);
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) var(--surface-muted);
-}
-
-.controls-panel::-webkit-scrollbar {
-  width: 6px;
-}
-
-.controls-panel::-webkit-scrollbar-track {
-  background: var(--surface-muted);
-}
-
-.controls-panel::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: 3px;
-}
-
-.controls-panel::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
-}
-
-.controls-header {
-  text-align: center;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
-}
-
-.controls-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.controls-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.dimensions-section,
-.color-section,
-.tools-section,
-.export-section {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  transition: all 0.2s ease;
-}
-
-.dimensions-section:hover,
-.color-section:hover,
-.tools-section:hover,
-.export-section:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.dimensions-section h4,
-.color-section h4,
-.tools-section h4,
-.export-section h4 {
-  margin: 0 0 8px 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.dimension-inputs {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-.dimension-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.dimension-text {
-  font-size: 12px;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.dimension-input {
-  width: 60px;
-  color: var(--text);
-  padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 12px;
-  background: #ffffff;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.dimension-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
-}
-
-.dimension-input:hover {
-  border-color: var(--border-strong);
-}
-
-.orientation-toggle-group {
-  display: flex;
-  gap: 4px;
-}
-
-.orientation-toggle-btn {
-  flex: 1;
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 11px;
-  background: #ffffff;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.orientation-toggle-btn:hover {
-  border-color: var(--border-strong);
-  background: var(--surface-muted);
-}
-
-.orientation-toggle-btn.active {
-  background: var(--accent);
-  color: #ffffff;
-  border-color: var(--accent);
-  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
-}
-
-.color-picker-container {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.color-picker {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 2px solid var(--border);
-  cursor: pointer;
-  padding: 0;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-}
-
-.color-picker:hover {
-  transform: scale(1.05);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
-}
-
-.color-value {
-  font-size: 12px;
-  color: var(--text);
-  font-weight: 500;
-  background: var(--surface-muted);
-  padding: 4px 8px;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-  min-width: 60px;
-  text-align: center;
-}
-
-.recent-colors-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.recent-colors-header h4 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.clear-colors-btn {
-  background: var(--danger);
-  color: white;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
-  box-shadow: 0 2px 6px rgba(255, 71, 87, 0.3);
-}
-
-.clear-colors-btn:hover {
-  background-color: var(--danger-hover);
-  transform: translateY(-1px);
-}
-
-.recent-colors-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(28px, 1fr));
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.color-swatch {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  cursor: pointer;
-  position: relative;
-  border: 1px solid var(--border);
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.color-swatch:hover {
-  transform: scale(1.1);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-}
-
-.remove-color-btn {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  background: var(--danger);
-  color: white;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: bold;
-  cursor: pointer;
-  border: 1px solid white;
-  padding: 0;
-  line-height: 1;
-  opacity: 0;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 4px rgba(255, 71, 87, 0.4);
-}
-
-.color-swatch:hover .remove-color-btn {
-  opacity: 1;
-}
-
-.tools-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.tool-btn {
-  padding: 8px 6px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.tool-btn:hover {
-  background-color: var(--border-strong);
-  border-color: var(--border-strong);
-  transform: translateY(-1px);
-}
-
-.tool-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.tool-btn.active {
-  background-color: var(--success);
-  color: white;
-  border-color: var(--success);
-}
-
-.tool-btn.primary {
-  background-color: var(--success);
-  color: white;
-  border-color: var(--success);
-}
-
-.tool-btn.primary:hover {
-  background-color: var(--success-hover);
-  border-color: var(--success-hover);
-}
-
-.tool-btn.secondary {
-  background-color: var(--info);
-  color: white;
-  border-color: var(--info);
-}
-
-.tool-btn.secondary:hover {
-  background-color: var(--info-hover);
-  border-color: var(--info-hover);
-}
-
-.tool-btn.success {
-  background-color: var(--success);
-  color: white;
-  border-color: var(--success);
-}
-
-.tool-btn.success:hover {
-  background-color: var(--success-hover);
-  border-color: var(--success-hover);
-}
-
-.tool-btn.danger {
-  background-color: var(--danger);
-  color: white;
-  border-color: var(--danger);
-}
-
-.tool-btn.danger:hover {
-  background-color: var(--danger-hover);
-  border-color: var(--danger-hover);
-}
-
-.background-color-section {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  transition: all 0.2s ease;
-}
-
-.background-color-section:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.background-color-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.background-color-controls .color-picker {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 2px solid var(--border);
-  cursor: pointer;
-  padding: 0;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-}
-
-.background-color-controls .color-picker:hover {
-  transform: scale(1.05);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
-}
-
-.background-color-controls .tool-btn {
-  flex: 1;
-  min-width: 100px;
-}
-
-.export-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.export-section .grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-}
-
-.export-btn {
-  padding: 10px 8px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 600;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-}
-
-.export-btn:hover {
-  background-color: var(--border-strong);
-  border-color: var(--border-strong);
-  transform: translateY(-1px);
-}
-
-.export-btn.primary {
-  background-color: var(--success);
-  color: white;
-  border-color: var(--success);
-}
-
-.export-btn.primary:hover {
-  background-color: var(--success-hover);
-  border-color: var(--success-hover);
-}
-
-.export-btn.success {
-  background-color: var(--success);
-  color: white;
-  border-color: var(--success);
-}
-
-.export-btn.success:hover {
-  background-color: var(--success-hover);
-  border-color: var(--success-hover);
-}
-
-.export-btn.info {
-  background-color: var(--info);
-  color: white;
-  border-color: var(--info);
-}
-
-.export-btn.info:hover {
-  background-color: var(--info-hover);
-  border-color: var(--info-hover);
-}
-
-.export-btn.warning {
-  background-color: var(--warning);
-  color: white;
-  border-color: var(--warning);
-}
-
-.export-btn.warning:hover {
-  background-color: var(--warning-hover);
-  border-color: var(--warning-hover);
-}
-
-.save-load-buttons {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.save-load-buttons .export-btn {
-  flex: 1;
-  min-width: 100px;
-}
-
-.export-section .export-btn {
-  margin-bottom: 6px;
-  transition: all 0.2s ease;
-}
-
-.export-section .export-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
-}
-
-.cell {
-  /* بدون فاصله بین سل‌ها، حاشیه‌ی نازک برای دیدن مرز */
-  display: block;
-}
-
-.recent-colors-header h4 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.clear-colors-btn {
-  background: var(--danger);
-  color: white;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
-  box-shadow: 0 2px 6px rgba(255, 71, 87, 0.3);
-}
-
-.clear-colors-btn:hover {
-  background-color: var(--danger-hover);
-  transform: translateY(-1px);
-}
-
-.recent-colors-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(28px, 1fr));
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.color-swatch {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  cursor: pointer;
-  position: relative;
-  border: 1px solid var(--border);
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.color-swatch:hover {
-  transform: scale(1.1);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-}
-
-.remove-color-btn {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  background: var(--danger);
-  color: white;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: bold;
-  cursor: pointer;
-  border: 1px solid white;
-  padding: 0;
-  line-height: 1;
-  opacity: 0;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 4px rgba(255, 71, 87, 0.4);
-}
-
-.color-swatch:hover .remove-color-btn {
-  opacity: 1;
-}
-
-.tools-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.tool-btn {
-  padding: 8px 6px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.tool-btn:hover {
-  background-color: var(--border-strong);
-  border-color: var(--border-strong);
-  transform: translateY(-1px);
-}
-
-.tool-btn.active {
-  background-color: var(--success);
-  color: white;
-  border-color: var(--success);
-}
-
-.tool-btn.primary {
-  background-color: var(--success);
-  color: white;
-  border-color: var(--success);
-}
-
-.tool-btn.primary:hover {
-  background-color: var(--success-hover);
-  border-color: var(--success-hover);
-}
-
-.tool-btn.secondary {
-  background-color: var(--info);
-  color: white;
-  border-color: var(--info);
-}
-
-.tool-btn.secondary:hover {
-  background-color: var(--info-hover);
-  border-color: var(--info-hover);
-}
-
-.tool-btn.danger {
-  background-color: var(--danger);
-  color: white;
-  border-color: var(--danger);
-}
-
-.tool-btn.danger:hover {
-  background-color: var(--danger-hover);
-  border-color: var(--danger-hover);
-}
-
-.tool-btn.success {
-  background-color: var(--success);
-  color: white;
-  border-color: var(--success);
-}
-
-.tool-btn.success:hover {
-  background-color: var(--success-hover);
-  border-color: var(--success-hover);
-}
-
-.tool-btn.info {
-  background-color: var(--info);
-  color: white;
-  border-color: var(--info);
-}
-
-.tool-btn.info:hover {
-  background-color: var(--info-hover);
-  border-color: var(--info-hover);
-}
-
-.export-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.export-btn {
-  padding: 10px 8px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 600;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-}
-
-.export-btn:hover {
-  background-color: var(--border-strong);
-  border-color: var(--border-strong);
-  transform: translateY(-1px);
-}
-
-.export-btn.primary {
-  background-color: var(--success);
-  color: white;
-  border-color: var(--success);
-}
-
-.export-btn.primary:hover {
-  background-color: var(--success-hover);
-  border-color: var(--success-hover);
-}
-
-.export-btn.success {
-  background-color: var(--success);
-  color: white;
-  border-color: var(--success);
-}
-
-.export-btn.success:hover {
-  background-color: var(--success-hover);
-  border-color: var(--success-hover);
-}
-
-.export-btn.info {
-  background-color: var(--info);
-  color: white;
-  border-color: var(--info);
-}
-
-.export-btn.info:hover {
-  background-color: var(--info-hover);
-  border-color: var(--info-hover);
-}
-
-.export-btn.warning {
-  background-color: var(--warning);
-  color: white;
-  border-color: var(--warning);
-}
-
-.export-btn.warning:hover {
-  background-color: var(--warning-hover);
-  border-color: var(--warning-hover);
-}
-
-.grid-container {
-  display: flex;
-  flex-direction: row;
-  gap: 20px;
-  margin-right: 250px;
-  height: 100%;
-  flex: 1;
-  user-select: none;
-}
-
-/* استایل دکمه‌های ذخیره و بارگذاری */
-.save-load-buttons {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.save-load-buttons .export-btn {
-  flex: 1;
-  min-width: 100px;
-}
-
-/* بهبود استایل دکمه‌های export */
-.export-section .export-btn {
-  margin-bottom: 6px;
-  transition: all 0.2s ease;
-}
-
-.export-section .export-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
-}
-
-/* استایل نمایش آخرین زمان ذخیره */
-.last-saved-info {
-  text-align: center;
-  padding: 6px;
-  background: var(--surface-muted);
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  margin-bottom: 10px;
-}
-
-.last-saved-info small {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-/* استایل دکمه‌های رنگ پس‌زمینه */
-.background-color-section {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  transition: all 0.2s ease;
-}
-
-/* Image section styles */
-.image-section {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  transition: all 0.2s ease;
-}
-
-.image-section:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.image-picker-container {
-  margin-top: 8px;
-  width: 100%;
-}
-
-.available-images-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
-  gap: 8px;
-  max-height: 200px;
-  overflow-y: auto;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface-muted);
-}
-
-.image-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 6px;
-  border: 2px solid transparent;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background: white;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.image-item:hover {
-  transform: scale(1.05);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.image-item.selected {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-}
-
-.bead-image {
-  width: 40px;
-  height: 40px;
-  object-fit: cover;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-}
-
-.image-name {
-  font-size: 10px;
-  color: var(--text-muted);
-  margin-top: 4px;
-  text-align: center;
-  font-weight: 500;
-}
-
-.recent-images-section {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-}
-
-.recent-images-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.recent-images-header h4 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.clear-images-btn {
-  background: var(--danger);
-  color: white;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
-  box-shadow: 0 1px 4px rgba(255, 71, 87, 0.3);
-}
-
-.clear-images-btn:hover {
-  background: var(--danger-hover);
-  transform: translateY(-1px);
-}
-
-.recent-images-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
-  gap: 6px;
-}
-
-.recent-image-item {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 4px;
-  border: 2px solid transparent;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background: white;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.recent-image-item:hover {
-  transform: scale(1.05);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
-.recent-image-item.selected {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
-}
-
-.recent-bead-image {
-  width: 32px;
-  height: 32px;
-  object-fit: cover;
-  border-radius: 3px;
-  border: 1px solid var(--border);
-}
-
-.remove-image-btn {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  background: var(--danger);
-  color: white;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: bold;
-  cursor: pointer;
-  border: 1px solid white;
-  padding: 0;
-  line-height: 1;
-  opacity: 0;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(255, 71, 87, 0.4);
-}
-
-.recent-image-item:hover .remove-image-btn {
-  opacity: 1;
-}
-
-/* Selection mode styles */
-.selection-mode-indicator {
-  margin-bottom: 10px;
-  padding: 8px 12px;
-  background: var(--accent-soft);
-  border-radius: 6px;
-  border: 1px solid #90caf9;
-}
-
-.mode-text {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--info-hover);
-}
-
-.mode-section {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  transition: all 0.2s ease;
-}
-
-.mode-section:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.mode-section h4 {
-  margin: 0 0 8px 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.mode-toggle {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.mode-switch-buttons {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.mode-btn {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: #ffffff;
-  color: var(--text);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.mode-btn:hover {
-  background: var(--surface-muted);
-  border-color: var(--border-strong);
-  transform: translateY(-1px);
-}
-
-.mode-btn.active {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
-}
-
-.mode-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.mode-btn:disabled:hover {
-  background: white;
-  border-color: #d1d5db;
-}
-
-/* Section Header with Pin Button */
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.pin-btn {
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 16px;
-  transition: all 0.2s ease;
-  color: var(--text-muted);
-}
-
-.pin-btn:hover {
-  background: var(--surface-muted);
-  border-color: var(--border-strong);
-  transform: scale(1.1);
-}
-
-.pin-btn.pinned {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
-}
-
-.pin-btn.pinned:hover {
-  background: var(--accent-hover);
-  transform: scale(1.1);
-}
-
-/* Pinned Section Styles */
-.pinned-section {
-  position: fixed;
-  top: 50px;
-  left: 0;
-  right: 0;
-  background: var(--surface);
-  border-bottom: 2px solid var(--accent);
-  z-index: 1800;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  max-height: 200px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.pinned-section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
-  background: var(--accent);
-  color: white;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-  flex-shrink: 0;
-}
-
-.pinned-section-title {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.unpin-btn {
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  cursor: pointer;
-  font-size: 10px;
-  font-weight: bold;
-  transition: all 0.2s ease;
-}
-
-.unpin-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: scale(1.1);
-}
-
-.pinned-section-content {
-  padding: 16px;
-  flex: 1;
-  overflow-y: auto;
   min-height: 0;
 }
 
-.pinned-section-content::-webkit-scrollbar {
-  width: 6px;
+.peyote-editor__body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
 }
 
-.pinned-section-content::-webkit-scrollbar-track {
-  background: var(--surface-sunken);
-  border-radius: 3px;
+.peyote-editor__tools {
+  flex-shrink: 0;
 }
 
-.pinned-section-content::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
+.peyote-editor__workspace {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
 }
 
-.pinned-section-content::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+.peyote-editor__banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 14px;
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--border);
+  color: var(--accent-text);
+  font-size: 13px;
+  font-weight: 600;
 }
 
-/* Mobile Styles */
-@media (max-width: 768px) {
-  .peyote-editor-container {
-    flex-direction: column;
-    padding: 0;
-    gap: 0;
+.peyote-editor__banner span {
+  flex: 1;
+}
+
+.peyote-editor__stage {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.peyote-editor__stage.is-side {
+  flex-direction: row;
+}
+
+.peyote-editor__stage.is-below {
+  flex-direction: column-reverse;
+}
+
+.peyote-editor__canvas {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.peyote-editor__reference {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+
+.is-side .peyote-editor__reference {
+  width: min(32%, 360px);
+  border-right: 1px solid var(--border);
+}
+
+.is-below .peyote-editor__reference {
+  height: min(32%, 260px);
+  border-top: 1px solid var(--border);
+}
+
+.peyote-editor__reference img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+}
+
+.peyote-editor__reference-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-muted);
+}
+
+/* Side panel (desktop) */
+.peyote-editor__panel {
+  flex: 0 0 360px;
+  width: 360px;
+  padding: 14px;
+  overflow-y: auto;
+  background: var(--bg);
+  border-left: 1px solid var(--border);
+}
+
+.peyote-editor__panel-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.peyote-editor__tabs-head {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.peyote-editor__tabs-head :deep(.segmented__item) {
+  padding: 0 8px;
+}
+
+.peyote-editor__tabs-body {
+  padding: 14px;
+}
+
+.peyote-editor__preset {
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.peyote-editor__preset:focus {
+  border-color: var(--accent);
+}
+
+.peyote-editor__hint {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+/* Toolbar controls */
+.peyote-editor__view-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.peyote-editor__toolbar-sep {
+  width: 1px;
+  height: 22px;
+  margin: 0 4px;
+  background: var(--border);
+}
+
+/* Floating buttons on small screens */
+.peyote-editor__fabs {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.peyote-editor__fab {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+}
+
+.peyote-editor__fab-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px var(--border-strong);
+}
+
+@media (max-width: 1100px) {
+  .peyote-editor__panel {
+    flex-basis: 300px;
+    width: 300px;
   }
 
-  /* Mobile Control Bar */
-  .mobile-control-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px;
-    background: var(--accent);
-    color: white;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 2000;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  }
-
-  .mobile-menu-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(255, 255, 255, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 8px;
-    padding: 4px 8px;
-    color: white;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    backdrop-filter: blur(10px);
-  }
-
-  .mobile-menu-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
-    transform: translateY(-1px);
-  }
-
-  .mobile-menu-btn.active {
-    background: rgba(255, 255, 255, 0.4);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  }
-
-  .menu-icon {
-    font-size: 18px;
-    font-weight: bold;
-  }
-
-  .menu-text {
-    font-size: 14px;
-    font-weight: 500;
-  }
-
-  .mobile-title {
-    font-size: 16px;
-    font-weight: 600;
-    text-align: center;
-    flex: 1;
-  }
-
-  /* Mobile Dropdown Panel */
-  .mobile-dropdown-panel {
-    position: fixed;
-    top: 50px;
-    left: 0;
-    right: 0;
-    background: var(--surface-muted);
-    border-bottom: 1px solid var(--border);
-    z-index: 1500;
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  }
-
-  .mobile-dropdown-panel.open {
-    max-height: 80vh;
-    overflow-y: auto;
-  }
-
-  .mobile-panel-content {
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .mobile-image-section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  }
-
-  .mobile-controls-content {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  }
-
-  /* Hide desktop controls panel on mobile */
-  .controls-panel {
+  .peyote-editor__tabs-head :deep(.segmented__item .base-icon) {
     display: none;
   }
 
-  /* Make grid container full screen on mobile */
-  .grid-container {
-    margin-right: 0;
-    margin-top: 50px;
-    padding: 10px;
-    height: calc(100vh - 50px);
-    flex-direction: column;
-    transition: margin-top 0.3s ease;
-  }
-
-  /* Adjust grid container when section is pinned */
-  .grid-container.pinned-active {
-    margin-top: 250px; /* 50px (mobile bar) + 200px (pinned section) */
-  }
-
-  .image-section {
+  .peyote-editor__saved {
     display: none;
-  }
-
-  .main-content {
-    flex: 1;
-    min-height: 0;
-    padding: 12px;
-    max-height: calc(100vh - 182px);
-    -webkit-overflow-scrolling: touch;
-    overflow: auto;
-  }
-
-  /* Mobile-specific adjustments for tools */
-  .tools-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-  }
-
-  .tool-btn {
-    padding: 10px 8px;
-    font-size: 12px;
-  }
-
-  /* Mobile-specific adjustments for export buttons */
-  .export-section .grid {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .export-btn {
-    padding: 12px 8px;
-    font-size: 13px;
-  }
-
-  /* Mobile-specific adjustments for color picker */
-  .color-picker-container {
-    flex-direction: column;
-    gap: 8px;
-    align-items: flex-start;
-  }
-
-  .color-picker {
-    width: 40px;
-    height: 40px;
-  }
-
-  /* Mobile-specific adjustments for dimension inputs */
-  .dimension-inputs {
-    gap: 8px;
-  }
-
-  .dimension-label {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-  }
-
-  .dimension-input {
-    width: 100%;
-    max-width: 120px;
-  }
-
-  /* Mobile-specific adjustments for mode toggles */
-  .mode-toggle {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .mode-btn {
-    padding: 10px 12px;
-    font-size: 13px;
-  }
-
-  /* Mobile-specific adjustments for image grids */
-  .recent-images-grid {
-    grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
-    gap: 4px;
-  }
-
-  /* Mobile-specific adjustments for background controls */
-  .background-color-controls {
-    flex-direction: column;
-    gap: 8px;
-    align-items: flex-start;
   }
 }
 
-/* Desktop styles - ensure desktop layout is preserved */
-@media (min-width: 769px) {
-  .mobile-control-bar,
-  .mobile-dropdown-panel {
+/* Phone: tools move under the canvas */
+@media (max-width: 640px) {
+  .peyote-editor__body {
+    flex-direction: column;
+  }
+
+  .peyote-editor__tools {
+    order: 2;
+  }
+
+  .peyote-editor__workspace {
+    order: 1;
+  }
+
+  .peyote-editor__zoom {
     display: none;
   }
 
-  .grid-container {
-    margin-top: 0;
+  .hide-on-phone {
+    display: none;
   }
 }
 </style>

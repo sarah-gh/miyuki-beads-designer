@@ -1,567 +1,252 @@
 <template>
-  <div class="bracelet-wrapper">
-    <div class="header">
-      <h2 class="title">پیش‌نمایش دستبند</h2>
-      <p class="subtitle">نمایش سه‌بعدی طرح انتخاب شده</p>
-    </div>
-
-    <div class="canvas-container">
-      <div
-        ref="container"
-        class="bracelet-canvas"
-      ></div>
-
-      <div class="canvas-overlay">
-        <div class="controls-hint">
-          <div class="hint-item">
-            <span class="hint-icon">🖱️</span>
-            <span>برای چرخاندن کلیک و درگ کنید</span>
-          </div>
-          <div class="hint-item">
-            <span class="hint-icon">🔍</span>
-            <span>برای زوم اسکرول کنید</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="toolbar">
+  <section class="peyote-preview">
+    <header>
+      <h2>
+        {{
+          curved
+            ? staggered
+              ? 'Peyote bracelet preview'
+              : 'Square-stitch bracelet preview'
+            : '3D bead view'
+        }}
+      </h2>
+      <label v-if="curved">
+        Bend
+        <input
+          v-model.number="bend"
+          type="range"
+          min="0"
+          max="315"
+          step="5"
+        />
+        <span dir="ltr">{{ bend }}°</span>
+      </label>
       <button
-        class="btn btn-primary"
+        class="theme-btn"
+        :disabled="status !== 'ready'"
         @click="downloadImage"
       >
-        <span class="btn-icon">📥</span>
-        <span>دانلود تصویر</span>
+        Download image
       </button>
-
-      <div class="info-panel">
-        <div class="info-item">
-          <span class="info-label">ابعاد:</span>
-          <span class="info-value">{{ cols }} × {{ rows }}</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">تعداد مهره:</span>
-          <span class="info-value">{{ cols * rows }}</span>
-        </div>
-      </div>
-    </div>
-  </div>
+    </header>
+    <div
+      ref="container"
+      class="viewport"
+      :aria-label="
+        staggered
+          ? '3D view of the Peyote pattern'
+          : '3D view of the square-stitch pattern'
+      "
+    ></div>
+    <p
+      v-if="status === 'loading'"
+      role="status"
+    >
+      Loading the Delica model…
+    </p>
+    <p
+      v-else-if="status === 'error'"
+      role="alert"
+    >
+      The 3D view could not be loaded.
+    </p>
+    <p
+      v-else-if="!pattern.some(Boolean)"
+      role="status"
+    >
+      The pattern is empty.
+    </p>
+  </section>
 </template>
 
 <script setup>
 import { onMounted, onBeforeUnmount, ref, watch } from 'vue';
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import beadUrl from './Delica-DB11.glb?url&inline';
+import { createPeyoteModel } from './peyoteModel.js';
 
 const props = defineProps({
   pattern: { type: Array, required: true },
   rows: { type: Number, required: true },
   cols: { type: Number, required: true },
-  // عرض/ارتفاع خروچی رندر
-  width: { type: Number, default: 900 },
-  height: { type: Number, default: 600 },
-  // چرخش texture (بر حسب درجه)
-  textureRotation: { type: Number, default: 90 },
+  orientation: { type: String, default: 'vertical' },
+  curved: { type: Boolean, default: true },
+  staggered: { type: Boolean, default: true },
+  modelUrl: { type: String, default: beadUrl },
 });
 
 const container = ref(null);
-let scene, camera, renderer, controls;
-let beads = [];
+const status = ref('loading');
+const bend = ref(270);
+let renderer, scene, camera, controls, observer, geometry, environment, model;
+let disposed = false;
 
-// Cache textures for image-based bead colors to avoid reloading
-const textureLoader = new THREE.TextureLoader();
-const textureCache = new Map(); // url -> THREE.Texture
-
-function isImageColor(value) {
-  return (
-    typeof value === 'string' &&
-    (value.startsWith('/miyuki-beads-designer/beads/') ||
-      value.startsWith('/beads/') ||
-      value.startsWith('data:image/'))
-  );
-}
-
-function getBeadMaterial(colorLike, textureRotation = 0) {
-  // Image texture material
-  if (isImageColor(colorLike)) {
-    const url = colorLike;
-    let texture = textureCache.get(url);
-    if (!texture) {
-      texture = textureLoader.load(
-        url,
-        (loaded) => {
-          // Configure color space and anisotropy after load
-          loaded.colorSpace = THREE.SRGBColorSpace;
-          if (renderer) {
-            loaded.anisotropy = renderer.capabilities.getMaxAnisotropy();
-          }
-        },
-        undefined,
-        (error) => {
-          console.error('Error loading texture:', url, error);
-        },
-      );
-      // Also set immediately for initial instance (will update once loaded)
-      texture.colorSpace = THREE.SRGBColorSpace;
-      textureCache.set(url, texture);
-    }
-
-    // Clone texture to avoid affecting cached version
-    const clonedTexture = texture.clone();
-    clonedTexture.rotation = textureRotation; // چرخش texture بر حسب رادیان
-
-    const material = new THREE.MeshPhysicalMaterial({
-      color: 0xffffff,
-      map: clonedTexture,
-      roughness: 0.25,
-      metalness: 0.15,
-      clearcoat: 0.4,
-      clearcoatRoughness: 0.1,
-    });
-    return material;
-  }
-
-  // Solid color material
-  const isEdge = false; // You can add edge detection logic here if needed
-  const edgeColor = new THREE.Color('#b58a3a');
-  const matColor = isEdge ? edgeColor : new THREE.Color(colorLike);
-
-  return new THREE.MeshPhysicalMaterial({
-    color: matColor,
-    roughness: 0.25,
-    metalness: 0.15,
-    clearcoat: 0.4,
-    clearcoatRoughness: 0.1,
-  });
-}
-
-function clearBeads() {
-  beads.forEach((mesh) => {
-    scene.remove(mesh);
-    if (mesh.material) {
-      // Dispose material and its map if it exists
-      if (mesh.material.map) {
-        mesh.material.map.dispose();
-      }
-      mesh.material.dispose();
-    }
-  });
-  beads = [];
-}
-
-function createCurvedBracelet() {
-  if (!scene) return;
-  clearBeads();
-
-  // پارامترهای هندسی دستبند
-  const radius = 20; // شعاع خمیدگی دستبند
-  const arcAngle = Math.PI * 1.55; // حدود 243 درجه (مشابه عکس)
-  const startAngle = -arcAngle / 2;
-
-  // ابعاد مهره‌ها را برای قرارگیری صحیح روی انحنا محاسبه می‌کنیم
-  // طرح عمودی (16×80) رو افقی روی دستبند نشون می‌دیم
-  // انحنا روی طول (rows = 80) و عرض دستبند از cols (16)
-  const dTheta = arcAngle / props.rows; // گام زاویه‌ای روی طول (80)
-  const beadWidthTangential = radius * dTheta * 0.98; // طول قوس هر سلول با کمی فاصله
-  const beadHeight = 0.95; // ارتفاع عمودی هر مهره با کمی فاصله
-  const verticalSpacing = 1.0; // فاصله عمودی بین مهره‌ها
-
-  // هندسه استوانه‌ای با گوشه‌های گرد برای حالت منجوق
-  // از CylinderGeometry با تعداد وجه‌های بیشتر برای گردی
-  const beadGeometry = new THREE.CylinderGeometry(
-    beadHeight * 0.7, // شعاع بالا
-    beadHeight * 0.7, // شعاع پایین
-    beadWidthTangential, // ارتفاع (طول قوس)
-    16, // تعداد وجه‌های استوانه برای گردی بیشتر
-  );
-
-  for (let y = 0; y < props.rows; y++) {
-    // rows = طول دستبند (80)
-    for (let x = 0; x < props.cols; x++) {
-      // cols = عرض دستبند (16)
-      let colorHex = '#ffffff';
-
-      // بررسی نوع pattern و استخراج رنگ
-      if (Array.isArray(props.pattern[0])) {
-        // pattern یک matrix است
-        colorHex =
-          props.pattern[y] && props.pattern[y][x]
-            ? props.pattern[y][x]
-            : '#ffffff';
-      } else {
-        // pattern یک آرایه ساده است
-        const idx = y * props.cols + x; // از cols برای محاسبه index استفاده می‌کنیم
-        colorHex = props.pattern[idx] || '#ffffff';
-      }
-
-      // بررسی اعتبار رنگ
-      if (!colorHex || colorHex === '#' || colorHex.length < 3) {
-        colorHex = '#ffffff';
-        console.warn(
-          'Invalid color detected:',
-          colorHex,
-          'using default white',
-        );
-      }
-
-      // محاسبه چرخش texture
-      const textureRotationRadians = (props.textureRotation * Math.PI) / 55; // تبدیل درجه به رادیان
-
-      // استفاده از getBeadMaterial برای پشتیبانی از عکس‌ها
-      const beadMaterial = getBeadMaterial(colorHex, textureRotationRadians);
-
-      // مرکز هر مهره در وسط بازه‌اش قرار می‌گیرد تا فاصله عرضی صفر شود
-      // y = طول (انحنا)، x = عرض (عمودی)
-
-      // Apply peyote brick pattern: odd columns are shifted by half a row step
-      const isOddColumn = x % 2 === 1;
-      const peyoteOffset = isOddColumn ? 0.5 : 0; // Half of a row step
-
-      const theta = startAngle + (y + 0.5 + peyoteOffset) * dTheta; // انحنا روی طول (y) with peyote offset
-      const posY = (props.cols / 2 - 0.5 - x) * verticalSpacing; // عرض دستبند (x)
-      const posX = radius * Math.sin(theta);
-      const posZ = radius * Math.cos(theta);
-
-      const bead = new THREE.Mesh(beadGeometry, beadMaterial);
-      bead.position.set(posX, posY, posZ);
-
-      // مهره‌ها را مماس بر انحنا قرار می‌دهیم
-      // ابتدا 90 درجه حول محور Z می‌چرخانیم تا افقی شوند
-      bead.rotation.z = Math.PI / 2;
-      // سپس حول محور Y می‌چرخانیم تا مماس بر انحنا باشند
-      bead.rotation.y = theta;
-
-      scene.add(bead);
-      beads.push(bead);
-    }
-  }
-}
-
-function initScene() {
-  scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xf3f3f3);
-
-  camera = new THREE.PerspectiveCamera(
-    42,
-    props.width / props.height,
-    0.1,
-    2000,
-  );
-  camera.position.set(0, 3, 95);
-  camera.lookAt(0, 0, 0);
-
-  renderer = new THREE.WebGLRenderer({
-    antialias: true,
-    preserveDrawingBuffer: true,
-  });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.setSize(props.width, props.height, false);
-  container.value.appendChild(renderer.domElement);
-
-  // نورپردازی ملایم شبیه عکس نمونه
-  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-  const dir1 = new THREE.DirectionalLight(0xffffff, 1.1);
-  dir1.position.set(8, 10, 12);
-  scene.add(dir1);
-  const dir2 = new THREE.DirectionalLight(0xffffff, 0.6);
-  dir2.position.set(-8, -3, 8);
-  scene.add(dir2);
-
-  controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-  controls.target.set(0, 0, 0);
-
-  function animate() {
-    requestAnimationFrame(animate);
-    controls.update();
-    renderer.render(scene, camera);
-  }
-  animate();
-}
-
-function renderOnce() {
-  if (!renderer) return;
+function fitModel() {
+  const sphere = model.bounds.getBoundingSphere(new THREE.Sphere());
+  const radius = Math.max(sphere.radius, 0.001);
+  const halfFov = THREE.MathUtils.degToRad(camera.fov / 2);
+  const fit = Math.min(halfFov, Math.atan(Math.tan(halfFov) * camera.aspect));
+  const direction = new THREE.Vector3(
+    0.25,
+    props.curved ? 0.8 : 0.22,
+    1,
+  ).normalize();
+  controls.target.copy(sphere.center);
+  camera.position
+    .copy(sphere.center)
+    .addScaledVector(direction, (1.12 * radius) / Math.sin(fit));
+  controls.minDistance = radius * 0.2;
+  controls.maxDistance = radius * 30;
   controls.update();
-  renderer.render(scene, camera);
+}
+
+function rebuild(refit) {
+  if (!geometry) return;
+  model?.dispose();
+  model = createPeyoteModel(
+    geometry,
+    props.pattern,
+    props.rows,
+    props.cols,
+    props.orientation,
+    props.curved ? THREE.MathUtils.degToRad(bend.value) : 0,
+    props.staggered,
+  );
+  scene.add(model.group);
+  if (refit) fitModel();
+  else {
+    const center = model.bounds.getCenter(new THREE.Vector3());
+    camera.position.add(center.clone().sub(controls.target));
+    controls.target.copy(center);
+    controls.update();
+  }
+}
+
+function resize() {
+  const { clientWidth, clientHeight } = container.value;
+  if (!clientWidth || !clientHeight) return;
+  renderer.setSize(clientWidth, clientHeight, false);
+  camera.aspect = clientWidth / clientHeight;
+  camera.updateProjectionMatrix();
+  if (model) fitModel();
 }
 
 function downloadImage() {
-  renderOnce();
-  const data = renderer.domElement.toDataURL('image/png');
-  const a = document.createElement('a');
-  a.href = data;
-  a.download = 'bracelet.png';
-  a.click();
+  renderer.render(scene, camera);
+  const link = document.createElement('a');
+  link.href = renderer.domElement.toDataURL('image/png');
+  link.download = props.staggered
+    ? 'peyote-delica.png'
+    : 'square-stitch-delica.png';
+  link.click();
 }
 
-onMounted(() => {
-  initScene();
-  createCurvedBracelet();
-  renderOnce();
+onMounted(async () => {
+  try {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color('#eae5e1');
+    camera = new THREE.PerspectiveCamera(34, 1, 0.00005, 20);
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    container.value.append(renderer.domElement);
+    camera.up.set(
+      props.orientation === 'vertical' ? -1 : 0,
+      props.orientation === 'vertical' ? 0 : 1,
+      0,
+    );
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    const room = new RoomEnvironment();
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    environment = pmrem.fromScene(room);
+    room.dispose();
+    pmrem.dispose();
+    scene.environment = environment.texture;
+    observer = new ResizeObserver(resize);
+    observer.observe(container.value);
+    resize();
+
+    const asset = await new GLTFLoader().loadAsync(props.modelUrl);
+    asset.scene.traverse((object) => {
+      if (!object.isMesh) return;
+      object.material.dispose();
+      if (disposed || geometry) object.geometry.dispose();
+      else geometry = object.geometry;
+    });
+    if (disposed) return;
+    if (!geometry) throw new Error('Delica geometry missing from GLB');
+    rebuild(true);
+    renderer.setAnimationLoop(() => {
+      controls.update();
+      renderer.render(scene, camera);
+    });
+    status.value = 'ready';
+  } catch (error) {
+    if (!disposed) {
+      console.error(error);
+      status.value = 'error';
+    }
+  }
 });
 
 watch(
-  () => [props.pattern, props.rows, props.cols, props.textureRotation],
-  () => {
-    createCurvedBracelet();
-    renderOnce();
-  },
-  { deep: true },
+  () => [props.rows, props.cols, props.orientation, props.curved],
+  () => rebuild(true),
 );
+watch(
+  () => props.pattern,
+  () => rebuild(false),
+);
+watch(bend, () => rebuild(false));
 
 onBeforeUnmount(() => {
-  // Dispose all beads and their materials
-  clearBeads();
-
-  // Dispose cached textures
-  textureCache.forEach((texture) => {
-    texture.dispose();
-  });
-  textureCache.clear();
-
-  if (controls) controls.dispose();
-  if (renderer) renderer.dispose();
+  disposed = true;
+  observer?.disconnect();
+  renderer?.setAnimationLoop(null);
+  controls?.dispose();
+  model?.dispose();
+  geometry?.dispose();
+  environment?.dispose();
+  renderer?.dispose();
 });
-
-defineExpose({ downloadImage });
 </script>
 
 <style scoped>
-.bracelet-wrapper {
+.peyote-preview {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+header {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  gap: 12px;
   align-items: center;
-  gap: 24px;
-  padding: 24px;
-  background: var(--surface-muted);
-  min-height: 100vh;
-  font-family: 'Vazirmatn', 'Tahoma', sans-serif;
 }
-
-.header {
-  text-align: center;
-  margin-bottom: 16px;
+h2 {
+  font-weight: 600;
+  margin-inline-end: auto;
 }
-
-.title {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: var(--dark);
-  margin: 0 0 8px 0;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
-
-.subtitle {
-  font-size: 1.1rem;
-  color: var(--text-muted);
-  margin: 0;
-  font-weight: 400;
-}
-
-.canvas-container {
-  position: relative;
-  width: 100%;
-  max-width: 1200px;
-  background: white;
-  border-radius: 20px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+.viewport {
+  height: clamp(340px, 65vh, 780px);
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: #eae5e1;
 }
-
-.bracelet-canvas {
-  width: 100%;
-  aspect-ratio: 3 / 2;
-  position: relative;
-}
-
-.bracelet-canvas canvas {
+.viewport :deep(canvas) {
+  display: block;
   width: 100%;
   height: 100%;
-  display: block;
-  border-radius: 20px;
-}
-
-.canvas-overlay {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 10;
-}
-
-.controls-hint {
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(10px);
-  border-radius: 12px;
-  padding: 12px 16px;
-  color: white;
-  font-size: 0.9rem;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-}
-
-.hint-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.hint-item:last-child {
-  margin-bottom: 0;
-}
-
-.hint-icon {
-  font-size: 1.1rem;
-}
-
-.toolbar {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  width: 100%;
-  max-width: 1200px;
-}
-
-.btn {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 32px;
-  border: none;
-  border-radius: 50px;
-  font-size: 1.1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  text-decoration: none;
-  font-family: inherit;
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-primary {
-  background: var(--info);
-  color: white;
-  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
-}
-
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 25px rgba(59, 130, 246, 0.4);
-  background: var(--info-hover);
-}
-
-.btn-primary:active {
-  transform: translateY(0);
-  box-shadow: 0 6px 15px rgba(59, 130, 246, 0.3);
-}
-
-.btn-icon {
-  font-size: 1.2rem;
-}
-
-.info-panel {
-  display: flex;
-  gap: 32px;
-  background: white;
-  padding: 20px 32px;
-  border-radius: 16px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.info-label {
-  font-size: 0.9rem;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.info-value {
-  font-size: 1.3rem;
-  font-weight: 700;
-  color: var(--dark);
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .bracelet-wrapper {
-    padding: 16px;
-    gap: 20px;
-  }
-
-  .title {
-    font-size: 2rem;
-  }
-
-  .subtitle {
-    font-size: 1rem;
-  }
-
-  .toolbar {
-    gap: 16px;
-  }
-
-  .btn {
-    padding: 14px 28px;
-    font-size: 1rem;
-  }
-
-  .info-panel {
-    flex-direction: column;
-    gap: 16px;
-    padding: 16px 24px;
-  }
-
-  .controls-hint {
-    font-size: 0.8rem;
-    padding: 10px 14px;
-  }
-}
-
-@media (max-width: 480px) {
-  .title {
-    font-size: 1.8rem;
-  }
-
-  .btn {
-    padding: 12px 24px;
-    font-size: 0.95rem;
-  }
-
-  .info-panel {
-    padding: 14px 20px;
-  }
-}
-
-/* Animation for smooth transitions */
-.bracelet-wrapper * {
-  transition: all 0.3s ease;
-}
-
-/* Custom scrollbar for webkit browsers */
-.bracelet-wrapper::-webkit-scrollbar {
-  width: 8px;
-}
-
-.bracelet-wrapper::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
-}
-
-.bracelet-wrapper::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
-}
-
-.bracelet-wrapper::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.5);
+  touch-action: none;
 }
 </style>

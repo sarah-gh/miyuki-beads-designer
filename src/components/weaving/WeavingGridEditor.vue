@@ -1,20 +1,20 @@
 <template>
   <div class="editor-container">
-    <!-- ابزارها - Fixed on the right side -->
+    <!-- Tools - Fixed on the right side -->
     <div class="controls-panel">
       <div class="controls-header">
-        <h3 class="mb-4 text-lg font-bold text-gray-800">🎨 ابزارهای طراحی</h3>
+        <h3 class="mb-4 text-lg font-bold text-gray-800">🎨 Design tools</h3>
       </div>
 
       <div class="controls-content">
-        <!-- تنظیمات ابعاد -->
+        <!-- Size settings -->
         <div class="dimensions-section">
           <h4 class="mb-2 text-sm font-semibold text-gray-700">
-            📐 ابعاد شبکه
+            📐 Grid size
           </h4>
           <div class="dimension-inputs">
             <label class="dimension-label">
-              <span class="dimension-text">ستون‌ها (عرض):</span>
+              <span class="dimension-text">Columns (width):</span>
               <input
                 v-model.number="cols"
                 type="range"
@@ -25,7 +25,7 @@
               <span class="dimension-value">{{ cols }}</span>
             </label>
             <label class="dimension-label">
-              <span class="dimension-text">ردیف‌ها (طول):</span>
+              <span class="dimension-text">Rows (length):</span>
               <input
                 v-model.number="rows"
                 type="range"
@@ -36,7 +36,7 @@
               <span class="dimension-value">{{ rows }}</span>
             </label>
             <label class="dimension-label">
-              <span class="dimension-text">اندازه مهره:</span>
+              <span class="dimension-text">Bead size:</span>
               <input
                 v-model.number="beadSize"
                 type="range"
@@ -49,10 +49,10 @@
           </div>
         </div>
 
-        <!-- انتخاب رنگ -->
+        <!-- Choose colour -->
         <div class="color-section">
           <h4 class="mb-2 text-sm font-semibold text-gray-700">
-            🎨 انتخاب رنگ
+            🎨 Choose colour
           </h4>
           <div class="color-picker-container">
             <input
@@ -63,14 +63,14 @@
             <span class="color-value">{{ selectedColor }}</span>
           </div>
           <div class="recent-colors-header mt-3!">
-            <h4 class="text-sm font-semibold text-gray-700">🔄 رنگ‌های اخیر</h4>
+            <h4 class="text-sm font-semibold text-gray-700">🔄 Recent colours</h4>
             <button
               v-if="recentColors.length > 0"
               class="clear-colors-btn"
-              title="پاک کردن تمام رنگ‌ها"
+              title="Clear all colours"
               @click="clearRecentColors"
             >
-              🗑️ پاک کردن
+              🗑️ Clear
             </button>
           </div>
           <div class="recent-colors-grid">
@@ -92,9 +92,9 @@
           </div>
         </div>
 
-        <!-- ابزارهای اصلی -->
+        <!-- Main tools -->
         <div class="tools-section">
-          <h4 class="mb-2 text-sm font-semibold text-gray-700">🛠️ ابزارها</h4>
+          <h4 class="mb-2 text-sm font-semibold text-gray-700">🛠️ Tools</h4>
           <div class="tools-grid">
             <button
               class="tool-btn primary"
@@ -125,31 +125,31 @@
           </div>
         </div>
 
-        <!-- دکمه‌های خروجی -->
+        <!-- Export buttons -->
         <div class="export-section">
-          <h4 class="mb-2 text-sm font-semibold text-gray-700">📤 خروجی</h4>
+          <h4 class="mb-2 text-sm font-semibold text-gray-700">📤 Export</h4>
           <button
             class="export-btn primary"
             @click="$emit('update-grid', getGridMatrix())"
           >
-            🚀 ارسال به 3D
+            🚀 Send to 3D
           </button>
           <button
             class="export-btn success"
             @click="exportGridAsImage"
           >
-            📷 خروجی عکس
+            📷 Export image
           </button>
         </div>
       </div>
     </div>
 
-    <!-- صفحه شطرنجی -->
+    <!-- Grid -->
     <div class="grid-container">
       <div class="image-section">
         <div class="upload-section">
           <label class="upload-label mb-2!">
-            <span class="upload-text">📁 آپلود فایل txt grid</span>
+            <span class="upload-text">📁 Import TXT grid</span>
             <input
               type="file"
               accept=".txt"
@@ -158,7 +158,7 @@
             />
           </label>
           <label class="upload-label">
-            <span class="upload-text">📁 آپلود تصویر</span>
+            <span class="upload-text">📁 Upload image</span>
             <input
               type="file"
               accept="image/*"
@@ -173,7 +173,7 @@
         >
           <img
             :src="selectedImage"
-            alt="تصویر انتخاب شده"
+            alt="Selected image"
             class="preview-image"
           />
         </div>
@@ -181,9 +181,9 @@
 
       <div class="canvas-wrapper">
         <div class="canvas-header">
-          <div class="text-sm font-medium">نمایش عمودی (90° چرخش فرض شده)</div>
+          <div class="text-sm font-medium">Vertical view (90° rotation assumed)</div>
           <div class="text-xs text-gray-500">
-            | ستون‌ها: {{ cols }} × ردیف‌ها: {{ rows }}
+            | Columns: {{ cols }} × Rows: {{ rows }}
           </div>
         </div>
 
@@ -205,12 +205,12 @@
                 v-model="brickMode"
                 type="checkbox"
               />
-              <span>حالت اجرچینی (Brick)</span>
+              <span>Brick mode</span>
             </label>
           </div>
           <div class="text-xs text-gray-600">
-            نکته: "حالت اجرچینی" هر ردیف زوج یا فرد را نیم مهره جابه‌جا می‌کند
-            تا ظاهر بافت Brick Stitch شبیه‌سازی شود.
+            Tip: "Brick mode" shifts every other row by half a bead
+            to simulate the look of brick stitch.
           </div>
         </div>
       </div>
@@ -223,20 +223,20 @@ import { ref, reactive, watch, onMounted, onBeforeUnmount } from 'vue';
 
 defineEmits(['update-grid']);
 
-// 기본 تنظیمات
-const cols = ref(80); // ستون‌ها — در حالت عمودی این عرض الگو است
-const rows = ref(10); // ردیف‌ها — طول الگو (بلندی)
+// 기본 Settings
+const cols = ref(80); // Columns — in vertical mode this is the pattern width
+const rows = ref(10); // Rows — pattern length
 const beadSize = ref(20);
 const brickMode = ref(true);
 const tool = ref('paint');
 
-// تقریبی رنگ‌های Miyuki از تصویر (می‌تونی hex دلخواه بذاری)
+// Approximate Miyuki from the picture (you can use any hex hex you like)
 const palette = [
-  '#8B2D2B', // DB-2183 (قرمز تیره)
-  '#D36B43', // DB-2172 (نارنجی/سُرخ)
-  '#E9C76A', // DB-2177 (زرد طلایی)
-  '#172B4A', // DB-0301 (سرمه‌ای)
-  '#FFFFFF', // سفید برای حذف/فضای خالی
+  '#8B2D2B', // DB-2183 (dark red)
+  '#D36B43', // DB-2172 (orange/red)
+  '#E9C76A', // DB-2177 (golden yellow)
+  '#172B4A', // DB-0301 (navy)
+  '#FFFFFF', // white for erase / empty
 ];
 const selectedColor = ref(palette[3]);
 const recentColors = ref([]);
@@ -245,7 +245,7 @@ const selectedImage = ref(null);
 const canvas = ref(null);
 let ctx = null;
 
-// مدل داده: آرایه دوبعدی نگهدارنده رنگ هر سل
+// Data model: 2D array holding the colour of each cell
 const grid = reactive({ data: [] });
 function resetGrid() {
   grid.data = Array.from({ length: rows.value }, () =>
@@ -253,7 +253,7 @@ function resetGrid() {
   );
 }
 
-// تاریخچه ساده برای واگرد
+// Simple undo history
 const history = ref([]);
 function pushHistory(snapshot) {
   history.value.push(snapshot);
@@ -267,7 +267,7 @@ function undo() {
   }
 }
 
-// اندازه واقعی canvas را تنظیم کن با توجه به DPR
+// Set the real canvas with DPR
 function resizeCanvas() {
   const dpr = window.devicePixelRatio || 1;
   const w = (cols.value + (brickMode.value ? 0.5 : 0)) * beadSize.value;
@@ -280,15 +280,15 @@ function resizeCanvas() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
-// رسم مهره به صورت دایره/مستطیل گرد برای جلوه‌ی واقعی‌تر
+// Draw each bead as a rounded shape for a more realistic look
 function drawBead(x, y, size, color) {
   const r = size * 0.18;
   ctx.fillStyle = color || '#f3f4f6';
-  // سایه ملایم
+  // Soft shadow
   ctx.beginPath();
   roundRect(ctx, x, y, size, size, r);
   ctx.fill();
-  // حاشیه
+  // Border
   ctx.lineWidth = Math.max(0.6, size * 0.06);
   ctx.strokeStyle = 'rgba(0,0,0,0.06)';
   ctx.stroke();
@@ -319,15 +319,15 @@ function render() {
   }
 }
 
-// تبدیل مختصات pointer به اندیس سطر/ستون
+// Convert pointer to a row/column index
 function pointToCell(clientX, clientY) {
   const rect = canvas.value.getBoundingClientRect();
   const x = clientX - rect.left;
   const y = clientY - rect.top;
   const s = beadSize.value;
-  // تشخیص ردیف
+  // Find the row
   const r = Math.floor(y / s);
-  // برای ستون باید در نظر بگیریم که ردیف‌های جابه‌جا شده اند
+  // for the column, account for shifted rows
   const offset = brickMode.value && r % 2 === 1 ? s / 2 : 0;
   const c = Math.floor((x - offset) / s);
   if (r < 0 || r >= rows.value || c < 0 || c >= cols.value) return null;
@@ -389,24 +389,24 @@ function clearAll() {
   render();
 }
 
-// اضافه کردن رنگ به لیست رنگ‌های اخیر
+// Add a colour to the recent colours
 function addToRecentColors(color) {
-  // اگر رنگ قبلاً وجود دارد، آن را حذف کن
+  // If the colour is already there, remove it
   const index = recentColors.value.indexOf(color);
   if (index > -1) {
     recentColors.value.splice(index, 1);
   }
 
-  // رنگ جدید را در ابتدا اضافه کن
+  // Add the new colour at the start
   recentColors.value.unshift(color);
 
-  // حداکثر 10 رنگ نگه دار
+  // Keep at most 10 colours
   if (recentColors.value.length > 10) {
     recentColors.value = recentColors.value.slice(0, 10);
   }
 }
 
-// حذف رنگ از لیست رنگ‌های اخیر
+// Remove a colour from the recent colours
 function removeRecentColor(color) {
   const index = recentColors.value.indexOf(color);
   if (index > -1) {
@@ -414,18 +414,18 @@ function removeRecentColor(color) {
   }
 }
 
-// پاک کردن تمام رنگ‌های اخیر
+// Clear all recent colours
 function clearRecentColors() {
   recentColors.value = [];
 }
 
-// خروجی عکس از شبکه
+// Export the grid as an image
 function exportGridAsImage() {
-  // ایجاد canvas
+  // Create canvas
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
 
-  // تنظیم اندازه canvas بر اساس شبکه
+  // Size the canvas from the grid
   const cellSize = beadSize.value;
   const padding = 20;
   const width = cols.value * cellSize + padding * 2;
@@ -434,11 +434,11 @@ function exportGridAsImage() {
   canvas.width = width;
   canvas.height = height;
 
-  // رنگ پس‌زمینه
+  // Background colour
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, width, height);
 
-  // رسم شبکه
+  // Draw the grid
   for (let r = 0; r < rows.value; r++) {
     for (let c = 0; c < cols.value; c++) {
       const color = grid.data[r] && grid.data[r][c];
@@ -452,7 +452,7 @@ function exportGridAsImage() {
     }
   }
 
-  // تبدیل به عکس و دانلود
+  // Convert to an image and download
   canvas.toBlob((blob) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -465,7 +465,7 @@ function exportGridAsImage() {
   }, 'image/png');
 }
 
-// خروجی به صورت ماتریس برای 3D
+// Export as a matrix for 3D
 function getGridMatrix() {
   return grid.data;
 }

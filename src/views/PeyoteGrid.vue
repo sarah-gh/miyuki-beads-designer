@@ -1,135 +1,102 @@
 <template>
-  <div class="home-container">
-    <header class="app-header mb-3! flex items-start justify-between">
-      <div class="header-content">
-        <div class="header-actions mt-3! flex items-center gap-2">
-          <button
-            class="theme-btn px-4! py-1! text-[14px]"
-            @click="toggleGridEditor"
-          >
-            ویرایشگر شبکه
-          </button>
-          <button
-            class="theme-btn px-4! py-1! text-[14px]"
-            @click="toggleMiyukiBeads"
-          >
-            نمایش مهره‌ها
-          </button>
-          <button
-            class="theme-btn px-4! py-1! text-[14px]"
-            @click="toggleBraceletPreview"
-          >
-            پیش‌نمایش دستبند
-          </button>
-          <button
-            class="theme-btn-primary px-4! py-1! text-[14px]"
-            @click="startWorking"
-          >
-            مراحل اجرا
-          </button>
-        </div>
-      </div>
-      <div class="stats-section">
-        <div class="stat-item">
-          <div class="stat-number">{{ rows }}</div>
-          <div class="stat-label">ردیف</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-number">{{ cols }}</div>
-          <div class="stat-label">ستون</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-number">{{ pattern.length }}</div>
-          <div class="stat-label">مهره</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-number">{{ (pattern.length / 190).toFixed(2) }}</div>
-          <div class="stat-label">گرم</div>
-        </div>
-      </div>
-    </header>
+  <div class="pattern-page">
+    <AppPortal to="toolbar-end">
+      <ViewModeActions
+        :model-value="mode"
+        @update:model-value="setMode"
+      />
+    </AppPortal>
 
-    <!-- Quick Stats -->
+    <GridEditor
+      v-show="mode === 'editor'"
+      ref="gridEditor"
+      class="pattern-page__editor"
+      :project-id="id"
+      :active="mode === 'editor'"
+      @preview-grid="setMode('preview')"
+      @update-grid="handleUpdateGrid"
+    />
 
-    <!-- Content Area -->
-    <div class="content-container">
-      <GridEditor
-        v-if="isGridEditorVisible"
-        class="content-component"
-        :initial-pattern="pattern"
-        :initial-rows="rows"
-        :initial-cols="cols"
-        @update-grid="handleUpdateGrid"
-      />
-      <MiyukiBeads
-        v-if="isMiyukiBeadsVisible"
-        :pattern="pattern"
-        :rows="rows"
-        :cols="cols"
-        class="content-component"
-      />
-      <BraceletPreview
-        v-if="isBraceletPreviewVisible"
-        :pattern="pattern"
-        :rows="rows"
-        :cols="cols"
-        class="content-component"
-      />
-      <WorkingPage
-        v-if="isWorking"
-        :pattern="pattern"
-        :rows="rows"
-        :cols="cols"
-        class="content-component"
-      />
-    </div>
+    <template v-if="mode !== 'editor'">
+      <div class="pattern-page__view">
+        <MiyukiBeads
+          v-if="mode === 'beads'"
+          :pattern="pattern"
+          :orientation="orientation"
+          :rows="rows"
+          :cols="cols"
+          class="content-component"
+        />
+        <BraceletPreview
+          v-if="mode === 'preview'"
+          :pattern="pattern"
+          :orientation="orientation"
+          :rows="rows"
+          :cols="cols"
+          class="content-component"
+        />
+        <WorkingPage
+          v-if="mode === 'steps'"
+          :pattern="workingPattern"
+          :rows="rows"
+          :cols="cols"
+          class="content-component"
+        />
+      </div>
+      <StatusBar :items="statusItems" />
+    </template>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
+import AppPortal from '@/components/layout/AppPortal.vue';
+import StatusBar from '@/components/ui/StatusBar.vue';
+import ViewModeActions from '@/components/editor/ViewModeActions.vue';
+import { beadSwatch } from '@/components/peyote/delicaCatalog.js';
 import GridEditor from '@/components/peyote/PeyoteGridEditor.vue';
 import MiyukiBeads from '@/components/peyote/MiyukiBeads.vue';
 import BraceletPreview from '@/components/peyote/BraceletPreview.vue';
 import WorkingPage from '@/components/flat/WorkingPage.vue';
 
-const rows = ref(16);
-const cols = ref(80);
-const pattern = ref(Array(16 * 80).fill('#ffffff'));
-const isGridEditorVisible = ref(true);
-const isMiyukiBeadsVisible = ref(false);
-const isBraceletPreviewVisible = ref(false);
-const isWorking = ref(false);
+defineProps({
+  /** Project id from the route (/peyote/:id). */
+  id: { type: String, required: true },
+});
 
-function toggleGridEditor() {
-  isGridEditorVisible.value = true;
-  isMiyukiBeadsVisible.value = false;
-  isBraceletPreviewVisible.value = false;
-  isWorking.value = false;
+// Filled in from the editor once it has loaded the project.
+const orientation = ref('vertical');
+const gridEditor = ref(null);
+const rows = ref(0);
+const cols = ref(0);
+const pattern = ref([]);
+const workingPattern = computed(() => pattern.value.map(beadSwatch));
+const mode = ref('editor'); // editor | beads | preview | steps
+
+function setMode(next) {
+  // Pull the latest pattern out of the editor before showing another view.
+  if (mode.value === 'editor' && next !== 'editor' && gridEditor.value) {
+    handleUpdateGrid(...gridEditor.value.snapshot());
+  }
+  mode.value = next;
 }
 
-function toggleMiyukiBeads() {
-  isMiyukiBeadsVisible.value = true;
-  isGridEditorVisible.value = false;
-  isBraceletPreviewVisible.value = false;
-  isWorking.value = false;
-}
+const statusItems = computed(() => [
+  {
+    key: 'size',
+    value: `${cols.value} x ${rows.value}`,
+    title: 'Columns x rows',
+  },
+  { key: 'beads', value: `${pattern.value.length} beads` },
+  {
+    key: 'grams',
+    label: 'grams:',
+    value: (pattern.value.length / 190).toFixed(2),
+  },
+]);
 
-function toggleBraceletPreview() {
-  isBraceletPreviewVisible.value = true;
-  isMiyukiBeadsVisible.value = false;
-  isGridEditorVisible.value = false;
-  isWorking.value = false;
-}
-
-function startWorking() {
-  isWorking.value = true;
-  isGridEditorVisible.value = false;
-  isMiyukiBeadsVisible.value = false;
-  isBraceletPreviewVisible.value = false;
-}
-
-function handleUpdateGrid(matrix) {
+function handleUpdateGrid(matrix, nextOrientation) {
+  orientation.value = nextOrientation;
   if (!Array.isArray(matrix) || matrix.length === 0) {
     pattern.value = [];
     rows.value = 0;
@@ -144,114 +111,31 @@ function handleUpdateGrid(matrix) {
 </script>
 
 <style scoped>
-.home-container {
-  min-height: 100vh;
-  background: var(--bg);
-  padding: 20px;
-}
-
-/* Stats Section */
-.stats-section {
+.pattern-page {
   display: flex;
-  flex-direction: row;
-  justify-content: center;
-  gap: 10px;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
 }
 
-.stat-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  text-align: center;
-  background: var(--surface);
-  border-radius: 12px;
-  padding: 10px;
-  border: 1px solid var(--border);
-  min-width: 100px;
+.pattern-page__editor {
+  flex: 1;
+  min-height: 0;
 }
 
-.stat-number {
-  font-size: 0.8rem;
-  font-weight: bold;
-  color: var(--text);
-  margin-bottom: 5px;
-}
-
-.stat-label {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
-
-/* Content Container */
-.content-container {
+.pattern-page__view {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   background: var(--surface);
   /* Load-bearing, not decorative: backdrop-filter makes this element the
-     containing block for the position:fixed panels the editors render
+     containing block for the position:fixed panels the previews render
      inside it. Removing it lets those panels escape to the viewport. */
   backdrop-filter: blur(10px);
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  overflow: hidden;
 }
 
 .content-component {
   min-height: 500px;
-}
-
-/* Animations */
-@keyframes bounce {
-  0%,
-  20%,
-  50%,
-  80%,
-  100% {
-    transform: translateY(0);
-  }
-  40% {
-    transform: translateY(-10px);
-  }
-  60% {
-    transform: translateY(-5px);
-  }
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .hero-title {
-    font-size: 1rem;
-  }
-
-  .hero-subtitle {
-    font-size: 0.8rem;
-  }
-
-  .cards-container {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-
-  .stats-section {
-    flex-direction: column;
-    gap: 20px;
-    align-items: center;
-  }
-
-  .hero-section {
-    padding: 20px 10px;
-  }
-}
-
-@media (max-width: 480px) {
-  .home-container {
-    padding: 10px;
-  }
-
-  .nav-card {
-    padding: 20px;
-  }
-
-  .hero-title {
-    font-size: 1.8rem;
-  }
 }
 </style>

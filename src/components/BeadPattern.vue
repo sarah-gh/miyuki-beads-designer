@@ -6,7 +6,7 @@
     xmlns="http://www.w3.org/2000/svg"
     :style="`display:block; background:${svgBackgroundColor}`"
   >
-    <!-- خطوط کمکی اختیاری -->
+    <!-- Optional guide lines -->
     <template v-if="showGridHelpers">
       <g opacity="0.15">
         <template
@@ -26,7 +26,7 @@
       </g>
     </template>
 
-    <!-- مهره‌های شبکه‌ی بالایی -->
+    <!-- Beads of the upper grid -->
     <g>
       <BeadDot
         v-for="(p, i) in topBeads"
@@ -49,7 +49,7 @@
       />
     </g>
 
-    <!-- آویزها -->
+    <!-- Fringe -->
     <g v-if="showFringe">
       <BeadDot
         v-for="(p, i) in fringeBeads"
@@ -79,40 +79,40 @@ import { computed } from 'vue';
 import BeadDot from './BeadDot.vue';
 
 const props = defineProps({
-  // ابعاد شبکه‌ی اصلی (بالایی)
+  // Main (upper) grid size
   rows: { type: Number, default: 15 },
   cols: { type: Number, default: 38 },
 
-  // ابعاد مهره و فاصله‌ها
+  // Bead size and spacing
   beadR: { type: Number, default: 5 },
-  gapX: { type: Number, default: 16 }, // فاصله افقی مرکز تا مرکز
-  gapY: { type: Number, default: 14 }, // فاصله عمودی مرکز تا مرکز
-  stagger: { type: Boolean, default: true }, // آفست ردیف‌های زوج
+  gapX: { type: Number, default: 16 }, // horizontal centre-to-centre spacing
+  gapY: { type: Number, default: 14 }, // vertical centre-to-centre spacing
+  stagger: { type: Boolean, default: true }, // offset even rows
 
-  // فرینج (آویزهای پایین)
+  // Fringe (hanging beads at the bottom)
   showFringe: { type: Boolean, default: true },
-  // طول پایه‌ی آویز
+  // Base fringe length
   fringeBase: { type: Number, default: 6 },
-  // دامنه‌ی تغییر طول آویز (برای V شکل)
+  // How much the fringe length varies (for a V shape)
   fringeAmp: { type: Number, default: 4 },
-  // تناوب الگو (هر چند ستون یک سیکل کامل V)
+  // Pattern period (how many columns make a full V)
   fringePeriod: { type: Number, default: 6 },
 
-  // اگر بخواهی دقیقاً طول هر ستون را خودت بدهی
-  // (آرایه‌ای به طول cols، هر آیتم تعداد مهره‌ی آویزِ آن ستون)
+  // To set the exact length of each column yourself
+  // (an array of length cols, each item is the number of fringe beads in that column)
   fringeMap: { type: Array, default: null },
 
-  // پدینگ اطراف
+  // Padding around
   padding: { type: Number, default: 20 },
 
-  // نمایش راهنما/اتصالات (اختیاری)
+  // Show guides / connections (optional)
   showGridHelpers: { type: Boolean, default: false },
 
-  // رنگ‌ها
+  // Colours
   beadFillColor: { type: String, default: '#ffffff' },
   svgBackgroundColor: { type: String, default: '#ffffff' },
 
-  // مهره‌های رنگی شده
+  // Coloured beads
   coloredBeads: { type: Map, default: () => new Map() },
 });
 
@@ -166,18 +166,18 @@ const height = computed(() => {
   return hTop + maxFringe + props.padding * 2 + props.beadR * 2;
 });
 
-// محاسبه‌ی طول هر آویز
+// Length of each fringe strand
 const computedFringeMap = computed(() => {
   if (Array.isArray(props.fringeMap) && props.fringeMap.length === props.cols) {
     return props.fringeMap;
   }
   const arr = [];
   for (let c = 0; c < props.cols; c++) {
-    // V تکرارشونده
+    // V repeating
     const p = props.fringePeriod;
     const pos = ((c % p) + p) % p;
     const distFromCenter = Math.abs(pos - (p - 1) / 2);
-    // هرچه به مرکز سیکل نزدیک‌تر → آویز بلندتر
+    // closer to the centre of the cycle → longer fringe
     const len = props.fringeBase + Math.round(props.fringeAmp - distFromCenter);
     arr.push(Math.max(len, 0));
   }
@@ -187,7 +187,7 @@ const maxFringeLength = computed(() =>
   computedFringeMap.value.reduce((m, n) => Math.max(m, n), 0),
 );
 
-// نقاط شبکه‌ی اصلی
+// Main grid points
 const topBeads = computed(() => {
   const pts = [];
   for (let r = 0; r < props.rows; r++) {
@@ -201,7 +201,7 @@ const topBeads = computed(() => {
   return pts;
 });
 
-// نقاط آویزها: از آخرین ردیف رو به پایین
+// Fringe points: from the last row downwards
 const fringeBeads = computed(() => {
   const rowsBottomY = props.padding + (props.rows - 1) * props.gapY;
   const list = [];

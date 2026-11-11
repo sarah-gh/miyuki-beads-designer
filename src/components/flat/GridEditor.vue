@@ -1,4227 +1,1123 @@
 <template>
-  <div class="editor-container overflow-auto">
-    <!-- Mobile Control Bar -->
-    <div class="mobile-control-bar">
-      <button
-        class="mobile-menu-btn"
-        :class="{ active: isMobilePanelOpen }"
-        @click="toggleMobilePanel"
+  <div class="flat-editor">
+    <!-- ===== Header: project name + file actions ===== -->
+    <AppPortal to="header-start">
+      <EditableTitle v-model="projectName" />
+      <SavedBadge
+        class="flat-editor__saved"
+        :timestamp="lastSavedTime"
+      />
+    </AppPortal>
+
+    <AppPortal to="header">
+      <FileActions
+        :export-items="exportItems"
+        :more-items="moreItems"
+        @new="newPattern"
+        @open="openProjects"
+        @import="handleTxtUpload"
+      />
+    </AppPortal>
+
+    <!-- ===== Toolbar: zoom & view toggles (only while the editor is shown) ===== -->
+    <AppPortal to="toolbar-center">
+      <div
+        v-if="active"
+        class="flat-editor__view-controls"
       >
-        <span class="menu-icon">☰</span>
-        <span class="menu-text">ابزارها</span>
-      </button>
-      <div class="mobile-title">🎨 ویرایشگر شبکه</div>
-    </div>
-
-    <!-- Pinned Section (Mobile Only) -->
-    <div
-      v-if="pinnedSection"
-      class="pinned-section"
-    >
-      <div class="pinned-section-header">
-        <h4 class="pinned-section-title">
-          {{ getSectionTitle(pinnedSection) }}
-        </h4>
-        <button
-          class="unpin-btn"
-          title="Unpin Section"
-          @click="unpinSection"
-        >
-          ✕
-        </button>
+        <ZoomControls
+          v-model="zoom"
+          class="flat-editor__zoom"
+          @fit="canvasRef?.fitToScreen()"
+          @fit-width="canvasRef?.fitWidth()"
+        />
+        <span class="flat-editor__toolbar-sep"></span>
+        <BaseButton
+          size="sm"
+          icon="maximize"
+          icon-only
+          variant="ghost"
+          title="Fit to screen (0)"
+          aria-label="Fit to screen"
+          @click="canvasRef?.fitToScreen()"
+        />
+        <BaseButton
+          size="sm"
+          icon="hand"
+          icon-only
+          variant="ghost"
+          :active="panMode"
+          :pressed="panMode"
+          title="Hand tool — drag to move the pattern (H, or hold Space)"
+          aria-label="Hand tool"
+          @click="togglePanMode"
+        />
+        <span class="flat-editor__toolbar-sep hide-on-phone"></span>
+        <BaseButton
+          size="sm"
+          icon="grid"
+          icon-only
+          variant="ghost"
+          class="hide-on-phone"
+          :active="showGridLines"
+          :pressed="showGridLines"
+          title="Show grid lines"
+          aria-label="Show grid lines"
+          @click="showGridLines = !showGridLines"
+        />
+        <BaseButton
+          size="sm"
+          :icon="showReference && selectedImage ? 'eye' : 'eyeOff'"
+          icon-only
+          variant="ghost"
+          class="hide-on-phone"
+          :active="showReference && !!selectedImage"
+          :pressed="showReference && !!selectedImage"
+          :disabled="!selectedImage"
+          :title="
+            selectedImage
+              ? 'Show reference image'
+              : 'Add a reference image in the Reference tab'
+          "
+          aria-label="Show reference image"
+          @click="showReference = !showReference"
+        />
       </div>
-      <div class="pinned-section-content">
-        <!-- Dimensions Section -->
+    </AppPortal>
+
+    <!-- ===== Body ===== -->
+    <div class="flat-editor__body">
+      <ToolSidebar
+        class="flat-editor__tools"
+        :items="toolItems"
+      />
+
+      <div class="flat-editor__workspace">
         <div
-          v-if="pinnedSection === 'dimensions'"
-          class="pinned-dimensions"
+          v-if="isPasteMode"
+          class="flat-editor__banner"
+          role="status"
         >
-          <div class="dimension-inputs">
-            <label class="dimension-label">
-              <span class="dimension-text">ستون ها:</span>
-              <input
-                v-model.number="rows"
-                type="number"
-                min="1"
-                class="dimension-input"
-              />
-            </label>
-            <label class="dimension-label">
-              <span class="dimension-text">ردیف ها:</span>
-              <input
-                v-model.number="cols"
-                type="number"
-                min="1"
-                class="dimension-input"
-              />
-            </label>
-          </div>
-          <div class="cell-size-section">
-            <h4 class="mb-2 text-sm font-semibold text-gray-700">
-              📏 اندازه سلول
-            </h4>
-            <div class="dimension-inputs">
-              <label class="dimension-label">
-                <span class="dimension-text">عرض:</span>
-                <input
-                  v-model.number="cellWidth"
-                  type="number"
-                  min="5"
-                  max="50"
-                  class="dimension-input"
-                />
-              </label>
-              <label class="dimension-label">
-                <span class="dimension-text">ارتفاع:</span>
-                <input
-                  v-model.number="cellHeight"
-                  type="number"
-                  min="5"
-                  max="50"
-                  class="dimension-input"
-                />
-              </label>
-            </div>
-          </div>
+          <BaseIcon
+            name="target"
+            :size="16"
+          />
+          <span
+            >Click a bead to paste the copied area ({{ clipboardSize.width }}×{{
+              clipboardSize.height
+            }}).</span
+          >
+          <BaseButton
+            size="sm"
+            variant="ghost"
+            icon="x"
+            @click="cancelPasteMode"
+            >Cancel</BaseButton
+          >
         </div>
 
-        <!-- Direction Section -->
         <div
-          v-if="pinnedSection === 'direction'"
-          class="pinned-direction"
+          class="flat-editor__stage"
+          :class="referenceSideBySide ? 'is-side' : 'is-below'"
         >
-          <div class="direction-toggle">
-            <button
-              class="direction-btn"
-              :class="{ active: isVertical }"
-              @click="isVertical = !isVertical"
-            >
-              {{ isVertical ? 'عمودی' : 'افقی' }}
-            </button>
-          </div>
-          <div class="direction-toggle">
-            <button
-              class="direction-btn"
-              :class="{ active: isVerticalGrid }"
-              @click="isVerticalGrid = !isVerticalGrid"
-            >
-              {{ isVerticalGrid ? 'گرید عمودی' : 'گرید افقی' }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Color Section -->
-        <div
-          v-if="pinnedSection === 'color'"
-          class="pinned-color"
-        >
-          <div class="color-picker-container">
-            <input
-              v-model="selectedColor"
-              type="color"
-              class="color-picker"
-            />
-            <span class="color-value">{{ selectedColor }}</span>
-          </div>
-          <div class="recent-colors-header">
-            <h4 class="text-sm font-semibold text-gray-700">🔄 رنگ‌های اخیر</h4>
-            <button
-              v-if="recentColors.length > 0"
-              class="clear-colors-btn"
-              title="پاک کردن تمام رنگ‌ها"
-              @click="clearRecentColors"
-            >
-              🗑️ پاک کردن
-            </button>
-          </div>
-          <div class="recent-colors-grid">
-            <div
-              v-for="color in recentColors"
-              :key="color"
-              class="color-swatch"
-              :style="{ backgroundColor: color }"
-              :title="color"
-              @click="selectedColor = color"
-            >
-              <button
-                class="remove-color-btn"
-                @click.stop="removeRecentColor(color)"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Mode Section -->
-        <div
-          v-if="pinnedSection === 'mode'"
-          class="pinned-mode"
-        >
-          <div class="mode-toggle">
-            <button
-              class="mode-btn"
-              :class="{ active: paintMode === 'color' }"
-              @click="paintMode = 'color'"
-            >
-              🎨 رنگ
-            </button>
-            <button
-              class="mode-btn"
-              :class="{ active: paintMode === 'image' }"
-              @click="paintMode = 'image'"
-            >
-              🖼️ تصویر
-            </button>
-          </div>
-        </div>
-
-        <!-- Image Section -->
-        <div
-          v-if="pinnedSection === 'image'"
-          class="pinned-image"
-        >
-          <div class="image-picker-container">
-            <div class="available-images-grid">
-              <div
-                v-for="image in availableImages"
-                :key="image.name"
-                class="image-item"
-                :class="{ selected: selectedBeadImage?.url === image.url }"
-                @click="selectBeadImage(image)"
-              >
-                <img
-                  :src="image.url"
-                  :alt="image.displayName"
-                  class="bead-image"
-                />
-                <span class="image-name">{{ image.displayName }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tools Section -->
-        <div
-          v-if="pinnedSection === 'tools'"
-          class="pinned-tools"
-        >
-          <div class="tools-grid">
-            <button
-              class="tool-btn primary"
-              :class="{ active: tool === 'paint' }"
-              @click="setTool('paint')"
-            >
-              🖌️ Paint
-            </button>
-            <button
-              class="tool-btn primary"
-              :class="{ active: tool === 'fill' }"
-              @click="setTool('fill')"
-            >
-              🪣 Fill
-            </button>
-            <button
-              class="tool-btn secondary"
-              :class="{ active: tool === 'select' }"
-              @click="setTool('select')"
-            >
-              📐 Select
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="copySelection"
-            >
-              📋 Copy
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="cutSelection"
-            >
-              ✂️ Cut
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="pasteSelection"
-            >
-              📥 Paste
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="pasteAtCenter"
-            >
-              📍 Paste at Center
-            </button>
-            <button
-              class="tool-btn secondary"
-              :disabled="!hasClipboardContent()"
-              @click="enablePasteMode"
-            >
-              🎯 Select Paste Position
-            </button>
-            <button
-              v-if="isPasteMode"
-              class="tool-btn danger"
-              @click="cancelPasteMode"
-            >
-              ❌ Cancel Paste
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="clearSelection"
-            >
-              🗑️ Clear Selection
-            </button>
-            <button
-              class="tool-btn secondary"
-              :disabled="selection.length === 0"
-              @click="mirrorSelection"
-            >
-              🔄 Mirror Selection
-            </button>
-            <button
-              class="tool-btn secondary"
-              :disabled="selection.length === 0"
-              @click="mirrorSelectionVertical"
-            >
-              ↕️ Mirror Selection Vertical
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="undo"
-            >
-              ↩️ Undo
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="redo"
-            >
-              ↪️ Redo
-            </button>
-          </div>
-        </div>
-
-        <!-- Export Section -->
-        <div
-          v-if="pinnedSection === 'export'"
-          class="pinned-export"
-        >
-          <div class="save-load-buttons">
-            <button
-              class="export-btn success"
-              @click="saveGridToLocalStorage"
-            >
-              💾 ذخیره گرید
-            </button>
-            <button
-              class="export-btn info"
-              @click="loadGridFromLocalStorage"
-            >
-              📂 بارگذاری اخرین ذخیره
-            </button>
-          </div>
-          <div class="grid grid-cols-2 gap-2">
-            <button
-              class="export-btn primary"
-              @click="$emit('update-grid', getGridMatrix())"
-            >
-              🚀 ارسال به 3D
-            </button>
-            <button
-              class="export-btn success"
-              @click="() => exportGridAsImage()"
-            >
-              📷 خروجی عکس
-            </button>
-            <button
-              class="export-btn info"
-              @click="() => exportGridAsHighQualityImage()"
-            >
-              🖼️ خروجی HD
-            </button>
-            <button
-              class="export-btn warning"
-              @click="exportGridAsTxt"
-            >
-              📄 خروجی TXT
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Mobile Dropdown Panel -->
-    <div
-      class="mobile-dropdown-panel"
-      :class="{ open: isMobilePanelOpen }"
-    >
-      <div class="mobile-panel-content">
-        <!-- Image Section for Mobile -->
-        <div class="mobile-image-section">
-          <div class="upload-section grid grid-cols-2 gap-2">
-            <label class="upload-label">
-              <span class="upload-text">📁 آپلود فایل txt grid</span>
-              <input
-                type="file"
-                accept=".txt"
-                class="upload-input"
-                @change="handleTxtUpload"
-              />
-            </label>
-            <label class="upload-label">
-              <span class="upload-text">📁 آپلود تصویر</span>
-              <input
-                type="file"
-                accept="image/*"
-                class="upload-input"
-                @change="handleImageUpload"
-              />
-            </label>
-          </div>
-          <div
-            v-if="selectedImage"
-            class="image-preview"
+          <figure
+            v-if="showReferencePane"
+            class="flat-editor__reference"
           >
             <img
               :src="selectedImage"
-              alt="تصویر انتخاب شده"
-              class="preview-image"
+              alt="Reference image"
             />
-          </div>
-        </div>
-
-        <!-- Controls Panel Content for Mobile -->
-        <div class="mobile-controls-content">
-          <div class="controls-header">
-            <h3 class="mb-4 text-lg font-bold text-gray-800">
-              🎨 ابزارهای طراحی
-            </h3>
-          </div>
-
-          <div class="controls-content">
-            <!-- تنظیمات ابعاد -->
-            <div class="dimensions-section">
-              <div class="section-header">
-                <h4 class="mb-2 text-sm font-semibold text-gray-700">
-                  📐 ابعاد شبکه
-                </h4>
-                <button
-                  class="pin-btn"
-                  :class="{ pinned: pinnedSection === 'dimensions' }"
-                  :title="
-                    pinnedSection === 'dimensions'
-                      ? 'Unpin Section'
-                      : 'Pin Section'
-                  "
-                  @click="pinSection('dimensions')"
-                >
-                  {{ pinnedSection === 'dimensions' ? '📌' : '📌' }}
-                </button>
-              </div>
-              <div class="dimension-inputs">
-                <label class="dimension-label">
-                  <span class="dimension-text">ستون ها:</span>
-                  <input
-                    v-model.number="rows"
-                    type="number"
-                    min="1"
-                    class="dimension-input"
-                  />
-                </label>
-                <label class="dimension-label">
-                  <span class="dimension-text">ردیف ها:</span>
-                  <input
-                    v-model.number="cols"
-                    type="number"
-                    min="1"
-                    class="dimension-input"
-                  />
-                </label>
-              </div>
-
-              <!-- اندازه سلول -->
-              <div class="cell-size-section !mt-4">
-                <h4 class="mb-2 text-sm font-semibold text-gray-700">
-                  📏 اندازه سلول
-                </h4>
-                <div class="dimension-inputs">
-                  <label class="dimension-label">
-                    <span class="dimension-text">عرض:</span>
-                    <input
-                      v-model.number="cellWidth"
-                      type="number"
-                      min="5"
-                      max="50"
-                      class="dimension-input"
-                    />
-                  </label>
-                  <label class="dimension-label">
-                    <span class="dimension-text">ارتفاع:</span>
-                    <input
-                      v-model.number="cellHeight"
-                      type="number"
-                      min="5"
-                      max="50"
-                      class="dimension-input"
-                    />
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <!-- انتخاب جهت -->
-            <div class="direction-section">
-              <div class="section-header">
-                <h4 class="mb-2 text-sm font-semibold text-gray-700">🔄 جهت</h4>
-                <button
-                  class="pin-btn"
-                  :class="{ pinned: pinnedSection === 'direction' }"
-                  :title="
-                    pinnedSection === 'direction'
-                      ? 'Unpin Section'
-                      : 'Pin Section'
-                  "
-                  @click="pinSection('direction')"
-                >
-                  {{ pinnedSection === 'direction' ? '📌' : '📌' }}
-                </button>
-              </div>
-              <div class="direction-toggle">
-                <button
-                  class="direction-btn"
-                  :class="{ active: isVertical }"
-                  @click="isVertical = !isVertical"
-                >
-                  {{ isVertical ? 'عمودی' : 'افقی' }}
-                </button>
-              </div>
-              <div class="direction-toggle">
-                <button
-                  class="direction-btn"
-                  :class="{ active: isVerticalGrid }"
-                  @click="isVerticalGrid = !isVerticalGrid"
-                >
-                  {{ isVerticalGrid ? 'گرید عمودی' : 'گرید افقی' }}
-                </button>
-              </div>
-            </div>
-
-            <!-- انتخاب رنگ -->
-            <div class="color-section">
-              <div class="section-header">
-                <h4 class="mb-2 text-sm font-semibold text-gray-700">
-                  🎨 انتخاب رنگ
-                </h4>
-                <button
-                  class="pin-btn"
-                  :class="{ pinned: pinnedSection === 'color' }"
-                  :title="
-                    pinnedSection === 'color' ? 'Unpin Section' : 'Pin Section'
-                  "
-                  @click="pinSection('color')"
-                >
-                  {{ pinnedSection === 'color' ? '📌' : '📌' }}
-                </button>
-              </div>
-              <div class="color-picker-container">
-                <input
-                  v-model="selectedColor"
-                  type="color"
-                  class="color-picker"
-                />
-                <span class="color-value">{{ selectedColor }}</span>
-              </div>
-              <div class="recent-colors-header mt-3!">
-                <h4 class="text-sm font-semibold text-gray-700">
-                  🔄 رنگ‌های اخیر
-                </h4>
-                <button
-                  v-if="recentColors.length > 0"
-                  class="clear-colors-btn"
-                  title="پاک کردن تمام رنگ‌ها"
-                  @click="clearRecentColors"
-                >
-                  🗑️ پاک کردن
-                </button>
-              </div>
-              <div class="recent-colors-grid">
-                <div
-                  v-for="color in recentColors"
-                  :key="color"
-                  class="color-swatch"
-                  :style="{ backgroundColor: color }"
-                  :title="color"
-                  @click="selectedColor = color"
-                >
-                  <button
-                    class="remove-color-btn"
-                    @click.stop="removeRecentColor(color)"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- انتخاب حالت رنگ یا تصویر -->
-            <div class="mode-section">
-              <div class="section-header">
-                <h4 class="mb-2 text-sm font-semibold text-gray-700">
-                  🎨 حالت طراحی
-                </h4>
-                <button
-                  class="pin-btn"
-                  :class="{ pinned: pinnedSection === 'mode' }"
-                  :title="
-                    pinnedSection === 'mode' ? 'Unpin Section' : 'Pin Section'
-                  "
-                  @click="pinSection('mode')"
-                >
-                  {{ pinnedSection === 'mode' ? '📌' : '📌' }}
-                </button>
-              </div>
-              <div class="mode-toggle">
-                <button
-                  class="mode-btn"
-                  :class="{ active: paintMode === 'color' }"
-                  @click="paintMode = 'color'"
-                >
-                  🎨 رنگ
-                </button>
-                <button
-                  class="mode-btn"
-                  :class="{ active: paintMode === 'image' }"
-                  @click="paintMode = 'image'"
-                >
-                  🖼️ تصویر
-                </button>
-              </div>
-            </div>
-
-            <!-- انتخاب تصویر مهره -->
-            <div
-              v-if="paintMode === 'image'"
-              class="mode-section"
+            <button
+              type="button"
+              class="flat-editor__reference-close"
+              aria-label="Hide reference image"
+              title="Hide reference image"
+              @click="showReference = false"
             >
-              <div class="section-header">
-                <h4 class="mb-2 text-sm font-semibold text-gray-700">
-                  🖼️ انتخاب تصویر مهره
-                </h4>
-                <button
-                  class="pin-btn"
-                  :class="{ pinned: pinnedSection === 'image' }"
-                  :title="
-                    pinnedSection === 'image' ? 'Unpin Section' : 'Pin Section'
-                  "
-                  @click="pinSection('image')"
-                >
-                  {{ pinnedSection === 'image' ? '📌' : '📌' }}
-                </button>
-              </div>
-              <div class="image-picker-container">
-                <div class="available-images-grid">
-                  <div
-                    v-for="image in availableImages"
-                    :key="image.name"
-                    class="image-item"
-                    :class="{ selected: selectedBeadImage?.url === image.url }"
-                    @click="selectBeadImage(image)"
-                  >
-                    <img
-                      :src="image.url"
-                      :alt="image.displayName"
-                      class="bead-image"
-                    />
-                    <span class="image-name">{{ image.displayName }}</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- تصاویر اخیر -->
-              <div
-                v-if="recentImages.length > 0"
-                class="recent-images-section"
-              >
-                <div class="recent-images-header">
-                  <h4 class="text-sm font-semibold text-gray-700">
-                    🔄 تصاویر اخیر
-                  </h4>
-                  <button
-                    class="clear-images-btn"
-                    title="پاک کردن تمام تصاویر"
-                    @click="clearRecentImages"
-                  >
-                    🗑️ پاک کردن
-                  </button>
-                </div>
-                <div class="recent-images-grid">
-                  <div
-                    v-for="image in recentImages"
-                    :key="image.url"
-                    class="recent-image-item"
-                    :class="{ selected: selectedBeadImage?.url === image.url }"
-                    @click="selectBeadImage(image)"
-                  >
-                    <img
-                      :src="image.url"
-                      :alt="image.displayName"
-                      class="recent-bead-image"
-                    />
-                    <button
-                      class="remove-image-btn"
-                      @click.stop="removeRecentImage(image)"
-                    >
-                      ×
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- ابزارهای اصلی -->
-            <div class="tools-section">
-              <div class="section-header">
-                <h4 class="mb-2 text-sm font-semibold text-gray-700">
-                  🛠️ ابزارها
-                </h4>
-                <button
-                  class="pin-btn"
-                  :class="{ pinned: pinnedSection === 'tools' }"
-                  :title="
-                    pinnedSection === 'tools' ? 'Unpin Section' : 'Pin Section'
-                  "
-                  @click="pinSection('tools')"
-                >
-                  {{ pinnedSection === 'tools' ? '📌' : '📌' }}
-                </button>
-              </div>
-              <div class="tools-grid">
-                <button
-                  class="tool-btn primary"
-                  :class="{ active: tool === 'paint' }"
-                  @click="setTool('paint')"
-                >
-                  🖌️ Paint
-                </button>
-                <button
-                  class="tool-btn primary"
-                  :class="{ active: tool === 'fill' }"
-                  @click="setTool('fill')"
-                >
-                  🪣 Fill
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  :class="{ active: tool === 'select' }"
-                  @click="setTool('select')"
-                >
-                  📐 Select
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  @click="copySelection"
-                >
-                  📋 Copy
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  @click="cutSelection"
-                >
-                  ✂️ Cut
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  @click="pasteSelection"
-                >
-                  📥 Paste
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  @click="pasteAtCenter"
-                >
-                  📍 Paste at Center
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  :disabled="!hasClipboardContent()"
-                  @click="enablePasteMode"
-                >
-                  🎯 Select Paste Position
-                </button>
-                <button
-                  v-if="isPasteMode"
-                  class="tool-btn danger"
-                  @click="cancelPasteMode"
-                >
-                  ❌ Cancel Paste
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  @click="clearSelection"
-                >
-                  🗑️ Clear Selection
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  :disabled="selection.length === 0"
-                  @click="mirrorSelection"
-                >
-                  🔄 Mirror Selection
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  :disabled="selection.length === 0"
-                  @click="mirrorSelectionVertical"
-                >
-                  ↕️ Mirror Selection Vertical
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  @click="undo"
-                >
-                  ↩️ Undo
-                </button>
-                <button
-                  class="tool-btn secondary"
-                  @click="redo"
-                >
-                  ↪️ Redo
-                </button>
-              </div>
-
-              <!-- دکمه تغییر رنگ تمام مهره‌ها -->
-              <div class="background-color-section !mt-4">
-                <h4 class="mb-2 text-sm font-semibold text-gray-700">
-                  🎨 پس‌زمینه
-                </h4>
-
-                <!-- انتخاب حالت پس‌زمینه -->
-                <div class="background-mode-toggle">
-                  <button
-                    class="mode-btn"
-                    :class="{ active: backgroundMode === 'color' }"
-                    @click="backgroundMode = 'color'"
-                  >
-                    🎨 رنگ
-                  </button>
-                  <button
-                    class="mode-btn"
-                    :class="{ active: backgroundMode === 'image' }"
-                    @click="backgroundMode = 'image'"
-                  >
-                    🖼️ تصویر
-                  </button>
-                </div>
-
-                <!-- انتخاب رنگ -->
-                <div
-                  v-if="backgroundMode === 'color'"
-                  class="background-color-controls"
-                >
-                  <input
-                    v-model="backgroundColor"
-                    type="color"
-                    class="color-picker"
-                    title="انتخاب رنگ پس‌زمینه"
-                  />
-                  <button
-                    class="tool-btn success"
-                    @click="changeAllBeadsToColor"
-                  >
-                    🎨 تغییر تمام مهره‌ها
-                  </button>
-                </div>
-
-                <!-- انتخاب تصویر -->
-                <div
-                  v-if="backgroundMode === 'image'"
-                  class="background-image-controls"
-                >
-                  <div class="background-image-picker">
-                    <div class="background-images-grid">
-                      <div
-                        v-for="image in availableImages"
-                        :key="image.name"
-                        class="background-image-item"
-                        :class="{
-                          selected: selectedBackgroundImage?.url === image.url,
-                        }"
-                        @click="selectedBackgroundImage = image"
-                      >
-                        <img
-                          :src="image.url"
-                          :alt="image.displayName"
-                          class="background-bead-image"
-                        />
-                        <span class="background-image-name">{{
-                          image.displayName
-                        }}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    class="tool-btn success"
-                    :disabled="!selectedBackgroundImage"
-                    @click="changeAllBeadsToColor"
-                  >
-                    🖼️ تغییر تمام مهره‌ها
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- دکمه‌های خروجی -->
-            <div class="export-section">
-              <div class="section-header">
-                <h4 class="mb-2 text-sm font-semibold text-gray-700">
-                  📤 خروجی
-                </h4>
-                <button
-                  class="pin-btn"
-                  :class="{ pinned: pinnedSection === 'export' }"
-                  :title="
-                    pinnedSection === 'export' ? 'Unpin Section' : 'Pin Section'
-                  "
-                  @click="pinSection('export')"
-                >
-                  {{ pinnedSection === 'export' ? '📌' : '📌' }}
-                </button>
-              </div>
-
-              <!-- دکمه‌های ذخیره و بارگذاری -->
-              <div class="save-load-buttons mb-3">
-                <button
-                  class="export-btn success"
-                  @click="saveGridToLocalStorage"
-                >
-                  💾 ذخیره گرید
-                </button>
-                <button
-                  class="export-btn info"
-                  @click="loadGridFromLocalStorage"
-                >
-                  📂 بارگذاری اخرین ذخیره
-                </button>
-              </div>
-              <div class="grid grid-cols-2 gap-2">
-                <button
-                  class="export-btn primary"
-                  @click="$emit('update-grid', getGridMatrix())"
-                >
-                  🚀 ارسال به 3D
-                </button>
-
-                <button
-                  class="export-btn success"
-                  @click="() => exportGridAsImage()"
-                >
-                  📷 خروجی عکس
-                </button>
-
-                <button
-                  class="export-btn info"
-                  @click="() => exportGridAsHighQualityImage()"
-                >
-                  🖼️ خروجی HD
-                </button>
-
-                <button
-                  class="export-btn warning"
-                  @click="exportGridAsTxt"
-                >
-                  📄 خروجی TXT
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ابزارها - Fixed on the right side (Desktop) -->
-    <div class="controls-panel">
-      <div class="controls-header">
-        <h3 class="mb-4 text-lg font-bold text-gray-800">🎨 ابزارهای طراحی</h3>
-      </div>
-
-      <div class="controls-content">
-        <!-- تنظیمات ابعاد -->
-        <div class="dimensions-section">
-          <h4 class="mb-2 text-sm font-semibold text-gray-700">
-            📐 ابعاد شبکه
-          </h4>
-          <div class="dimension-inputs">
-            <label class="dimension-label">
-              <span class="dimension-text">ستون ها:</span>
-              <input
-                v-model.number="rows"
-                type="number"
-                min="1"
-                class="dimension-input"
+              <BaseIcon
+                name="x"
+                :size="14"
               />
-            </label>
-            <label class="dimension-label">
-              <span class="dimension-text">ردیف ها:</span>
-              <input
-                v-model.number="cols"
-                type="number"
-                min="1"
-                class="dimension-input"
-              />
-            </label>
-          </div>
-
-          <!-- اندازه سلول -->
-          <div class="cell-size-section !mt-4">
-            <h4 class="mb-2 text-sm font-semibold text-gray-700">
-              📏 اندازه سلول
-            </h4>
-            <div class="dimension-inputs">
-              <label class="dimension-label">
-                <span class="dimension-text">عرض:</span>
-                <input
-                  v-model.number="cellWidth"
-                  type="number"
-                  min="5"
-                  max="50"
-                  class="dimension-input"
-                />
-              </label>
-              <label class="dimension-label">
-                <span class="dimension-text">ارتفاع:</span>
-                <input
-                  v-model.number="cellHeight"
-                  type="number"
-                  min="5"
-                  max="50"
-                  class="dimension-input"
-                />
-              </label>
-            </div>
-          </div>
-        </div>
-
-        <!-- انتخاب جهت -->
-        <div class="direction-section">
-          <h4 class="mb-2 text-sm font-semibold text-gray-700">🔄 جهت</h4>
-          <div class="direction-toggle">
-            <button
-              class="direction-btn"
-              :class="{ active: isVertical }"
-              @click="isVertical = !isVertical"
-            >
-              {{ isVertical ? 'عمودی' : 'افقی' }}
             </button>
-          </div>
-          <div class="direction-toggle">
-            <button
-              class="direction-btn"
-              :class="{ active: isVerticalGrid }"
-              @click="isVerticalGrid = !isVerticalGrid"
-            >
-              {{ isVerticalGrid ? 'گرید عمودی' : 'گرید افقی' }}
-            </button>
-          </div>
-        </div>
+          </figure>
 
-        <!-- انتخاب رنگ -->
-        <div class="color-section">
-          <h4 class="mb-2 text-sm font-semibold text-gray-700">
-            🎨 انتخاب رنگ
-          </h4>
-          <div class="color-picker-container">
-            <input
-              v-model="selectedColor"
-              type="color"
-              class="color-picker"
-            />
-            <span class="color-value">{{ selectedColor }}</span>
-          </div>
-          <div class="recent-colors-header mt-3!">
-            <h4 class="text-sm font-semibold text-gray-700">🔄 رنگ‌های اخیر</h4>
-            <button
-              v-if="recentColors.length > 0"
-              class="clear-colors-btn"
-              title="پاک کردن تمام رنگ‌ها"
-              @click="clearRecentColors"
-            >
-              🗑️ پاک کردن
-            </button>
-          </div>
-          <div class="recent-colors-grid">
-            <div
-              v-for="color in recentColors"
-              :key="color"
-              class="color-swatch"
-              :style="{ backgroundColor: color }"
-              :title="color"
-              @click="selectedColor = color"
-            >
-              <button
-                class="remove-color-btn"
-                @click.stop="removeRecentColor(color)"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- انتخاب حالت رنگ یا تصویر -->
-        <div class="mode-section">
-          <h4 class="mb-2 text-sm font-semibold text-gray-700">
-            🎨 حالت طراحی
-          </h4>
-          <div class="mode-toggle">
-            <button
-              class="mode-btn"
-              :class="{ active: paintMode === 'color' }"
-              @click="paintMode = 'color'"
-            >
-              🎨 رنگ
-            </button>
-            <button
-              class="mode-btn"
-              :class="{ active: paintMode === 'image' }"
-              @click="paintMode = 'image'"
-            >
-              🖼️ تصویر
-            </button>
-          </div>
-        </div>
-
-        <!-- انتخاب تصویر مهره -->
-        <div
-          v-if="paintMode === 'image'"
-          class="image-section"
-        >
-          <h4 class="mb-2 text-sm font-semibold text-gray-700">
-            🖼️ انتخاب تصویر مهره
-          </h4>
-          <div class="image-picker-container">
-            <div class="available-images-grid">
-              <div
-                v-for="image in availableImages"
-                :key="image.name"
-                class="image-item"
-                :class="{ selected: selectedBeadImage?.url === image.url }"
-                @click="selectBeadImage(image)"
-              >
-                <img
-                  :src="image.url"
-                  :alt="image.displayName"
-                  class="bead-image"
-                />
-                <span class="image-name">{{ image.displayName }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- تصاویر اخیر -->
-          <div
-            v-if="recentImages.length > 0"
-            class="recent-images-section"
+          <BeadCanvas
+            ref="canvasRef"
+            v-model:zoom="zoom"
+            class="flat-editor__canvas"
+            :cells="grid"
+            :columns="rows"
+            :row-count="cols"
+            :cell-width="cellWidth"
+            :cell-height="cellHeight"
+            :selection="selection"
+            :marker-index="centerIndex"
+            :show-grid-lines="showGridLines"
+            :show-rulers="showRulers"
+            :rotated="!isVerticalGrid"
+            :pan-mode="panMode"
+            :ghost="ghost"
+            :image-prefix="BEAD_IMAGE_PREFIX"
+            :color-of="beadSwatch"
+            :draw-bead="drawFlatBead"
+            @stroke-start="startStroke"
+            @stroke-move="moveStroke"
+            @stroke-end="endStroke"
+            @stroke-cancel="cancelStroke"
+            @hover="hoverIndex = $event"
           >
-            <div class="recent-images-header">
-              <h4 class="text-sm font-semibold text-gray-700">
-                🔄 تصاویر اخیر
-              </h4>
+            <!-- Phone / tablet: buttons that open the side panel as a sheet -->
+            <div
+              v-if="isCompact"
+              class="flat-editor__fabs"
+            >
               <button
-                class="clear-images-btn"
-                title="پاک کردن تمام تصاویر"
-                @click="clearRecentImages"
+                type="button"
+                class="flat-editor__fab"
+                aria-label="Colours"
+                @click="openSheet('colors')"
               >
-                🗑️ پاک کردن
+                <span
+                  class="flat-editor__fab-swatch"
+                  :style="currentPaintStyle"
+                ></span>
               </button>
-            </div>
-            <div class="recent-images-grid">
-              <div
-                v-for="image in recentImages"
-                :key="image.url"
-                class="recent-image-item"
-                :class="{ selected: selectedBeadImage?.url === image.url }"
-                @click="selectBeadImage(image)"
+              <button
+                type="button"
+                class="flat-editor__fab"
+                aria-label="Properties"
+                @click="openSheet('properties')"
               >
-                <img
-                  :src="image.url"
-                  :alt="image.displayName"
-                  class="recent-bead-image"
+                <BaseIcon
+                  name="sliders"
+                  :size="20"
                 />
-                <button
-                  class="remove-image-btn"
-                  @click.stop="removeRecentImage(image)"
-                >
-                  ×
-                </button>
-              </div>
+              </button>
+              <button
+                type="button"
+                class="flat-editor__fab"
+                aria-label="Reference image"
+                @click="openSheet('reference')"
+              >
+                <BaseIcon
+                  name="image"
+                  :size="20"
+                />
+              </button>
             </div>
-          </div>
+          </BeadCanvas>
         </div>
 
-        <!-- ابزارهای اصلی -->
-        <div class="tools-section">
-          <h4 class="mb-2 text-sm font-semibold text-gray-700">🛠️ ابزارها</h4>
-          <div class="tools-grid">
-            <button
-              class="tool-btn primary"
-              :class="{ active: tool === 'paint' }"
-              @click="setTool('paint')"
-            >
-              🖌️ Paint
-            </button>
-            <button
-              class="tool-btn primary"
-              :class="{ active: tool === 'fill' }"
-              @click="setTool('fill')"
-            >
-              🪣 Fill
-            </button>
-            <button
-              class="tool-btn secondary"
-              :class="{ active: tool === 'select' }"
-              @click="setTool('select')"
-            >
-              📐 Select
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="copySelection"
-            >
-              📋 Copy
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="cutSelection"
-            >
-              ✂️ Cut
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="pasteSelection"
-            >
-              📥 Paste
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="pasteAtCenter"
-            >
-              📍 Paste at Center
-            </button>
-            <button
-              class="tool-btn secondary"
-              :disabled="!hasClipboardContent()"
-              @click="enablePasteMode"
-            >
-              🎯 Select Paste Position
-            </button>
-            <button
-              v-if="isPasteMode"
-              class="tool-btn danger"
-              @click="cancelPasteMode"
-            >
-              ❌ Cancel Paste
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="clearSelection"
-            >
-              🗑️ Clear Selection
-            </button>
-            <button
-              class="tool-btn secondary"
-              :disabled="selection.length === 0"
-              @click="mirrorSelection"
-            >
-              🔄 Mirror Selection
-            </button>
-            <button
-              class="tool-btn secondary"
-              :disabled="selection.length === 0"
-              @click="mirrorSelectionVertical"
-            >
-              ↕️ Mirror Selection Vertical
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="undo"
-            >
-              ↩️ Undo
-            </button>
-            <button
-              class="tool-btn secondary"
-              @click="redo"
-            >
-              ↪️ Redo
-            </button>
-          </div>
-
-          <!-- دکمه تغییر رنگ تمام مهره‌ها -->
-          <div class="background-color-section !mt-4">
-            <h4 class="mb-2 text-sm font-semibold text-gray-700">
-              🎨 پس‌زمینه
-            </h4>
-
-            <!-- انتخاب حالت پس‌زمینه -->
-            <div class="background-mode-toggle">
-              <button
-                class="mode-btn"
-                :class="{ active: backgroundMode === 'color' }"
-                @click="backgroundMode = 'color'"
-              >
-                🎨 رنگ
-              </button>
-              <button
-                class="mode-btn"
-                :class="{ active: backgroundMode === 'image' }"
-                @click="backgroundMode = 'image'"
-              >
-                🖼️ تصویر
-              </button>
-            </div>
-
-            <!-- انتخاب رنگ -->
-            <div
-              v-if="backgroundMode === 'color'"
-              class="background-color-controls"
-            >
-              <input
-                v-model="backgroundColor"
-                type="color"
-                class="color-picker"
-                title="انتخاب رنگ پس‌زمینه"
-              />
-              <button
-                class="tool-btn success"
-                @click="changeAllBeadsToColor"
-              >
-                🎨 تغییر تمام مهره‌ها
-              </button>
-            </div>
-
-            <!-- انتخاب تصویر -->
-            <div
-              v-if="backgroundMode === 'image'"
-              class="background-image-controls"
-            >
-              <div class="background-image-picker">
-                <div class="background-images-grid">
-                  <div
-                    v-for="image in availableImages"
-                    :key="image.name"
-                    class="background-image-item"
-                    :class="{
-                      selected: selectedBackgroundImage?.url === image.url,
-                    }"
-                    @click="selectedBackgroundImage = image"
-                  >
-                    <img
-                      :src="image.url"
-                      :alt="image.displayName"
-                      class="background-bead-image"
-                    />
-                    <span class="background-image-name">{{
-                      image.displayName
-                    }}</span>
-                  </div>
-                </div>
-              </div>
-              <button
-                class="tool-btn success"
-                :disabled="!selectedBackgroundImage"
-                @click="changeAllBeadsToColor"
-              >
-                🖼️ تغییر تمام مهره‌ها
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- دکمه‌های خروجی -->
-        <div class="export-section">
-          <h4 class="mb-2 text-sm font-semibold text-gray-700">📤 خروجی</h4>
-
-          <!-- دکمه‌های ذخیره و بارگذاری -->
-          <div class="save-load-buttons mb-3">
-            <button
-              class="export-btn success"
-              @click="saveGridToLocalStorage"
-            >
-              💾 ذخیره گرید
-            </button>
-            <button
-              class="export-btn info"
-              @click="loadGridFromLocalStorage"
-            >
-              📂 بارگذاری اخرین ذخیره
-            </button>
-          </div>
-          <div class="grid grid-cols-2 gap-2">
-            <button
-              class="export-btn primary"
-              @click="$emit('update-grid', getGridMatrix())"
-            >
-              🚀 ارسال به 3D
-            </button>
-
-            <button
-              class="export-btn success"
-              @click="() => exportGridAsImage()"
-            >
-              📷 خروجی عکس
-            </button>
-
-            <button
-              class="export-btn info"
-              @click="() => exportGridAsHighQualityImage()"
-            >
-              🖼️ خروجی HD
-            </button>
-
-            <button
-              class="export-btn warning"
-              @click="exportGridAsTxt"
-            >
-              📄 خروجی TXT
-            </button>
-          </div>
-        </div>
+        <StatusBar :items="statusItems" />
       </div>
-    </div>
 
-    <!-- صفحه شطرنجی -->
-    <!--  -->
-    <div
-      class="grid-container max-md:min-h-[calc(100vh_-_310px)] md:max-h-[calc(100vh_-_200px)]"
-      :class="{
-        '!flex-row': isVertical,
-        '!flex-col-reverse': !isVertical,
-        'pinned-active': pinnedSection,
-      }"
-    >
-      <div class="image-section max-h-[70%]">
-        <div class="upload-section grid grid-cols-2 gap-2">
-          <label class="upload-label">
-            <span class="upload-text">📁 آپلود فایل txt grid</span>
-            <input
-              type="file"
-              accept=".txt"
-              class="upload-input"
-              @change="handleTxtUpload"
-            />
-          </label>
-          <label class="upload-label">
-            <span class="upload-text">📁 آپلود تصویر</span>
-            <input
-              type="file"
-              accept="image/*"
-              class="upload-input"
-              @change="handleImageUpload"
-            />
-          </label>
-        </div>
-        <div
-          v-if="selectedImage"
-          class="image-preview"
+      <!-- ===== Side panel (desktop) / bottom sheet (phone & tablet) ===== -->
+      <component
+        :is="isCompact ? BottomSheet : 'aside'"
+        v-bind="panelWrapperProps"
+      >
+        <template
+          v-if="isCompact"
+          #header
         >
-          <img
-            :src="selectedImage"
-            alt="تصویر انتخاب شده"
-            class="preview-image"
+          <SegmentedControl
+            v-model="panelTab"
+            :options="panelTabs"
+            variant="tabs"
+            size="sm"
+          />
+        </template>
+
+        <div class="flat-editor__panel-inner">
+          <PanelCard
+            v-if="!isCompact"
+            flush
+            class="flat-editor__tabs-card"
+          >
+            <div class="flat-editor__tabs-head">
+              <SegmentedControl
+                v-model="panelTab"
+                :options="panelTabs"
+                variant="tabs"
+                size="md"
+                block
+              />
+            </div>
+            <div class="flat-editor__tabs-body">
+              <component
+                :is="panelComponent"
+                v-bind="panelProps"
+                v-on="panelListeners"
+              />
+            </div>
+          </PanelCard>
+
+          <component
+            :is="panelComponent"
+            v-else
+            v-bind="panelProps"
+            v-on="panelListeners"
+          />
+
+          <label class="flat-preset">
+            <span>Ready-made patterns</span>
+            <select
+              aria-label="Ready-made square-stitch patterns"
+              @change="selectPreset"
+            >
+              <option
+                value=""
+                disabled
+                selected
+              >
+                Select a pattern…
+              </option>
+              <option
+                v-for="preset in flatPresets"
+                :key="preset.id"
+                :value="preset.id"
+              >
+                {{ preset.name }} ({{ preset.columns }} × {{ preset.rows }})
+              </option>
+            </select>
+          </label>
+          <GridDimensionsCard
+            v-model:columns="displayColumns"
+            v-model:rows="displayRows"
+            :max-columns="isVerticalGrid ? 200 : 1000"
+            :max-rows="isVerticalGrid ? 1000 : 200"
           />
         </div>
-      </div>
-      <div
-        class="grid-wrapper"
-        :class="{
-          'rotate-none': isVerticalGrid,
-          'z-10 h-fit! min-h-fit! w-fit! translate-x-[200%] translate-y-[10%] rotate-90':
-            !isVerticalGrid,
-        }"
-      >
-        <div
-          class="grid-item"
-          :style="{
-            gridTemplateColumns: `repeat(${rows}, ${cellWidth}px)`,
-            gridAutoRows: `${cellHeight}px`,
-          }"
-          @mousedown="startDrawing"
-          @mouseup="stopDrawing"
-          @mouseleave="stopDrawing"
-          @mousemove="drawMove"
-          @touchstart="handleTouchStart"
-          @touchmove="handleTouchMove"
-          @touchend="handleTouchEnd"
-          @touchcancel="handleTouchEnd"
-        >
-          <div
-            v-for="(cell, i) in grid"
-            :key="i"
-            class="cell"
-            :class="{
-              '!border-red-200': i == Math.floor((rows * cols) / 2),
-            }"
-            :style="{
-              backgroundColor: cell.startsWith('/miyuki-beads-designer/beads/')
-                ? 'transparent'
-                : cell,
-              backgroundImage: cell.startsWith('/miyuki-beads-designer/beads/')
-                ? `url(${cell})`
-                : 'none',
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              border: selection.includes(i)
-                ? '2px dashed #ff4757'
-                : '1px solid #ddd',
-              width: `${cellWidth}px`,
-              height: `${cellHeight}px`,
-              minWidth: `${cellWidth}px`,
-              minHeight: `${cellHeight}px`,
-            }"
-            @click="handleCellClick(i)"
-          ></div>
-        </div>
-      </div>
+      </component>
     </div>
+
+    <!-- Hidden picker used by the ⋮ menu -->
+    <FilePickerButton
+      ref="referencePicker"
+      class="sr-only"
+      accept="image/*"
+      tabindex="-1"
+      aria-hidden="true"
+      @change="onReferenceUpload"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, watch, onMounted, nextTick } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, toRef } from 'vue';
+import { useMediaQuery } from '@vueuse/core';
+import { useRouter } from 'vue-router';
+import AppPortal from '@/components/layout/AppPortal.vue';
+import BaseButton from '@/components/ui/BaseButton.vue';
+import BaseIcon from '@/components/ui/BaseIcon.vue';
+import BottomSheet from '@/components/ui/BottomSheet.vue';
+import EditableTitle from '@/components/ui/EditableTitle.vue';
+import FilePickerButton from '@/components/ui/FilePickerButton.vue';
+import PanelCard from '@/components/ui/PanelCard.vue';
+import SavedBadge from '@/components/ui/SavedBadge.vue';
+import SegmentedControl from '@/components/ui/SegmentedControl.vue';
+import StatusBar from '@/components/ui/StatusBar.vue';
+import BeadCanvas from '@/components/editor/BeadCanvas.vue';
+import DelicaColorsPanel from '@/components/peyote/DelicaColorsPanel.vue';
+import { beadSwatch, delicaEntry } from '@/components/peyote/delicaCatalog.js';
 import {
-  showError,
-  showSuccess,
-  showConfirm,
-  showInfo,
-} from '@/lib/utils/sweetalert';
+  delicaThumbnail,
+  drawDelicaBead,
+} from '@/components/peyote/delicaThumbnail.js';
+import { flatPresets } from './flatPresets.js';
+import FileActions from '@/components/editor/FileActions.vue';
+import GridDimensionsCard from '@/components/editor/GridDimensionsCard.vue';
+import PropertiesPanel from '@/components/editor/PropertiesPanel.vue';
+import ReferencePanel from '@/components/editor/ReferencePanel.vue';
+import ToolSidebar from '@/components/editor/ToolSidebar.vue';
+import ZoomControls from '@/components/editor/ZoomControls.vue';
+import { showInfo } from '@/lib/utils/sweetalert';
+import {
+  BEAD_IMAGE_PREFIX,
+  useFlatGridEditor,
+} from '@/composables/useFlatGridEditor';
+
+const props = defineProps({
+  /** The saved project this editor reads and writes. */
+  projectId: { type: String, required: true },
+  /** False while another view (3D, steps…) is shown in place of the editor. */
+  active: { type: Boolean, default: true },
+});
 
 const emit = defineEmits(['update-grid']);
 
-const rows = ref(16);
-const cols = ref(80);
-const cellWidth = ref(15);
-const cellHeight = ref(17);
-const selectedColor = ref('#ff0000');
-const recentColors = ref([]);
-const lastSavedTime = ref(null);
-const isVertical = ref(() => {
-  try {
-    const saved = localStorage.getItem('gridEditor_isVertical');
-    console.log('saved', saved);
-    return saved !== null ? JSON.parse(saved) : true;
-  } catch {
-    return true;
-  }
-});
-const isVerticalGrid = ref(true);
-const selectedImage = ref(null);
-const paintMode = ref('color'); // 'color' or 'image'
-const selectedBeadImage = ref(null);
-const recentImages = ref([]);
-const availableImages = ref([]);
-
-// Mobile panel state
-const isMobilePanelOpen = ref(false);
-
-// Pinning state
-const pinnedSection = ref(null);
-
-// Toggle mobile panel
-function toggleMobilePanel() {
-  isMobilePanelOpen.value = !isMobilePanelOpen.value;
+const router = useRouter();
+function openProjects() {
+  router.push({ name: 'projects', query: { mode: 'flat' } });
 }
 
-// Pin/unpin section functions
-function pinSection(sectionName) {
-  if (pinnedSection.value === sectionName) {
-    // If already pinned, unpin it
-    pinnedSection.value = null;
-  } else {
-    // Pin the new section (this will automatically unpin the previous one)
-    pinnedSection.value = sectionName;
-    // Auto-close the mobile menu when pinning a section
-    isMobilePanelOpen.value = false;
-  }
-}
-
-function unpinSection() {
-  pinnedSection.value = null;
-}
-
-// Helper functions for pinned section
-function getSectionTitle(sectionName) {
-  const titles = {
-    dimensions: '📐 ابعاد شبکه',
-    direction: '🔄 جهت',
-    color: '🎨 انتخاب رنگ',
-    mode: '🎨 حالت طراحی',
-    image: '🖼️ انتخاب تصویر مهره',
-    tools: '🛠️ ابزارها',
-    export: '📤 خروجی',
-  };
-  return titles[sectionName] || sectionName;
-}
-
-const grid = ref([]);
-
-// توابع ذخیره و بارگذاری grid در localStorage
-function saveGridToLocalStorage() {
-  try {
-    const gridData = {
-      grid: grid.value,
-      rows: rows.value,
-      cols: cols.value,
-      cellWidth: cellWidth.value,
-      cellHeight: cellHeight.value,
-      isVertical: isVertical.value,
-      isVerticalGrid: isVerticalGrid.value,
-      recentColors: recentColors.value,
-      recentImages: recentImages.value,
-      timestamp: new Date().toISOString(),
-    };
-    localStorage.setItem('gridEditorData', JSON.stringify(gridData));
-    lastSavedTime.value = gridData.timestamp;
-    showSuccess('ذخیره شد', 'گرید با موفقیت ذخیره شد');
-  } catch (error) {
-    showError('خطا در ذخیره', 'خطا در ذخیره گرید: ' + error.message);
-    console.error('Error saving grid:', error);
-  }
-}
-
-function loadGridFromLocalStorage() {
-  try {
-    const savedData = localStorage.getItem('gridEditorData');
-    if (savedData) {
-      const gridData = JSON.parse(savedData);
-
-      // بررسی اعتبار داده‌های ذخیره شده
-      if (
-        gridData.grid &&
-        Array.isArray(gridData.grid) &&
-        gridData.rows &&
-        gridData.cols &&
-        gridData.grid.length === gridData.rows * gridData.cols
-      ) {
-        // بارگذاری داده‌ها
-        rows.value = gridData.rows;
-        cols.value = gridData.cols;
-        grid.value = [...gridData.grid];
-
-        // بارگذاری اندازه سلول (اگر موجود باشد)
-        if (gridData.cellWidth && typeof gridData.cellWidth === 'number') {
-          cellWidth.value = gridData.cellWidth;
-        }
-        if (gridData.cellHeight && typeof gridData.cellHeight === 'number') {
-          cellHeight.value = gridData.cellHeight;
-        }
-
-        // بارگذاری جهت (اگر موجود باشد)
-        if (typeof gridData.isVertical === 'boolean') {
-          isVertical.value = gridData.isVertical;
-        }
-        if (typeof gridData.isVerticalGrid === 'boolean') {
-          isVerticalGrid.value = gridData.isVerticalGrid;
-        }
-
-        // بارگذاری رنگ‌های اخیر (اگر موجود باشد)
-        if (gridData.recentColors && Array.isArray(gridData.recentColors)) {
-          recentColors.value = [...gridData.recentColors];
-        }
-
-        // بارگذاری تصاویر اخیر (اگر موجود باشد)
-        if (gridData.recentImages && Array.isArray(gridData.recentImages)) {
-          recentImages.value = [...gridData.recentImages];
-        }
-
-        // تنظیم زمان آخرین ذخیره
-        lastSavedTime.value = gridData.timestamp;
-
-        // ریست کردن تاریخچه
-        history.stacks = [];
-        history.index = -1;
-        saveHistory();
-
-        emit('update-grid', getGridMatrix());
-
-        // showSuccess('بارگذاری شد', 'گرید با موفقیت بارگذاری شد');
-        return true;
-      } else {
-        // داده‌های نامعتبر، حذف از localStorage
-        localStorage.removeItem('gridEditorData');
-        showInfo('اطلاعات', 'داده‌های ذخیره شده نامعتبر بودند و حذف شدند');
-        return false;
-      }
-    }
-    return false;
-  } catch (error) {
-    showError('خطا در بارگذاری', 'خطا در بارگذاری گرید: ' + error.message);
-    console.error('Error loading grid:', error);
-    // در صورت خطا، حذف داده‌های خراب
-    localStorage.removeItem('gridEditorData');
-    return false;
-  }
-}
-
-// تابع مدیریت کلیدهای میانبر
-function handleKeydown(event) {
-  // Ctrl+Z برای undo
-  console.log('Key pressed:', event.key, 'Ctrl:', event.ctrlKey);
-  if (event.ctrlKey && event.key === 'z') {
-    event.preventDefault();
-    undo();
-    console.log('Undo triggered by Ctrl+Z');
-  }
-}
-
-// بارگذاری خودکار گرید در هنگام شروع
-onMounted(() => {
-  const loaded = loadGridFromLocalStorage();
-  isVertical.value =
-    localStorage.getItem('gridEditor_isVertical') !== null
-      ? JSON.parse(localStorage.getItem('gridEditor_isVertical'))
-      : true;
-  // اگر localStorage خالی بود، گرید را با مقادیر پیش‌فرض مقداردهی کن
-  if (!loaded) {
-    const initialSize = rows.value * cols.value;
-    grid.value = Array(initialSize).fill('#ffffff');
-    saveHistory();
-  }
-  loadAvailableImages();
-
-  // اضافه کردن listener برای کلیدهای میانبر
-  document.addEventListener('keydown', handleKeydown);
-});
-
-// بارگذاری تصاویر موجود در پوشه beads
-function loadAvailableImages() {
-  const imageFiles = [
-    '310.jpg',
-    '1130.jpg',
-    '1135.jpg',
-    '2116.jpg',
-    '2131.jpg',
-    '2132.jpg',
-    '725.jpg',
-    '877.jpg',
-    'f111.jpg',
-    'f222.jpg',
-    'f333.jpg',
-    'f444.jpg',
-    'f555.jpg',
-    'f666.jpg',
-    'f777.jpg',
-    'f888.jpg',
-    'f999.jpg',
-    'f1010.jpg',
-    'f1111.jpg',
-    'f1212.jpg',
-    'f1313.jpg',
-    'f1414.jpg',
-    'f1515.jpg',
-    'Awhite.jpg',
-    'Turquoise.jpg',
-    'db0042.jpg',
-    'db0221.jpg',
-    'db0231.jpg',
-    'db0268.jpg',
-    'db0623.jpg',
-    'db0627.jpg',
-    'db0635.jpg',
-    'db0651.jpg',
-    'db0680.jpg',
-    'db0721.jpg',
-    'db0722.jpg',
-    'db0723.jpg',
-    'db0725.jpg',
-    'db0726.jpg',
-    'db0729.jpg',
-    'db0759.jpg',
-    'db0763.jpg',
-    'db0791.jpg',
-    'db0796.jpg',
-    'db0877.jpg',
-    'db1132.jpg',
-    'db1133.jpg',
-    'db1135.jpg',
-    'db1153.jpg',
-    'db1262.jpg',
-    'db1570.jpg',
-    'db1802.jpg',
-    'db1832.jpg',
-    'db1832-2.jpg',
-    'db2111.jpg',
-    'db2127.jpg',
-    'db2131.jpg',
-    'db2132.jpg',
-    'db2144.jpg',
-    'db2316.jpg',
-    'db2352.jpg',
-    'db2357.jpg',
-    'db310.jpg',
-    'db626.jpg',
-    'db732.jpg',
-    'db856.jpg',
-  ];
-
-  availableImages.value = imageFiles.map((filename) => ({
-    name: filename,
-    url: `/miyuki-beads-designer/beads/${filename}`,
-    displayName: filename.replace('.jpg', ''),
-  }));
-}
-
-const selection = ref([]);
-const clipboard = ref([]);
-const clipboardSize = ref({ width: 0, height: 0 });
-const pastePosition = ref({ x: 0, y: 0 });
-const isPasteMode = ref(false);
-
-const tool = ref('paint');
-let isDrawing = false;
-let selectionStart = null;
-let isSelecting = false;
-
-// Touch event handling
-let isMultiTouch = false;
-let isPainting = false;
-let lastPaintedCell = -1;
-
-// تاریخچه Undo/Redo
-const history = reactive({ stacks: [], index: -1 });
-function saveHistory() {
-  history.stacks = history.stacks.slice(0, history.index + 1);
-  history.stacks.push([...grid.value]);
-  history.index++;
-}
-function undo() {
-  if (history.index > 0) {
-    history.index--;
-    grid.value = [...history.stacks[history.index]];
-  }
-}
-function redo() {
-  if (history.index < history.stacks.length - 1) {
-    history.index++;
-    grid.value = [...history.stacks[history.index]];
-  }
-}
-saveHistory();
-
-function handleTxtUpload(e) {
-  const file = e.target.files[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target.result.trim();
-        const parsedContent = JSON.parse(content);
-
-        // بررسی فرمت جدید (شامل rows و cols)
-        if (parsedContent.grid && parsedContent.rows && parsedContent.cols) {
-          // فرمت جدید: شامل ابعاد
-          const {
-            grid: colors,
-            rows: fileRows,
-            cols: fileCols,
-          } = parsedContent;
-
-          // بررسی اعتبار آرایه رنگ‌ها و تصاویر
-          if (
-            Array.isArray(colors) &&
-            colors.every(
-              (cell) =>
-                typeof cell === 'string' &&
-                (cell.match(/^#[0-9A-Fa-f]{6}$/) || // رنگ‌های hex
-                  cell.startsWith('/miyuki-beads-designer/beads/')), // تصاویر مهره
-            )
-          ) {
-            // بررسی تطابق تعداد سلول‌ها با ابعاد
-            if (colors.length === fileRows * fileCols) {
-              // ابتدا ابعاد را تغییر بده
-              rows.value = fileRows;
-              cols.value = fileCols;
-
-              // بارگذاری اندازه سلول (اگر موجود باشد)
-              if (
-                parsedContent.cellWidth &&
-                typeof parsedContent.cellWidth === 'number'
-              ) {
-                cellWidth.value = parsedContent.cellWidth;
-              }
-              if (
-                parsedContent.cellHeight &&
-                typeof parsedContent.cellHeight === 'number'
-              ) {
-                cellHeight.value = parsedContent.cellHeight;
-              }
-
-              // بارگذاری جهت (اگر موجود باشد)
-              if (typeof parsedContent.isVertical === 'boolean') {
-                isVertical.value = parsedContent.isVertical;
-              }
-              if (typeof parsedContent.isVerticalGrid === 'boolean') {
-                isVerticalGrid.value = parsedContent.isVerticalGrid;
-              }
-
-              // منتظر بمان تا watcher اجرا شود
-              nextTick(() => {
-                // حالا گرید را تنظیم کن
-                grid.value = [...colors];
-                saveHistory();
-                showSuccess(
-                  'بارگذاری شد',
-                  `گرید ${fileRows}×${fileCols} با موفقیت بارگذاری شد`,
-                );
-              });
-            } else {
-              showError(
-                'خطا در ابعاد',
-                `تعداد سلول‌ها (${colors.length}) با ابعاد اعلام شده (${fileRows}×${fileCols}) مطابقت ندارد`,
-              );
-            }
-          } else {
-            showError(
-              'خطا در فرمت فایل',
-              'فایل باید شامل آرایه‌ای معتبر از رنگ‌ها یا تصاویر باشد',
-            );
-          }
-        } else if (Array.isArray(parsedContent)) {
-          // فرمت قدیمی: فقط آرایه رنگ‌ها
-          const colors = parsedContent;
-
-          // بررسی اعتبار آرایه رنگ‌ها و تصاویر
-          if (
-            colors.every(
-              (cell) =>
-                typeof cell === 'string' &&
-                (cell.match(/^#[0-9A-Fa-f]{6}$/) || // رنگ‌های hex
-                  cell.startsWith('/miyuki-beads-designer/beads/')), // تصاویر مهره
-            )
-          ) {
-            // استفاده از ابعاد فعلی سایت
-            if (colors.length === rows.value * cols.value) {
-              grid.value = [...colors];
-              saveHistory();
-              showSuccess(
-                'بارگذاری شد',
-                `گرید با ابعاد فعلی (${rows.value}×${cols.value}) بارگذاری شد`,
-              );
-            } else {
-              showError(
-                'خطا در ابعاد',
-                `تعداد سلول‌ها (${colors.length}) با ابعاد فعلی (${rows.value}×${cols.value}) مطابقت ندارد. لطفاً ابعاد را تنظیم کنید یا از فایل با فرمت جدید استفاده کنید.`,
-              );
-            }
-          } else {
-            showError(
-              'خطا در فرمت فایل',
-              'فایل باید شامل آرایه‌ای معتبر از رنگ‌ها یا تصاویر باشد',
-            );
-          }
-        } else {
-          showError(
-            'خطا در فرمت فایل',
-            'فرمت فایل نامعتبر است. فایل باید شامل آرایه‌ای از رنگ‌ها/تصاویر یا آبجکتی با grid، rows و cols باشد.',
-          );
-        }
-      } catch (error) {
-        showError('خطا در خواندن فایل', 'خطا در خواندن فایل: ' + error.message);
-        console.error('Error parsing text file:', error);
-      }
-    };
-    reader.readAsText(file);
-  }
-}
-
-watch(
-  [rows, cols],
-  () => {
-    // فقط اگر تعداد سلول‌ها تغییر کرده باشد، گرید را ریست کن
-    const newSize = rows.value * cols.value;
-    if (grid.value.length !== newSize) {
-      grid.value = Array(newSize).fill('#ffffff');
-      // ریست کردن selection اما حفظ کردن clipboard
-      selection.value = [];
-      isPasteMode.value = false;
-      saveHistory();
-    }
-  },
-  { immediate: true },
-);
-
-// ذخیره خودکار گرید در localStorage هنگام تغییر
-watch(
-  grid,
-  () => {
-    // تاخیر کوتاه برای جلوگیری از ذخیره مکرر
-    setTimeout(() => {
-      try {
-        const gridData = {
-          grid: grid.value,
-          rows: rows.value,
-          cols: cols.value,
-          recentColors: recentColors.value,
-          recentImages: recentImages.value,
-          timestamp: new Date().toISOString(),
-        };
-        localStorage.setItem('gridEditorData', JSON.stringify(gridData));
-        lastSavedTime.value = gridData.timestamp;
-      } catch (error) {
-        console.error('Error auto-saving grid:', error);
-      }
-    }, 1000); // تاخیر 1 ثانیه
-  },
-  { deep: true },
-);
-
-// ذخیره خودکار جهت isVertical در localStorage هنگام تغییر
-watch(
+const {
+  rows,
+  cols,
+  cellWidth,
+  cellHeight,
+  selectedColor,
+  recentColors,
+  lastSavedTime,
   isVertical,
-  (newValue) => {
-    try {
-      localStorage.setItem('gridEditor_isVertical', JSON.stringify(newValue));
-      console.log('isVertical saved', newValue);
-    } catch (error) {
-      console.error('Error saving isVertical to localStorage:', error);
-    }
+  isVerticalGrid,
+  selectedImage,
+  paintMode,
+  selectedBeadImage,
+  recentImages,
+  availableImages,
+  projectName,
+  grid,
+  selection,
+  clipboard,
+  clipboardSize,
+  isPasteMode,
+  tool,
+  backgroundColor,
+  backgroundMode,
+  selectedBackgroundImage,
+  hoverIndex,
+  beadCount,
+  centerIndex,
+  canUndo,
+  canRedo,
+  hasClipboard,
+  setTool,
+  startStroke,
+  moveStroke,
+  endStroke,
+  cancelStroke,
+  undo,
+  redo,
+  copySelection,
+  cutSelection,
+  pasteSelection,
+  pasteAtCenter,
+  enablePasteMode,
+  cancelPasteMode,
+  clearSelection,
+  mirrorSelection,
+  mirrorSelectionVertical,
+  selectBeadImage,
+  removeRecentImage,
+  clearRecentImages,
+  removeRecentColor,
+  clearRecentColors,
+  fillWithBead,
+  applyPreset,
+  changeAllBeadsToColor,
+  saveGridToLocalStorage,
+  loadGridFromLocalStorage,
+  newPattern,
+  handleTxtUpload,
+  handleImageUpload,
+  removeReferenceImage,
+  exportGridAsImage,
+  exportGridAsHighQualityImage,
+  exportGridAsTxt,
+  getGridMatrix,
+} = useFlatGridEditor({
+  onGridChange: () => emit('update-grid', getDisplayGridMatrix()),
+  active: toRef(props, 'active'),
+  projectId: props.projectId,
+});
+
+// Keep the saved matrix in its original order and map the canvas rotation at the UI boundary.
+const displayColumns = computed({
+  get: () => (isVerticalGrid.value ? rows.value : cols.value),
+  set: (value) => {
+    (isVerticalGrid.value ? rows : cols).value = value;
   },
-  { immediate: false },
+});
+const displayRows = computed({
+  get: () => (isVerticalGrid.value ? cols.value : rows.value),
+  set: (value) => {
+    (isVerticalGrid.value ? cols : rows).value = value;
+  },
+});
+
+function drawFlatBead(ctx, value, x, y, width, height) {
+  return drawDelicaBead(ctx, value, x, y, width, height, cols.value > rows.value);
+}
+
+function getDisplayGridMatrix() {
+  const matrix = getGridMatrix();
+  if (isVerticalGrid.value) return matrix;
+  return Array.from({ length: displayRows.value }, (_, row) =>
+    matrix.map((line) => line[row]).reverse(),
+  );
+}
+
+const hoverPosition = computed(() => {
+  const column = hoverIndex.value % rows.value;
+  const row = Math.floor(hoverIndex.value / rows.value);
+  return isVerticalGrid.value
+    ? { column: column + 1, row: row + 1 }
+    : { column: cols.value - row, row: column + 1 };
+});
+
+// ---- View state (not part of the pattern) -----------------------------------------
+const canvasRef = ref(null);
+const referencePicker = ref(null);
+const zoom = ref(1);
+const panMode = ref(false);
+const showGridLines = ref(true);
+const showRulers = ref(true);
+const showReference = ref(true);
+const panelTab = ref('colors');
+const sheetOpen = ref(false);
+
+const isCompact = useMediaQuery('(max-width: 900px)');
+const isPhone = useMediaQuery('(max-width: 640px)');
+
+const showReferencePane = computed(
+  () => !!selectedImage.value && showReference.value,
+);
+const referenceSideBySide = computed(() => isVertical.value && !isPhone.value);
+
+// ---- Tools ---------------------------------------------------------------------------
+function chooseTool(t) {
+  panMode.value = false;
+  setTool(t);
+}
+
+function togglePanMode() {
+  panMode.value = !panMode.value;
+}
+
+const hasSelection = computed(() => selection.value.length > 0);
+
+const toolItems = computed(() => [
+  {
+    id: 'paint',
+    primary: true,
+    label: 'Paint',
+    icon: 'brush',
+    shortcut: 'B',
+    active: tool.value === 'paint' && !panMode.value,
+    onClick: () => chooseTool('paint'),
+  },
+  {
+    id: 'fill',
+    primary: true,
+    label: 'Fill',
+    icon: 'bucket',
+    shortcut: 'G',
+    active: tool.value === 'fill' && !panMode.value,
+    onClick: () => chooseTool('fill'),
+  },
+  {
+    id: 'select',
+    primary: true,
+    label: 'Select',
+    icon: 'select',
+    shortcut: 'M',
+    active: tool.value === 'select' && !panMode.value,
+    onClick: () => chooseTool('select'),
+  },
+  {
+    id: 'hand',
+    primary: true,
+    label: 'Move',
+    icon: 'hand',
+    shortcut: 'H',
+    toggle: true,
+    active: panMode.value,
+    onClick: togglePanMode,
+  },
+  { divider: true },
+  {
+    id: 'copy',
+    label: 'Copy',
+    icon: 'copy',
+    shortcut: 'Ctrl+C',
+    disabled: !hasSelection.value,
+    onClick: () => copySelection(),
+  },
+  {
+    id: 'cut',
+    label: 'Cut',
+    icon: 'scissors',
+    shortcut: 'Ctrl+X',
+    disabled: !hasSelection.value,
+    onClick: cutSelection,
+  },
+  {
+    id: 'paste',
+    label: 'Paste',
+    icon: 'clipboard',
+    shortcut: 'Ctrl+V',
+    disabled: !hasClipboard.value,
+    onClick: pasteSelection,
+  },
+  {
+    id: 'paste-center',
+    label: 'Paste center',
+    icon: 'crosshair',
+    disabled: !hasClipboard.value,
+    onClick: pasteAtCenter,
+  },
+  {
+    id: 'paste-at',
+    label: 'Paste at…',
+    icon: 'target',
+    toggle: true,
+    active: isPasteMode.value,
+    disabled: !hasClipboard.value,
+    onClick: () => (isPasteMode.value ? cancelPasteMode() : enablePasteMode()),
+  },
+  { divider: true },
+  {
+    id: 'mirror-h',
+    label: 'Mirror',
+    icon: 'flipH',
+    disabled: !hasSelection.value,
+    onClick: mirrorSelection,
+  },
+  {
+    id: 'mirror-v',
+    label: 'Flip',
+    icon: 'flipV',
+    disabled: !hasSelection.value,
+    onClick: mirrorSelectionVertical,
+  },
+  {
+    id: 'deselect',
+    label: 'Deselect',
+    icon: 'deselect',
+    shortcut: 'Esc',
+    disabled: !hasSelection.value,
+    onClick: clearSelection,
+  },
+  { divider: true },
+  {
+    id: 'undo',
+    primary: true,
+    label: 'Undo',
+    icon: 'undo',
+    shortcut: 'Ctrl+Z',
+    disabled: !canUndo.value,
+    onClick: undo,
+  },
+  {
+    id: 'redo',
+    primary: true,
+    label: 'Redo',
+    icon: 'redo',
+    shortcut: 'Ctrl+Y',
+    disabled: !canRedo.value,
+    onClick: redo,
+  },
+]);
+
+const ghost = computed(() =>
+  tool.value === 'paste' && isPasteMode.value && hasClipboard.value
+    ? {
+        cells: clipboard.value,
+        width: clipboardSize.value.width,
+        height: clipboardSize.value.height,
+      }
+    : null,
 );
 
-function setTool(t) {
-  tool.value = t;
-  selection.value = [];
-
-  // اگر ابزار جدید انتخاب شد، از حالت چسباندن خارج شو
-  if (t !== 'paste') {
-    isPasteMode.value = false;
-  }
-}
-
-// تابع کمکی برای بررسی clipboard
-function hasClipboardContent() {
-  return (
-    clipboard.value &&
-    clipboard.value.length > 0 &&
-    clipboardSize.value.width > 0
-  );
-}
-
-// رسم با موس
-function startDrawing(e) {
-  isDrawing = true;
-  const index = getCellIndexFromEvent(e);
-  if (tool.value === 'paint') {
-    paintCell(index);
-  } else if (tool.value === 'fill') {
-    bucketFill(index, grid.value[index], getFillValue());
-  } else if (tool.value === 'select') {
-    selectionStart = index;
-    selection.value = [index];
-    isSelecting = true;
-  }
-}
-function stopDrawing() {
-  if (isDrawing) saveHistory();
-  isDrawing = false;
-  selectionStart = null;
-}
-function drawMove(e) {
-  if (!isDrawing) return;
-  const index = getCellIndexFromEvent(e);
-  if (tool.value === 'paint') {
-    paintCell(index);
-  } else if (tool.value === 'select' && isSelecting) {
-    selection.value = getSelectionRect(selectionStart, index);
-  }
-}
-
-// Touch event handlers
-function handleTouchStart(e) {
-  e.preventDefault();
-
-  const touches = e.touches;
-  isMultiTouch = touches.length > 1;
-
-  if (touches.length === 1) {
-    // Single touch - start painting
-    const touch = touches[0];
-
-    // Get the cell element that was touched using elementFromPoint
-    const element = document.elementFromPoint(touch.clientX, touch.clientY);
-    if (element && element.classList.contains('cell')) {
-      const cellIndex = Array.from(element.parentNode.children).indexOf(
-        element,
-      );
-      lastPaintedCell = cellIndex;
-      isPainting = true;
-
-      if (tool.value === 'paint') {
-        paintCell(cellIndex);
-      } else if (tool.value === 'fill') {
-        bucketFill(cellIndex, grid.value[cellIndex], getFillValue());
-        saveHistory();
-      } else if (tool.value === 'select') {
-        selectionStart = cellIndex;
-        selection.value = [cellIndex];
-        isSelecting = true;
-      }
-    }
-  } else {
-    // Multi-touch - allow scrolling
-    isPainting = false;
-  }
-}
-
-function handleTouchMove(e) {
-  const touches = e.touches;
-
-  if (touches.length === 1 && isPainting && !isMultiTouch) {
-    // Single touch painting
-    e.preventDefault();
-    const touch = touches[0];
-    // Get the cell element that was touched using elementFromPoint
-    const element = document.elementFromPoint(touch.clientX, touch.clientY);
-    if (element && element.classList.contains('cell')) {
-      const cellIndex = Array.from(element.parentNode.children).indexOf(
-        element,
-      );
-
-      if (cellIndex !== lastPaintedCell) {
-        lastPaintedCell = cellIndex;
-
-        if (tool.value === 'paint') {
-          paintCell(cellIndex);
-        } else if (tool.value === 'select' && isSelecting) {
-          selection.value = getSelectionRect(selectionStart, cellIndex);
-        }
-      }
-    }
-  } else if (touches.length > 1) {
-    // Multi-touch - allow scrolling
-    isMultiTouch = true;
-    isPainting = false;
-  }
-}
-
-function handleTouchEnd() {
-  if (isPainting && !isMultiTouch) {
-    // Only save history if we were painting
-    if (tool.value === 'paint') {
-      saveHistory();
-    }
-  }
-
-  // Reset touch state
-  isPainting = false;
-  isMultiTouch = false;
-  lastPaintedCell = -1;
-  selectionStart = null;
-  isSelecting = false;
-}
-
-// ابزار Paint
-function paintCell(i) {
-  if (paintMode.value === 'color') {
-    grid.value[i] = selectedColor.value;
-    addToRecentColors(selectedColor.value);
-  } else if (paintMode.value === 'image' && selectedBeadImage.value) {
-    grid.value[i] = selectedBeadImage.value.url;
-    addToRecentImages(selectedBeadImage.value);
-  }
-}
-
-// تابع کمکی برای دریافت مقدار صحیح برای پر کردن
-function getFillValue() {
-  if (paintMode.value === 'color') {
-    return selectedColor.value;
-  } else if (paintMode.value === 'image' && selectedBeadImage.value) {
-    return selectedBeadImage.value.url;
-  }
-  return selectedColor.value; // fallback
-}
-
-// اضافه کردن رنگ به لیست رنگ‌های اخیر
-function addToRecentColors(color) {
-  // اگر رنگ قبلاً وجود دارد، آن را حذف کن
-  const index = recentColors.value.indexOf(color);
-  if (index > -1) {
-    recentColors.value.splice(index, 1);
-  }
-
-  // رنگ جدید را در ابتدا اضافه کن
-  recentColors.value.unshift(color);
-
-  // حداکثر 10 رنگ نگه دار
-  if (recentColors.value.length > 10) {
-    recentColors.value = recentColors.value.slice(0, 10);
-  }
-}
-
-// اضافه کردن تصویر به لیست تصاویر اخیر
-function addToRecentImages(image) {
-  // اگر تصویر قبلاً وجود دارد، آن را حذف کن
-  const index = recentImages.value.findIndex((img) => img.url === image.url);
-  if (index > -1) {
-    recentImages.value.splice(index, 1);
-  }
-
-  // تصویر جدید را در ابتدا اضافه کن
-  recentImages.value.unshift(image);
-
-  // حداکثر 10 تصویر نگه دار
-  if (recentImages.value.length > 10) {
-    recentImages.value = recentImages.value.slice(0, 10);
-  }
-}
-
-// انتخاب تصویر مهره
-function selectBeadImage(image) {
-  selectedBeadImage.value = image;
-  addToRecentImages(image);
-}
-
-// حذف تصویر از لیست تصاویر اخیر
-function removeRecentImage(image) {
-  const index = recentImages.value.findIndex((img) => img.url === image.url);
-  if (index > -1) {
-    recentImages.value.splice(index, 1);
-  }
-}
-
-// پاک کردن تمام تصاویر اخیر
-async function clearRecentImages() {
-  const result = await showConfirm(
-    'پاک کردن تصاویر',
-    'آیا می‌خواهید تمام تصاویر اخیر پاک شوند؟',
-  );
-  if (result.isConfirmed) {
-    recentImages.value = [];
-  }
-}
-
-// حذف رنگ از لیست رنگ‌های اخیر
-function removeRecentColor(color) {
-  const index = recentColors.value.indexOf(color);
-  if (index > -1) {
-    recentColors.value.splice(index, 1);
-  }
-}
-
-// پاک کردن تمام رنگ‌های اخیر
-async function clearRecentColors() {
-  const result = await showConfirm(
-    'پاک کردن رنگ‌ها',
-    'آیا می‌خواهید تمام رنگ‌های اخیر پاک شوند؟',
-  );
-  if (result.isConfirmed) {
-    recentColors.value = [];
-  }
-}
-
-// Fill - در طرح عمودی: rows = تعداد ستون‌ها، cols = تعداد ردیف‌ها
-function bucketFill(startIndex, targetColor, newColor) {
-  if (targetColor === newColor) return;
-
-  const stack = [startIndex];
-  const visited = new Set();
-
-  while (stack.length) {
-    const idx = stack.pop();
-
-    if (visited.has(idx) || grid.value[idx] !== targetColor) continue;
-
-    visited.add(idx);
-    grid.value[idx] = newColor;
-
-    // در طرح عمودی: x از rows می‌آید، y از cols می‌آید
-    const x = idx % rows.value; // x از rows
-    const y = Math.floor(idx / rows.value); // y از rows
-
-    // بررسی همسایه‌ها
-    // چپ
-    if (x > 0) {
-      const leftIdx = idx - 1;
-      if (!visited.has(leftIdx) && grid.value[leftIdx] === targetColor) {
-        stack.push(leftIdx);
-      }
-    }
-
-    // راست
-    if (x < rows.value - 1) {
-      const rightIdx = idx + 1;
-      if (!visited.has(rightIdx) && grid.value[rightIdx] === targetColor) {
-        stack.push(rightIdx);
-      }
-    }
-
-    // بالا
-    if (y > 0) {
-      const upIdx = idx - rows.value;
-      if (!visited.has(upIdx) && grid.value[upIdx] === targetColor) {
-        stack.push(upIdx);
-      }
-    }
-
-    // پایین
-    if (y < cols.value - 1) {
-      const downIdx = idx + rows.value;
-      if (!visited.has(downIdx) && grid.value[downIdx] === targetColor) {
-        stack.push(downIdx);
-      }
-    }
-  }
-
-  // اضافه کردن رنگ جدید به لیست رنگ‌های اخیر
-  addToRecentColors(newColor);
-}
-
-// انتخاب
-function getCellIndexFromEvent(e) {
-  const cell = e.target;
-  return Array.from(cell.parentNode.children).indexOf(cell);
-}
-
-function getSelectionRect(startIdx, endIdx) {
-  // در طرح عمودی: rows = تعداد ستون‌ها، cols = تعداد ردیف‌ها
-  const sx = startIdx % rows.value; // x از rows می‌آید
-  const sy = Math.floor(startIdx / rows.value); // y از rows می‌آید
-  const ex = endIdx % rows.value;
-  const ey = Math.floor(endIdx / rows.value);
-
-  const minX = Math.min(sx, ex);
-  const maxX = Math.max(sx, ex);
-  const minY = Math.min(sy, ey);
-  const maxY = Math.max(sy, ey);
-
-  const selected = [];
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
-      const idx = y * rows.value + x;
-      // بررسی محدوده
-      if (idx >= 0 && idx < grid.value.length) {
-        selected.push(idx);
-      }
-    }
-  }
-  return selected;
-}
-
-// کلیک تکی
-function handleCellClick(i) {
-  if (tool.value === 'paint') {
-    paintCell(i);
-    saveHistory();
-  } else if (tool.value === 'fill') {
-    bucketFill(i, grid.value[i], getFillValue());
-    saveHistory();
-  } else if (tool.value === 'paste' && isPasteMode.value) {
-    // محاسبه موقعیت کلیک شده
-    const clickX = i % rows.value;
-    const clickY = Math.floor(i / rows.value);
-
-    // تنظیم موقعیت چسباندن
-    pastePosition.value = { x: clickX, y: clickY };
-
-    // چسباندن در موقعیت انتخاب شده
-    pasteAtPosition();
-  }
-}
-
-// Copy / Cut / Paste
-function copySelection() {
-  if (selection.value.length === 0) {
-    showError('خطا', 'ابتدا یک ناحیه انتخاب کنید');
-    return;
-  }
-
-  // در طرح عمودی: rows = تعداد ستون‌ها، cols = تعداد ردیف‌ها
-  const selCols = rows.value; // از rows استفاده می‌کنیم
-  const minX = Math.min(...selection.value.map((i) => i % selCols));
-  const maxX = Math.max(...selection.value.map((i) => i % selCols));
-  const minY = Math.min(...selection.value.map((i) => Math.floor(i / selCols)));
-  const maxY = Math.max(...selection.value.map((i) => Math.floor(i / selCols)));
-
-  const width = maxX - minX + 1;
-  const height = maxY - minY + 1;
-
-  clipboardSize.value = { width, height };
-
-  clipboard.value = [];
-  for (let y = 0; y < height; y++) {
-    const row = [];
-    for (let x = 0; x < width; x++) {
-      const idx = (minY + y) * selCols + (minX + x);
-      row.push(grid.value[idx]);
-    }
-    clipboard.value.push(row);
-  }
-}
-
-function cutSelection() {
-  if (selection.value.length === 0) {
-    showError('خطا', 'ابتدا یک ناحیه انتخاب کنید');
-    return;
-  }
-
-  copySelection();
-  selection.value.forEach((idx) => (grid.value[idx] = '#ffffff'));
-  saveHistory();
-}
-
-function pasteSelection() {
-  if (!hasClipboardContent()) {
-    showError('خطا', 'هیچ چیزی برای چسباندن وجود ندارد');
-    return;
-  }
-
-  // اگر ناحیه‌ای انتخاب نشده، در وسط صفحه قرار بده
-  let pasteX = 0;
-  let pasteY = 0;
-
-  if (selection.value.length > 0) {
-    const selCols = rows.value; // از rows استفاده می‌کنیم
-    pasteX = Math.min(...selection.value.map((i) => i % selCols));
-    pasteY = Math.min(...selection.value.map((i) => Math.floor(i / selCols)));
-  } else {
-    // در وسط صفحه قرار بده
-    pasteX = Math.floor((rows.value - clipboardSize.value.width) / 2); // از rows استفاده می‌کنیم
-    pasteY = Math.floor((cols.value - clipboardSize.value.height) / 2); // از cols استفاده می‌کنیم
-  }
-
-  // چسباندن
-  for (let y = 0; y < clipboardSize.value.height; y++) {
-    for (let x = 0; x < clipboardSize.value.width; x++) {
-      const targetX = pasteX + x;
-      const targetY = pasteY + y;
-
-      // بررسی محدوده
-      if (
-        targetX >= 0 &&
-        targetX < rows.value &&
-        targetY >= 0 &&
-        targetY < cols.value
-      ) {
-        // از rows و cols استفاده می‌کنیم
-        const targetIdx = targetY * rows.value + targetX; // از rows استفاده می‌کنیم
-        if (clipboard.value[y] && clipboard.value[y][x]) {
-          grid.value[targetIdx] = clipboard.value[y][x];
-        }
-      }
-    }
-  }
-
-  saveHistory();
-}
-
-function clearSelection() {
-  selection.value = [];
-  isSelecting = false;
-}
-
-// آینه کردن طرح انتخاب شده
-function mirrorSelection() {
-  if (selection.value.length === 0) {
-    showError('خطا', 'ابتدا یک ناحیه انتخاب کنید');
-    return;
-  }
-
-  try {
-    // محاسبه محدوده انتخاب
-    const selCols = rows.value; // از rows استفاده می‌کنیم
-    const minX = Math.min(...selection.value.map((i) => i % selCols));
-    const maxX = Math.max(...selection.value.map((i) => i % selCols));
-    const minY = Math.min(
-      ...selection.value.map((i) => Math.floor(i / selCols)),
-    );
-    const maxY = Math.max(
-      ...selection.value.map((i) => Math.floor(i / selCols)),
-    );
-
-    const width = maxX - minX + 1;
-    const height = maxY - minY + 1;
-
-    // ایجاد کپی موقت از ناحیه انتخاب شده
-    const tempSelection = [];
-    for (let y = 0; y < height; y++) {
-      const row = [];
-      for (let x = 0; x < width; x++) {
-        const idx = (minY + y) * selCols + (minX + x);
-        if (selection.value.includes(idx)) {
-          row.push(grid.value[idx]);
-        } else {
-          row.push('#ffffff'); // رنگ خالی برای سلول‌های غیر انتخاب شده
-        }
-      }
-      tempSelection.push(row);
-    }
-
-    // آینه کردن هر ردیف (از چپ به راست)
-    const mirroredSelection = tempSelection.map((row) => row.reverse());
-
-    // اعمال تغییرات آینه شده به گرید
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const idx = (minY + y) * selCols + (minX + x);
-        if (selection.value.includes(idx)) {
-          grid.value[idx] = mirroredSelection[y][x];
-        }
-      }
-    }
-
-    saveHistory();
-    showSuccess('آینه شد', 'طرح انتخاب شده با موفقیت آینه شد');
-  } catch (error) {
-    showError('خطا در آینه کردن', 'خطا در آینه کردن طرح: ' + error.message);
-    console.error('Error mirroring selection:', error);
-  }
-}
-
-// آینه کردن عمودی طرح انتخاب شده (از بالا به پایین)
-function mirrorSelectionVertical() {
-  if (selection.value.length === 0) {
-    showError('خطا', 'ابتدا یک ناحیه انتخاب کنید');
-    return;
-  }
-
-  try {
-    // محاسبه محدوده انتخاب
-    const selCols = rows.value; // از rows استفاده می‌کنیم
-    const minX = Math.min(...selection.value.map((i) => i % selCols));
-    const maxX = Math.max(...selection.value.map((i) => i % selCols));
-    const minY = Math.min(
-      ...selection.value.map((i) => Math.floor(i / selCols)),
-    );
-    const maxY = Math.max(
-      ...selection.value.map((i) => Math.floor(i / selCols)),
-    );
-
-    const width = maxX - minX + 1;
-    const height = maxY - minY + 1;
-
-    // ایجاد کپی موقت از ناحیه انتخاب شده
-    const tempSelection = [];
-    for (let y = 0; y < height; y++) {
-      const row = [];
-      for (let x = 0; x < width; x++) {
-        const idx = (minY + y) * selCols + (minX + x);
-        if (selection.value.includes(idx)) {
-          row.push(grid.value[idx]);
-        } else {
-          row.push('#ffffff'); // رنگ خالی برای سلول‌های غیر انتخاب شده
-        }
-      }
-      tempSelection.push(row);
-    }
-
-    // آینه کردن عمودی (از بالا به پایین) - معکوس کردن ترتیب ردیف‌ها
-    const mirroredSelection = tempSelection.reverse();
-
-    // اعمال تغییرات آینه شده به گرید
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const idx = (minY + y) * selCols + (minX + x);
-        if (selection.value.includes(idx)) {
-          grid.value[idx] = mirroredSelection[y][x];
-        }
-      }
-    }
-
-    saveHistory();
-    showSuccess(
-      'آینه عمودی شد',
-      'طرح انتخاب شده با موفقیت به صورت عمودی آینه شد',
-    );
-  } catch (error) {
-    showError(
-      'خطا در آینه عمودی',
-      'خطا در آینه عمودی کردن طرح: ' + error.message,
-    );
-    console.error('Error vertical mirroring selection:', error);
-  }
-}
-
-function pasteAtCenter() {
-  if (!hasClipboardContent()) {
-    showError('خطا', 'هیچ چیزی برای چسباندن وجود ندارد');
-    return;
-  }
-
-  // در وسط صفحه قرار بده
-  const pasteX = Math.floor((rows.value - clipboardSize.value.width) / 2); // از rows استفاده می‌کنیم
-  const pasteY = Math.floor((cols.value - clipboardSize.value.height) / 2); // از cols استفاده می‌کنیم
-
-  // چسباندن
-  for (let y = 0; y < clipboardSize.value.height; y++) {
-    for (let x = 0; x < clipboardSize.value.width; x++) {
-      const targetX = pasteX + x;
-      const targetY = pasteY + y;
-
-      // بررسی محدوده
-      if (
-        targetX >= 0 &&
-        targetX < rows.value &&
-        targetY >= 0 &&
-        targetY < cols.value
-      ) {
-        // از rows و cols استفاده می‌کنیم
-        const targetIdx = targetY * rows.value + targetX; // از rows استفاده می‌کنیم
-        if (clipboard.value[y] && clipboard.value[y][x]) {
-          grid.value[targetIdx] = clipboard.value[y][x];
-        }
-      }
-    }
-  }
-
-  saveHistory();
-}
-
-function enablePasteMode() {
-  if (!hasClipboardContent()) {
-    showError('خطا', 'هیچ چیزی برای چسباندن وجود ندارد');
-    return;
-  }
-
-  isPasteMode.value = true;
-  tool.value = 'paste';
-  selection.value = [];
+// ---- Header menus ----------------------------------------------------------------------
+const exportItems = computed(() => [
+  {
+    label: 'Save to this browser',
+    icon: 'save',
+    shortcut: 'Ctrl+S',
+    onSelect: () => saveGridToLocalStorage(),
+  },
+  { divider: true },
+  { heading: 'Download' },
+  { label: 'Image (PNG)', icon: 'camera', onSelect: () => exportGridAsImage() },
+  {
+    label: 'HD image (PNG)',
+    icon: 'image',
+    onSelect: () => exportGridAsHighQualityImage(),
+  },
+  { label: 'Pattern file (TXT)', icon: 'fileText', onSelect: exportGridAsTxt },
+  { divider: true },
+  {
+    label: 'Send to 3D preview',
+    icon: 'rocket',
+    onSelect: () => emit('update-grid', getDisplayGridMatrix()),
+  },
+]);
+
+const moreItems = computed(() => [
+  {
+    label: selectedImage.value
+      ? 'Replace reference image'
+      : 'Upload reference image',
+    icon: 'image',
+    onSelect: () => referencePicker.value?.open(),
+  },
+  {
+    label: 'Clear recent colours',
+    icon: 'palette',
+    disabled: !recentColors.value.length,
+    onSelect: clearRecentColors,
+  },
+  {
+    label: 'Clear recent bead images',
+    icon: 'trash',
+    disabled: !recentImages.value.length,
+    onSelect: clearRecentImages,
+  },
+  { divider: true },
+  { label: 'Keyboard shortcuts', icon: 'info', onSelect: showShortcuts },
+]);
+
+function showShortcuts() {
   showInfo(
-    'انتخاب موقعیت',
-    'حالا روی صفحه کلیک کنید تا موقعیت چسباندن را انتخاب کنید',
+    'Keyboard shortcuts',
+    'B Paint · G Fill · M Select · H Move · Space+drag Move · Ctrl/⌘+wheel Zoom · + / − Zoom · 0 Fit · Ctrl+Z Undo · Ctrl+Y Redo · Ctrl+C / X / V Copy, cut, paste · Ctrl+S Save · Esc Deselect / cancel paste',
   );
 }
 
-function pasteAtPosition() {
-  if (!hasClipboardContent()) {
-    showError('خطا', 'هیچ چیزی برای چسباندن وجود ندارد');
-    return;
+// ---- Side panel ------------------------------------------------------------------------
+const panelTabs = [
+  { value: 'colors', label: 'Colors', icon: 'palette' },
+  { value: 'properties', label: 'Properties', icon: 'sliders' },
+  { value: 'reference', label: 'Reference', icon: 'image' },
+];
+
+const panelComponent = computed(
+  () =>
+    ({
+      colors: DelicaColorsPanel,
+      properties: PropertiesPanel,
+      reference: ReferencePanel,
+    })[panelTab.value],
+);
+
+const panelProps = computed(() => {
+  if (panelTab.value === 'colors') {
+    return {
+      paintMode: paintMode.value,
+      color: selectedColor.value,
+      recentColors: recentColors.value,
+      beadImages: availableImages.value,
+      recentImages: recentImages.value,
+      selectedImageUrl: selectedBeadImage.value?.url ?? null,
+    };
   }
-
-  // چسباندن در موقعیت انتخاب شده
-  for (let y = 0; y < clipboardSize.value.height; y++) {
-    for (let x = 0; x < clipboardSize.value.width; x++) {
-      const targetX = pastePosition.value.x + x;
-      const targetY = pastePosition.value.y + y;
-
-      // بررسی محدوده
-      if (
-        targetX >= 0 &&
-        targetX < rows.value &&
-        targetY >= 0 &&
-        targetY < cols.value
-      ) {
-        const targetIdx = targetY * rows.value + targetX;
-        if (clipboard.value[y] && clipboard.value[y][x]) {
-          grid.value[targetIdx] = clipboard.value[y][x];
-        }
-      }
-    }
-  }
-
-  saveHistory();
-
-  // خروج از حالت چسباندن
-  isPasteMode.value = false;
-  tool.value = 'paint';
-}
-
-function cancelPasteMode() {
-  isPasteMode.value = false;
-  tool.value = 'paint';
-  showInfo('لغو شد', 'حالت چسباندن لغو شد');
-}
-
-// تابع کمکی برای رسم سلول (رنگ یا تصویر)
-async function drawCell(ctx, x, y, cellWidth, cellHeight, cellValue) {
-  if (cellValue.startsWith('/miyuki-beads-designer/beads/')) {
-    // رسم تصویر
-    try {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = cellValue;
-      });
-      ctx.drawImage(img, x, y, cellWidth, cellHeight);
-    } catch (error) {
-      // در صورت خطا، یک مستطیل خاکستری رسم کن
-      console.warn('Failed to load image:', cellValue, error);
-      ctx.fillStyle = '#cccccc';
-      ctx.fillRect(x, y, cellWidth, cellHeight);
-    }
-  } else {
-    // رسم رنگ
-    ctx.fillStyle = cellValue;
-    ctx.fillRect(x, y, cellWidth, cellHeight);
-  }
-}
-
-// خروجی عکس از شبکه
-async function exportGridAsImage() {
-  try {
-    showInfo('در حال پردازش...', 'لطفاً صبر کنید، در حال ایجاد عکس...');
-
-    // ایجاد canvas
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-
-    // تنظیم اندازه canvas بر اساس شبکه
-    const padding = 20; // حاشیه اطراف
-    const width = rows.value * cellWidth.value + padding * 2;
-    const height = cols.value * cellHeight.value + padding * 2;
-
-    canvas.width = width;
-    canvas.height = height;
-
-    // رنگ پس‌زمینه
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, width, height);
-
-    // رسم شبکه
-    for (let y = 0; y < cols.value; y++) {
-      for (let x = 0; x < rows.value; x++) {
-        const index = y * rows.value + x;
-        const cellValue = grid.value[index];
-
-        if (cellValue) {
-          const cellX = padding + x * cellWidth.value;
-          const cellY = padding + y * cellHeight.value;
-
-          // رسم سلول (رنگ یا تصویر)
-          await drawCell(
-            ctx,
-            cellX,
-            cellY,
-            cellWidth.value,
-            cellHeight.value,
-            cellValue,
-          );
-
-          // اضافه کردن خطوط جداکننده
-          ctx.strokeStyle = '#e0e0e0';
-          ctx.lineWidth = 0.5;
-          ctx.strokeRect(cellX, cellY, cellWidth.value, cellHeight.value);
-        }
-      }
-    }
-
-    // اضافه کردن عنوان
-    ctx.fillStyle = '#000000';
-    ctx.font = '16px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(
-      `Grid: ${rows.value}×${cols.value}`,
-      width / 2,
-      padding / 2 + 10,
-    );
-
-    // تبدیل به عکس و دانلود
-    canvas.toBlob((blob) => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `grid_${rows.value}x${cols.value}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      showSuccess('موفقیت', 'عکس با موفقیت دانلود شد!');
-    }, 'image/png');
-  } catch (error) {
-    showError('خطا در خروجی', 'خطا در ایجاد عکس: ' + error.message);
-    console.error('Error exporting grid as image:', error);
-  }
-}
-
-// خروجی عکس با کیفیت بالا
-async function exportGridAsHighQualityImage() {
-  try {
-    showInfo('در حال پردازش...', 'لطفاً صبر کنید، در حال ایجاد عکس HD...');
-
-    // ایجاد canvas با کیفیت بالا
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-
-    // تنظیم اندازه canvas با کیفیت بالا (2x بزرگتر)
-    const cellSizeWidth = cellWidth.value * 2; // عرض سلول (2x بزرگتر)
-    const cellSizeHeight = cellHeight.value * 2; // ارتفاع سلول (2x بزرگتر)
-    const padding = 40; // حاشیه اطراف (2x بزرگتر)
-    const width = rows.value * cellSizeWidth + padding * 2;
-    const height = cols.value * cellSizeHeight + padding * 2;
-
-    canvas.width = width;
-    canvas.height = height;
-
-    // رنگ پس‌زمینه
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, width, height);
-
-    // رسم شبکه با کیفیت بالا
-    for (let y = 0; y < cols.value; y++) {
-      for (let x = 0; x < rows.value; x++) {
-        const index = y * rows.value + x;
-        const cellValue = grid.value[index];
-
-        if (cellValue) {
-          const cellX = padding + x * cellSizeWidth;
-          const cellY = padding + y * cellSizeHeight;
-
-          // رسم سلول (رنگ یا تصویر)
-          await drawCell(
-            ctx,
-            cellX,
-            cellY,
-            cellSizeWidth,
-            cellSizeHeight,
-            cellValue,
-          );
-
-          // اضافه کردن خطوط جداکننده با کیفیت بالا
-          ctx.strokeStyle = '#d0d0d0';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(cellX, cellY, cellSizeWidth, cellSizeHeight);
-        }
-      }
-    }
-
-    // اضافه کردن عنوان با کیفیت بالا
-    ctx.fillStyle = '#000000';
-    ctx.font = 'bold 24px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(
-      `Grid: ${rows.value}×${cols.value}`,
-      width / 2,
-      padding / 2 + 20,
-    );
-
-    // اضافه کردن تاریخ و زمان
-    ctx.font = '16px Arial';
-    ctx.fillStyle = '#666666';
-    const timestamp = new Date().toLocaleString('fa-IR');
-    ctx.fillText(timestamp, width / 2, height - padding / 2);
-
-    // تبدیل به عکس و دانلود
-    canvas.toBlob(
-      (blob) => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `grid_HD_${rows.value}x${cols.value}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
-        showSuccess('موفقیت', 'عکس HD با موفقیت دانلود شد!');
-      },
-      'image/png',
-      1.0,
-    ); // کیفیت 100%
-  } catch (error) {
-    showError('خطا در خروجی', 'خطا در ایجاد عکس HD: ' + error.message);
-    console.error('Error exporting grid as high quality image:', error);
-  }
-}
-
-// خروجی txt از متغیر grid
-function exportGridAsTxt() {
-  try {
-    // ایجاد آبجکت شامل grid و ابعاد
-    const gridData = {
-      grid: grid.value,
-      rows: rows.value,
-      cols: cols.value,
+  if (panelTab.value === 'properties') {
+    return {
       cellWidth: cellWidth.value,
       cellHeight: cellHeight.value,
-      isVertical: isVertical.value,
-      isVerticalGrid: isVerticalGrid.value,
-      timestamp: new Date().toISOString(),
+      gridUpright: isVerticalGrid.value,
+      showGridLines: showGridLines.value,
+      showRulers: showRulers.value,
+      backgroundMode: backgroundMode.value,
+      backgroundColor: backgroundColor.value,
+      backgroundImage: selectedBackgroundImage.value,
+      beadImages: availableImages.value,
     };
-
-    // تبدیل به رشته JSON
-    const gridDataString = JSON.stringify(gridData, null, 2);
-
-    // ایجاد Blob از داده‌ها
-    const blob = new Blob([gridDataString], {
-      type: 'text/plain;charset=utf-8',
-    });
-
-    // ایجاد URL برای دانلود
-    const url = URL.createObjectURL(blob);
-
-    // ایجاد لینک دانلود
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `grid_${rows.value}x${cols.value}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
-
-    // اضافه کردن لینک به صفحه و کلیک روی آن
-    document.body.appendChild(a);
-    a.click();
-
-    // پاک کردن لینک و URL
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    showSuccess('موفقیت', 'فایل TXT با موفقیت دانلود شد!');
-  } catch (error) {
-    showError('خطا در خروجی', 'خطا در ایجاد فایل TXT: ' + error.message);
-    console.error('Error exporting grid as TXT:', error);
   }
-}
+  return {
+    image: selectedImage.value,
+    visible: showReference.value,
+    sideBySide: isVertical.value,
+  };
+});
 
-// خروجی به صورت ماتریس برای 3D
-function getGridMatrix() {
-  const matrix = [];
-  // چون gridTemplateColumns از rows استفاده می‌کنه،
-  // پس شبکه حالا rows ستون و cols ردیف داره
-  for (let y = 0; y < cols.value; y++) {
-    const row = [];
-    for (let x = 0; x < rows.value; x++) {
-      row.push(grid.value[y * rows.value + x]);
-    }
-    matrix.push(row);
+const panelListeners = computed(() => {
+  if (panelTab.value === 'colors') {
+    return {
+      'update:paintMode': (v) => (paintMode.value = v),
+      'update:color': (v) => {
+        selectedColor.value = v;
+        paintMode.value = 'color';
+      },
+      'fill-with-bead': fillWithBead,
+      'select-image': selectBeadImage,
+      'remove-recent-color': removeRecentColor,
+      'clear-recent-colors': clearRecentColors,
+      'remove-recent-image': removeRecentImage,
+      'clear-recent-images': clearRecentImages,
+    };
   }
-  return matrix;
-}
+  if (panelTab.value === 'properties') {
+    return {
+      'update:cellWidth': (v) => (cellWidth.value = v),
+      'update:cellHeight': (v) => (cellHeight.value = v),
+      'update:gridUpright': (v) => (isVerticalGrid.value = v),
+      'update:showGridLines': (v) => (showGridLines.value = v),
+      'update:showRulers': (v) => (showRulers.value = v),
+      'update:backgroundMode': (v) => (backgroundMode.value = v),
+      'update:backgroundColor': (v) => (backgroundColor.value = v),
+      'update:backgroundImage': (v) => (selectedBackgroundImage.value = v),
+      'apply-background': changeAllBeadsToColor,
+      save: () => saveGridToLocalStorage(),
+      load: () => {
+        if (loadGridFromLocalStorage()) selection.value = [];
+      },
+    };
+  }
+  return {
+    'update:visible': (v) => (showReference.value = v),
+    'update:sideBySide': (v) => (isVertical.value = v),
+    upload: onReferenceUpload,
+    remove: removeReferenceImage,
+  };
+});
 
-function handleImageUpload(e) {
-  const file = e.target.files[0];
-  selectedImage.value = URL.createObjectURL(file);
-}
+const panelWrapperProps = computed(() =>
+  isCompact.value
+    ? {
+        modelValue: sheetOpen.value,
+        'onUpdate:modelValue': (v) => (sheetOpen.value = v),
+        title: 'Design panel',
+      }
+    : { class: 'flat-editor__panel' },
+);
 
-// تغییر رنگ تمام مهره‌ها
-const backgroundColor = ref('#ffffff');
-const backgroundMode = ref('color'); // 'color' or 'image'
-const selectedBackgroundImage = ref(null);
-async function changeAllBeadsToColor() {
-  let newValue;
-  let confirmMessage;
-
-  if (backgroundMode.value === 'color') {
-    newValue = backgroundColor.value;
-    confirmMessage = `آیا می‌خواهید تمام مهره‌ها به رنگ ${newValue} تغییر یابند؟ این عملیات غیرقابل برگشت است.`;
-  } else if (
-    backgroundMode.value === 'image' &&
-    selectedBackgroundImage.value
-  ) {
-    newValue = selectedBackgroundImage.value.url;
-    confirmMessage = `آیا می‌خواهید تمام مهره‌ها به تصویر ${selectedBackgroundImage.value.displayName} تغییر یابند؟ این عملیات غیرقابل برگشت است.`;
-  } else {
-    showError('خطا', 'لطفاً یک رنگ یا تصویر انتخاب کنید');
+function openSheet(tab) {
+  if (sheetOpen.value && panelTab.value === tab) {
+    sheetOpen.value = false;
     return;
   }
+  panelTab.value = tab;
+  sheetOpen.value = true;
+}
 
-  const result = await showConfirm('تغییر تمام مهره‌ها', confirmMessage);
+function onReferenceUpload(event) {
+  handleImageUpload(event);
+  showReference.value = true;
+}
 
-  if (result.isConfirmed) {
-    const totalCells = rows.value * cols.value;
-    for (let i = 0; i < totalCells; i++) {
-      grid.value[i] = newValue;
-    }
-    saveHistory();
+function selectPreset(event) {
+  const preset = flatPresets.find(({ id }) => id === event.target.value);
+  if (preset) applyPreset(preset);
+  event.target.value = '';
+}
 
-    if (backgroundMode.value === 'color') {
-      addToRecentColors(newValue);
-      showSuccess('تغییر رنگ', `تمام مهره‌ها به رنگ ${newValue} تغییر یافتند`);
-    } else {
-      addToRecentImages(selectedBackgroundImage.value);
-      showSuccess(
-        'تغییر تصویر',
-        `تمام مهره‌ها به تصویر ${selectedBackgroundImage.value.displayName} تغییر یافتند`,
-      );
-    }
+const currentPaintStyle = computed(() =>
+  paintMode.value === 'image' && selectedBeadImage.value
+    ? {
+        backgroundImage: `url(${selectedBeadImage.value.url})`,
+        backgroundSize: 'cover',
+      }
+    : {
+        backgroundColor: beadSwatch(selectedColor.value),
+        backgroundImage: delicaEntry(selectedColor.value)
+          ? `url(${delicaThumbnail(selectedColor.value)})`
+          : undefined,
+        backgroundSize: 'cover',
+      },
+);
+
+// ---- Status bar -------------------------------------------------------------------------
+const toolLabels = {
+  paint: 'Paint',
+  fill: 'Fill',
+  select: 'Select',
+  paste: 'Paste',
+};
+
+const statusItems = computed(() => {
+  const items = [
+    {
+      key: 'size',
+      value: `${displayColumns.value} x ${displayRows.value}`,
+      title: 'Columns x rows',
+    },
+    { key: 'beads', value: `${beadCount.value} beads` },
+    {
+      key: 'grams',
+      label: 'grams:',
+      value: (beadCount.value / 190).toFixed(2),
+    },
+  ];
+  if (hoverIndex.value !== null && hoverIndex.value >= 0) {
+    items.push({
+      key: 'cursor',
+      label: 'Bead:',
+      value: `col ${hoverPosition.value.column}, row ${hoverPosition.value.row}`,
+      hideOnMobile: true,
+    });
+  }
+  if (selection.value.length > 1) {
+    const xs = selection.value.map((i) => i % rows.value);
+    const ys = selection.value.map((i) => Math.floor(i / rows.value));
+    items.push({
+      key: 'selection',
+      label: 'Selection:',
+      value: `${Math.max(...xs) - Math.min(...xs) + 1} x ${Math.max(...ys) - Math.min(...ys) + 1}`,
+      hideOnMobile: true,
+    });
+  }
+  items.push({
+    key: 'tool',
+    label: 'Tool:',
+    value: panMode.value ? 'Move' : toolLabels[tool.value],
+    hideOnMobile: true,
+  });
+  return items;
+});
+
+// ---- View shortcuts (zoom / hand) -------------------------------------------------------
+function isTyping(target) {
+  return (
+    target &&
+    (target.isContentEditable ||
+      ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+  );
+}
+
+function onViewKeydown(event) {
+  if (!props.active || isTyping(event.target)) return;
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.key === '+' || event.key === '=') {
+    canvasRef.value?.setZoom(zoom.value * 1.25);
+  } else if (event.key === '-' || event.key === '_') {
+    canvasRef.value?.setZoom(zoom.value / 1.25);
+  } else if (event.key === '0') {
+    canvasRef.value?.fitToScreen();
+  } else if (event.key.toLowerCase() === 'h') {
+    togglePanMode();
   }
 }
+
+onMounted(() => document.addEventListener('keydown', onViewKeydown));
+onBeforeUnmount(() => document.removeEventListener('keydown', onViewKeydown));
+
+defineExpose({
+  getGridMatrix: getDisplayGridMatrix,
+  snapshot: getDisplayGridMatrix,
+});
 </script>
 
-<style lang="scss" scoped>
-.editor-container {
-  display: flex;
-  gap: 20px;
-  padding: 20px;
-  background: var(--bg);
-}
-
-.controls-panel {
-  display: flex;
-  flex-direction: column;
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: 260px;
-  height: calc(100vh - 168px);
-  background: var(--surface-muted);
-  border-left: 1px solid var(--border);
-  z-index: 1000;
-  overflow-y: auto;
-  padding: 12px;
-  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.08);
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) var(--surface-muted);
-}
-
-.controls-panel::-webkit-scrollbar {
-  width: 6px;
-}
-
-.controls-panel::-webkit-scrollbar-track {
-  background: var(--surface-muted);
-}
-
-.controls-panel::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: 3px;
-}
-
-.controls-panel::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
-}
-
-.controls-header {
-  text-align: center;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
-}
-
-.controls-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.controls-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.dimensions-section,
-.cell-size-section,
-.color-section,
-.recent-colors-section,
-.mode-section,
-.image-section,
-.tools-section,
-.export-section {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  transition: all 0.2s ease;
-}
-
-.dimensions-section:hover,
-.cell-size-section:hover,
-.color-section:hover,
-.recent-colors-section:hover,
-.mode-section:hover,
-.image-section:hover,
-.tools-section:hover,
-.export-section:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.dimensions-section h4,
-.cell-size-section h4,
-.color-section h4,
-.mode-section h4,
-.image-section h4,
-.tools-section h4,
-.export-section h4 {
-  margin: 0 0 8px 0;
+<style scoped>
+.flat-preset {
+  display: grid;
+  gap: 6px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--text);
 }
-
-.dimension-inputs {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-.dimension-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.dimension-text {
-  font-size: 12px;
-  color: var(--text-muted);
-  font-weight: 500;
-}
-
-.dimension-input {
-  width: 60px;
-  color: var(--text);
+.flat-preset select {
+  min-width: 0;
   padding: 6px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 12px;
-  background: #ffffff;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.dimension-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
-}
-
-.dimension-input:hover {
-  border-color: var(--border-strong);
-}
-
-.color-picker-container {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.color-picker {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 2px solid var(--border);
-  cursor: pointer;
-  padding: 0;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-}
-
-.color-picker:hover {
-  transform: scale(1.05);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
-}
-
-.color-value {
-  font-size: 12px;
-  color: var(--text);
-  font-weight: 500;
-  background: var(--surface-muted);
-  padding: 4px 8px;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-  min-width: 60px;
-  text-align: center;
-}
-
-.recent-colors-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.recent-colors-header h4 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.clear-colors-btn {
-  background: var(--danger);
-  color: white;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
-  box-shadow: 0 2px 6px rgba(255, 71, 87, 0.3);
-}
-
-.clear-colors-btn:hover {
-  background-color: var(--danger-hover);
-  transform: translateY(-1px);
-}
-
-.recent-colors-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(28px, 1fr));
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.color-swatch {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  cursor: pointer;
-  position: relative;
-  border: 1px solid var(--border);
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.color-swatch:hover {
-  transform: scale(1.1);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-}
-
-.remove-color-btn {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  background: var(--danger);
-  color: white;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: bold;
-  cursor: pointer;
-  border: 1px solid white;
-  padding: 0;
-  line-height: 1;
-  opacity: 0;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 4px rgba(255, 71, 87, 0.4);
-}
-
-.color-swatch:hover .remove-color-btn {
-  opacity: 1;
-}
-
-.tools-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.tool-btn {
-  padding: 8px 6px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.tool-btn:hover {
-  background-color: var(--border-strong);
-  border-color: var(--border-strong);
-  transform: translateY(-1px);
-}
-
-.tool-btn.active {
-  background-color: var(--success);
-  color: white;
-  border-color: var(--success);
-}
-
-.tool-btn.primary {
-  background-color: var(--success);
-  color: white;
-  border-color: var(--success);
-}
-
-.tool-btn.primary:hover {
-  background-color: var(--success-hover);
-  border-color: var(--success-hover);
-}
-
-.tool-btn.secondary {
-  background-color: var(--info);
-  color: white;
-  border-color: var(--info);
-}
-
-.tool-btn.secondary:hover {
-  background-color: var(--info-hover);
-  border-color: var(--info-hover);
-}
-
-.tool-btn.danger {
-  background-color: var(--danger);
-  color: white;
-  border-color: var(--danger);
-}
-
-.tool-btn.danger:hover {
-  background-color: var(--danger-hover);
-  border-color: var(--danger-hover);
-}
-
-.tool-btn.success {
-  background-color: var(--success);
-  color: white;
-  border-color: var(--success);
-}
-
-.tool-btn.success:hover {
-  background-color: var(--success-hover);
-  border-color: var(--success-hover);
-}
-
-.tool-btn.info {
-  background-color: var(--info);
-  color: white;
-  border-color: var(--info);
-}
-
-.tool-btn.info:hover {
-  background-color: var(--info-hover);
-  border-color: var(--info-hover);
-}
-
-.export-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.export-btn {
-  padding: 10px 8px;
-  border: 1px solid transparent;
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  font-weight: 600;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-}
-
-.export-btn:hover {
-  background-color: var(--border-strong);
-  border-color: var(--border-strong);
-  transform: translateY(-1px);
-}
-
-.export-btn.primary {
-  background-color: var(--success);
-  color: white;
-  border-color: var(--success);
-}
-
-.export-btn.primary:hover {
-  background-color: var(--success-hover);
-  border-color: var(--success-hover);
-}
-
-.export-btn.success {
-  background-color: var(--success);
-  color: white;
-  border-color: var(--success);
-}
-
-.export-btn.success:hover {
-  background-color: var(--success-hover);
-  border-color: var(--success-hover);
-}
-
-.export-btn.info {
-  background-color: var(--info);
-  color: white;
-  border-color: var(--info);
-}
-
-.export-btn.info:hover {
-  background-color: var(--info-hover);
-  border-color: var(--info-hover);
-}
-
-.export-btn.warning {
-  background-color: var(--warning);
-  color: white;
-  border-color: var(--warning);
-}
-
-.export-btn.warning:hover {
-  background-color: var(--warning-hover);
-  border-color: var(--warning-hover);
-}
-
-.grid-container {
-  display: flex;
-  flex-direction: row;
-  gap: 20px;
-  margin-right: 250px;
-  height: 100%;
-  flex: 1;
-  user-select: none;
-}
-
-/* استایل دکمه‌های ذخیره و بارگذاری */
-.save-load-buttons {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.save-load-buttons .export-btn {
-  flex: 1;
-  min-width: 100px;
-}
-
-/* بهبود استایل دکمه‌های export */
-.export-section .export-btn {
-  margin-bottom: 6px;
-  transition: all 0.2s ease;
-}
-
-.export-section .export-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
-}
-
-/* استایل نمایش آخرین زمان ذخیره */
-.last-saved-info {
-  text-align: center;
-  padding: 6px;
-  background: var(--surface-muted);
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  margin-bottom: 10px;
-}
-
-.last-saved-info small {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-/* استایل دکمه‌های رنگ پس‌زمینه */
-.background-color-section {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  transition: all 0.2s ease;
-}
-
-.background-color-section:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.background-color-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.background-color-controls .color-picker {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 2px solid var(--border);
-  cursor: pointer;
-  padding: 0;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-}
-
-.background-color-controls .color-picker:hover {
-  transform: scale(1.05);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
-}
-
-.background-color-controls .tool-btn {
-  flex: 1;
-  min-width: 100px;
-}
-
-.image-section {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 20px;
-  background: var(--surface);
-  border: 2px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(10px);
-  height: 100%;
-}
-.upload-section {
-  width: 100%;
-  text-align: center;
-  margin-bottom: 10px;
-}
-.upload-label {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 15px 25px;
-  background: var(--accent);
-  border: 2px dashed rgba(255, 255, 255, 0.3);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  width: 100%;
-  box-sizing: border-box;
-  color: white;
-  font-weight: 500;
-}
-
-.upload-label:hover {
-  background: var(--accent-hover);
-  border-color: rgba(255, 255, 255, 0.5);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
-}
-.upload-text {
-  font-size: 14px;
   color: var(--text);
-}
-.upload-input {
-  display: none;
-}
-.image-preview {
-  width: 100%;
-  height: auto;
-  overflow: hidden;
-  border-radius: 12px;
-  border: 2px solid var(--border);
-  background: var(--surface-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  margin-top: 15px;
-}
-.preview-image {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-.grid-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
   background: var(--surface);
-  border: 2px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(10px);
-  padding: 20px;
-  min-height: 400px;
+}
+.flat-editor {
+  display: flex;
+  flex-direction: column;
   height: 100%;
-  overflow-y: auto;
-}
-.grid-item {
-  display: grid;
-  gap: 0.5px;
-  width: fit-content;
-  height: fit-content;
-  background: var(--surface-muted);
-  border: 2px solid var(--border);
-  border-radius: 8px;
-  padding: 10px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  margin: 0 auto;
-}
-.cell {
-  box-sizing: border-box;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 0.5px solid rgba(255, 255, 255, 0.3);
-  position: relative;
-}
-
-.cell:hover {
-  transform: scale(1.1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  z-index: 1;
-}
-
-.cell:active {
-  transform: scale(0.95);
-}
-.center-marker {
-  font-size: 16px;
-  color: var(--danger);
-  font-weight: bold;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
-
-/* استایل‌های انتخابگر تصویر */
-.mode-toggle {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.mode-btn {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: #ffffff;
-  color: var(--text);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.mode-btn:hover {
-  background: var(--surface-muted);
-  border-color: var(--border-strong);
-  transform: translateY(-1px);
-}
-
-.mode-btn.active {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
-}
-
-.image-picker-container {
-  margin-top: 8px;
-  width: 100%;
-}
-
-.available-images-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
-  gap: 8px;
-  max-height: 200px;
-  overflow-y: auto;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface-muted);
-}
-
-.image-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 6px;
-  border: 2px solid transparent;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background: white;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.image-item:hover {
-  transform: scale(1.05);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.image-item.selected {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-}
-
-.bead-image {
-  width: 40px;
-  height: 40px;
-  object-fit: cover;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-}
-
-.image-name {
-  font-size: 10px;
-  color: var(--text-muted);
-  margin-top: 4px;
-  text-align: center;
-  font-weight: 500;
-}
-
-.recent-images-section {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-}
-
-.recent-images-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.recent-images-header h4 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.clear-images-btn {
-  background: var(--danger);
-  color: white;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
-  box-shadow: 0 1px 4px rgba(255, 71, 87, 0.3);
-}
-
-.clear-images-btn:hover {
-  background: var(--danger-hover);
-  transform: translateY(-1px);
-}
-
-.recent-images-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
-  gap: 6px;
-}
-
-.recent-image-item {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 4px;
-  border: 2px solid transparent;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background: white;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.recent-image-item:hover {
-  transform: scale(1.05);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
-.recent-image-item.selected {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
-}
-
-.recent-bead-image {
-  width: 32px;
-  height: 32px;
-  object-fit: cover;
-  border-radius: 3px;
-  border: 1px solid var(--border);
-}
-
-.remove-image-btn {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  background: var(--danger);
-  color: white;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: bold;
-  cursor: pointer;
-  border: 1px solid white;
-  padding: 0;
-  line-height: 1;
-  opacity: 0;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(255, 71, 87, 0.4);
-}
-
-.recent-image-item:hover .remove-image-btn {
-  opacity: 1;
-}
-
-/* استایل‌های انتخابگر تصویر پس‌زمینه */
-.background-mode-toggle {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-
-.background-image-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.background-image-picker {
-  max-height: 200px;
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface-muted);
-  padding: 8px;
-}
-
-.background-images-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
-  gap: 6px;
-}
-
-.background-image-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 4px;
-  border: 2px solid transparent;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background: white;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
-
-.background-image-item:hover {
-  transform: scale(1.05);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
-.background-image-item.selected {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
-}
-
-.background-bead-image {
-  width: 32px;
-  height: 32px;
-  object-fit: cover;
-  border-radius: 3px;
-  border: 1px solid var(--border);
-}
-
-.background-image-name {
-  font-size: 9px;
-  color: var(--text-muted);
-  margin-top: 2px;
-  text-align: center;
-  font-weight: 500;
-}
-
-/* Pinned Section Styles */
-.pinned-section {
-  position: fixed;
-  top: 50px;
-  left: 0;
-  right: 0;
-  background: var(--surface);
-  border-bottom: 2px solid var(--accent);
-  z-index: 1800;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  max-height: 200px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.pinned-section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
-  background: var(--accent);
-  color: white;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-  flex-shrink: 0;
-}
-
-.pinned-section-title {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.unpin-btn {
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  cursor: pointer;
-  font-size: 10px;
-  font-weight: bold;
-  transition: all 0.2s ease;
-}
-
-.unpin-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: scale(1.1);
-}
-
-.pinned-section-content {
-  padding: 16px;
-  flex: 1;
-  overflow-y: auto;
   min-height: 0;
 }
 
-/* Section Header with Pin Button */
-.section-header {
+.flat-editor__body {
+  flex: 1;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
+  min-height: 0;
 }
 
-.pin-btn {
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  width: 32px;
-  height: 32px;
+.flat-editor__tools {
+  flex-shrink: 0;
+}
+
+.flat-editor__workspace {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.flat-editor__banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 14px;
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--border);
+  color: var(--accent-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.flat-editor__banner span {
+  flex: 1;
+}
+
+.flat-editor__stage {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.flat-editor__stage.is-side {
+  flex-direction: row;
+}
+
+.flat-editor__stage.is-below {
+  flex-direction: column-reverse;
+}
+
+.flat-editor__canvas {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.flat-editor__reference {
+  position: relative;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  font-size: 16px;
-  transition: all 0.2s ease;
+  padding: 12px;
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+
+.is-side .flat-editor__reference {
+  width: min(32%, 360px);
+  border-right: 1px solid var(--border);
+}
+
+.is-below .flat-editor__reference {
+  height: min(32%, 260px);
+  border-top: 1px solid var(--border);
+}
+
+.flat-editor__reference img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+}
+
+.flat-editor__reference-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
   color: var(--text-muted);
 }
 
-.pin-btn:hover {
-  background: var(--surface-muted);
-  border-color: var(--border-strong);
-  transform: scale(1.1);
+/* Side panel (desktop) */
+.flat-editor__panel {
+  flex: 0 0 360px;
+  width: 360px;
+  padding: 14px;
+  overflow-y: auto;
+  background: var(--bg);
+  border-left: 1px solid var(--border);
 }
 
-.pin-btn.pinned {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+.flat-editor__panel-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.pin-btn.pinned:hover {
-  background: var(--accent-hover);
-  transform: scale(1.1);
+.flat-editor__tabs-head {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
 }
 
-/* Pinned Section Content Styles - inherit from parent sections */
-.pinned-section-content::-webkit-scrollbar {
-  width: 6px;
+.flat-editor__tabs-head :deep(.segmented__item) {
+  padding: 0 8px;
 }
 
-.pinned-section-content::-webkit-scrollbar-track {
-  background: var(--surface-sunken);
-  border-radius: 3px;
+.flat-editor__tabs-body {
+  padding: 14px;
 }
 
-.pinned-section-content::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
+/* Toolbar controls */
+.flat-editor__view-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.pinned-section-content::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+.flat-editor__toolbar-sep {
+  width: 1px;
+  height: 22px;
+  margin: 0 4px;
+  background: var(--border);
 }
 
-/* Ensure pinned section content doesn't exceed container */
-.pinned-section-content > * {
-  max-width: 100%;
+/* Floating buttons on small screens */
+.flat-editor__fabs {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-/* Mobile Styles */
-@media (max-width: 768px) {
-  .editor-container {
-    flex-direction: column;
-    padding: 0;
-    gap: 0;
+.flat-editor__fab {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+}
+
+.flat-editor__fab-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px var(--border-strong);
+}
+
+@media (max-width: 1100px) {
+  .flat-editor__panel {
+    flex-basis: 300px;
+    width: 300px;
   }
 
-  /* Mobile Control Bar */
-  .mobile-control-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px;
-    background: var(--accent);
-    color: white;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 2000;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  }
-
-  .mobile-menu-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(255, 255, 255, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    border-radius: 8px;
-    padding: 4px 8px;
-    color: white;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    backdrop-filter: blur(10px);
-  }
-
-  .mobile-menu-btn:hover {
-    background: rgba(255, 255, 255, 0.3);
-    transform: translateY(-1px);
-  }
-
-  .mobile-menu-btn.active {
-    background: rgba(255, 255, 255, 0.4);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  }
-
-  .menu-icon {
-    font-size: 18px;
-    font-weight: bold;
-  }
-
-  .menu-text {
-    font-size: 14px;
-    font-weight: 500;
-  }
-
-  .mobile-title {
-    font-size: 16px;
-    font-weight: 600;
-    text-align: center;
-    flex: 1;
-  }
-
-  /* Mobile Dropdown Panel */
-  .mobile-dropdown-panel {
-    position: fixed;
-    top: 50px;
-    left: 0;
-    right: 0;
-    background: var(--surface-muted);
-    border-bottom: 1px solid var(--border);
-    z-index: 1500;
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  }
-
-  .mobile-dropdown-panel.open {
-    max-height: 80vh;
-    overflow-y: auto;
-  }
-
-  .mobile-panel-content {
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-
-  .mobile-image-section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  }
-
-  .mobile-controls-content {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  }
-
-  /* Hide desktop controls panel on mobile */
-  .controls-panel {
+  .flat-editor__tabs-head :deep(.segmented__item .base-icon) {
     display: none;
   }
 
-  /* Make grid container full screen on mobile */
-  .grid-container {
-    margin-right: 0;
-    margin-top: 50px;
-    padding: 10px;
-    height: calc(100vh - 50px);
-    flex-direction: column;
-    transition: margin-top 0.3s ease;
-  }
-
-  /* Adjust grid container when section is pinned */
-  .grid-container.pinned-active {
-    margin-top: 250px; /* 60px (mobile bar) + 150px (pinned section) */
-    .grid-wrapper {
-      max-height: calc(100vh - 370px);
-    }
-  }
-
-  .image-section {
+  .flat-editor__saved {
     display: none;
-  }
-
-  .grid-wrapper {
-    flex: 1;
-    min-height: 0;
-    padding: 12px;
-    max-height: calc(100vh - 182px);
-    /* Enable smooth scrolling for two-finger gestures */
-    -webkit-overflow-scrolling: touch;
-    overflow: auto;
-  }
-
-  /* Adjust grid item for mobile */
-  .grid-item {
-    max-width: 100%;
-    overflow: visible;
-    /* Prevent default touch behaviors during painting */
-    touch-action: manipulation;
-  }
-
-  /* Improve touch targets for cells */
-  .cell {
-    /* Increase touch target size */
-    min-width: 20px;
-    min-height: 20px;
-    /* Better touch feedback */
-    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
-    /* Prevent text selection during touch */
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-  }
-
-  /* Mobile-specific adjustments for tools */
-  .tools-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-  }
-
-  .tool-btn {
-    padding: 10px 8px;
-    font-size: 12px;
-  }
-
-  /* Mobile-specific adjustments for export buttons */
-  .export-section .grid {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .export-btn {
-    padding: 12px 8px;
-    font-size: 13px;
-  }
-
-  /* Mobile-specific adjustments for color picker */
-  .color-picker-container {
-    flex-direction: column;
-    gap: 8px;
-    align-items: flex-start;
-  }
-
-  .color-picker {
-    width: 40px;
-    height: 40px;
-  }
-
-  /* Mobile-specific adjustments for dimension inputs */
-  .dimension-inputs {
-    gap: 8px;
-  }
-
-  .dimension-label {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-  }
-
-  .dimension-input {
-    width: 100%;
-    max-width: 120px;
-  }
-
-  /* Mobile-specific adjustments for mode toggles */
-  .mode-toggle {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .mode-btn {
-    padding: 10px 12px;
-    font-size: 13px;
-  }
-
-  /* Mobile-specific adjustments for image grids */
-  .available-images-grid {
-    grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
-    gap: 6px;
-    max-height: 150px;
-  }
-
-  .recent-images-grid {
-    grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
-    gap: 4px;
-  }
-
-  /* Mobile-specific adjustments for background controls */
-  .background-color-controls {
-    flex-direction: column;
-    gap: 8px;
-    align-items: flex-start;
-  }
-
-  .background-image-controls {
-    gap: 8px;
-  }
-
-  .background-images-grid {
-    grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
-    gap: 4px;
   }
 }
 
-/* Desktop styles - ensure desktop layout is preserved */
-@media (min-width: 769px) {
-  .mobile-control-bar,
-  .mobile-dropdown-panel {
+/* Phone: tools move under the canvas */
+@media (max-width: 640px) {
+  .flat-editor__body {
+    flex-direction: column;
+  }
+
+  .flat-editor__tools {
+    order: 2;
+  }
+
+  .flat-editor__workspace {
+    order: 1;
+  }
+
+  .flat-editor__zoom {
     display: none;
   }
 
-  .grid-container {
-    margin-top: 0;
+  .hide-on-phone {
+    display: none;
   }
 }
 </style>

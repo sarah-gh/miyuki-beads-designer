@@ -1,448 +1,458 @@
 <template>
-  <div class="home-container">
-    <!-- Desktop Header -->
-    <header class="app-header max-md:hidden flex items-start justify-between mb-3!">
-      <div class="header-content">
-        <div class="header-actions mt-3! flex items-center gap-2">
-          <button
-            class="theme-btn px-4! py-1! text-[14px]"
-            @click="toggleGridEditor"
+  <div class="home">
+    <!-- ===== Hero ===== -->
+    <section class="hero">
+      <div class="hero__text">
+        <h1 class="hero__title">Miyuki Beads Designer</h1>
+        <p class="hero__subtitle">
+          Design, plan, and bring your bead ideas to life
+        </p>
+        <ul class="hero__features">
+          <li
+            v-for="feature in features"
+            :key="feature.label"
           >
-            ویرایشگر شبکه
-          </button>
-          <button
-            class="theme-btn px-4! py-1! text-[14px]"
-            @click="toggleMiyukiBeads"
-          >
-            نمایش مهره‌ها
-          </button>
-          <button
-            class="theme-btn px-4! py-1! text-[14px]"
-            @click="toggleBraceletPreview"
-          >
-            پیش‌نمایش دستبند
-          </button>
-          <button
-            class="theme-btn-primary px-4! py-1! text-[14px]"
-            @click="startWorking"
-          >
-            مراحل اجرا
-          </button>
-        </div>
+            <BaseIcon
+              :name="feature.icon"
+              :size="17"
+            />
+            {{ feature.label }}
+          </li>
+        </ul>
+        <BaseButton
+          variant="primary"
+          size="lg"
+          icon="plus"
+          class="hero__cta"
+          @click="openDialog()"
+          >New project</BaseButton
+        >
       </div>
-      <div class="stats-section">
-        <div class="stat-item">
-          <div class="stat-number">{{ rows }}</div>
-          <div class="stat-label">ردیف</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-number">{{ cols }}</div>
-          <div class="stat-label">ستون</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-number">{{ pattern.length }}</div>
-          <div class="stat-label">مهره</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-number">{{ (pattern.length / 190).toFixed(2) }}</div>
-          <div class="stat-label">گرم</div>
-        </div>
+      <div
+        class="hero__art"
+        aria-hidden="true"
+      >
+        <PatternThumb
+          class="hero__bracelet"
+          :matrix="heroMatrix"
+        />
       </div>
-    </header>
+    </section>
 
-    <!-- Mobile Header Panel -->
-    <div 
-      class="mobile-header-panel md:hidden"
-      :class="{ 'open': props.isMobileHeaderOpen }"
-    >
-      <div class="mobile-header-content">
-        <!-- Mobile Action Buttons -->
-        <div class="mobile-actions">
-          <button
-            class="mobile-action-btn"
-            @click="toggleGridEditor"
-          >
-            ویرایشگر شبکه
-          </button>
-          <button
-            class="mobile-action-btn"
-            @click="toggleMiyukiBeads"
-          >
-            نمایش مهره‌ها
-          </button>
-          <button
-            class="mobile-action-btn"
-            @click="toggleBraceletPreview"
-          >
-            پیش‌نمایش دستبند
-          </button>
-          <button
-            class="mobile-action-btn mobile-action-btn-primary"
-            @click="startWorking"
-          >
-            مراحل اجرا
-          </button>
-        </div>
-        
-        <!-- Mobile Stats -->
-        <div class="mobile-stats">
-          <div class="mobile-stat-item">
-            <div class="mobile-stat-number">{{ rows }}</div>
-            <div class="mobile-stat-label">ردیف</div>
-          </div>
-          <div class="mobile-stat-item">
-            <div class="mobile-stat-number">{{ cols }}</div>
-            <div class="mobile-stat-label">ستون</div>
-          </div>
-          <div class="mobile-stat-item">
-            <div class="mobile-stat-number">{{ pattern.length }}</div>
-            <div class="mobile-stat-label">مهره</div>
-          </div>
-          <div class="mobile-stat-item">
-            <div class="mobile-stat-number">{{ (pattern.length / 190).toFixed(2) }}</div>
-            <div class="mobile-stat-label">گرم</div>
-          </div>
-        </div>
+    <!-- ===== Start a new project ===== -->
+    <section class="home__section">
+      <header class="section-head">
+        <h2 class="section-head__title">
+          <BaseIcon
+            name="sparkles"
+            :size="22"
+          />
+          Start a New Project
+        </h2>
+        <RouterLink
+          :to="{ name: 'templates' }"
+          class="section-head__link"
+          >Browse templates
+          <BaseIcon
+            name="arrowRight"
+            :size="16"
+        /></RouterLink>
+      </header>
+      <div class="modes">
+        <ModeCard
+          v-for="mode in PROJECT_MODES"
+          :key="mode.id"
+          :mode="mode"
+          :art="templatesFor(mode.id)[0]"
+          :count="countFor(mode.id)"
+          @select="openDialog(mode.id)"
+        />
+        <ModeCard
+          v-for="mode in EXTRA_MODES"
+          :key="mode.id"
+          :mode="mode"
+        />
       </div>
-    </div>
+    </section>
 
-    <!-- Quick Stats -->
+    <!-- ===== Google Drive ===== -->
+    <DriveConnectCard />
 
-    <!-- Content Area -->
-    <div class="content-container">
-      <GridEditor
-        v-if="isGridEditorVisible"
-        class="content-component"
-        @update-grid="handleUpdateGrid"
-      />
-      <MiyukiBeads
-        v-if="isMiyukiBeadsVisible"
-        :pattern="pattern"
-        :rows="rows"
-        :cols="cols"
-        class="content-component"
-      />
-      <BraceletPreview
-        v-if="isBraceletPreviewVisible"
-        :pattern="pattern"
-        :rows="rows"
-        :cols="cols"
-        class="content-component"
-      />
-      <WorkingPage
-        v-if="isWorking"
-        :pattern="pattern"
-        :rows="rows"
-        :cols="cols"
-        class="content-component"
-      />
-    </div>
+    <!-- ===== Recent projects ===== -->
+    <section class="home__section">
+      <header class="section-head">
+        <h2 class="section-head__title">
+          <BaseIcon
+            name="folder"
+            :size="22"
+          />
+          Recent Projects
+        </h2>
+        <RouterLink
+          v-if="recent.length"
+          :to="{ name: 'projects' }"
+          class="section-head__link"
+          >View all
+          <BaseIcon
+            name="arrowRight"
+            :size="16"
+        /></RouterLink>
+      </header>
+
+      <div
+        v-if="recent.length"
+        class="card-grid"
+      >
+        <ProjectCard
+          v-for="project in recent"
+          :key="project.id"
+          :project="project"
+          :menu-items="menuItems(project)"
+          @open="openProject"
+        />
+      </div>
+      <div
+        v-else
+        class="empty"
+      >
+        <BaseIcon
+          name="folderOpen"
+          :size="32"
+        />
+        <p class="empty__title">No projects yet</p>
+        <p class="empty__text">
+          Pick a type above, or start from one of the templates below. Your
+          projects are saved automatically in this browser.
+        </p>
+      </div>
+    </section>
+
+    <!-- ===== Get inspired ===== -->
+    <section class="home__section">
+      <header class="section-head">
+        <h2 class="section-head__title">
+          <BaseIcon
+            name="flower"
+            :size="22"
+          />
+          Get Inspired
+        </h2>
+        <RouterLink
+          :to="{ name: 'templates' }"
+          class="section-head__link"
+          >All templates
+          <BaseIcon
+            name="arrowRight"
+            :size="16"
+        /></RouterLink>
+      </header>
+      <div class="chips">
+        <RouterLink
+          v-for="category in CATEGORIES"
+          :key="category"
+          :to="{ name: 'templates', query: { category } }"
+          class="chip"
+          >{{ category }}</RouterLink
+        >
+      </div>
+      <div class="card-grid">
+        <TemplateCard
+          v-for="template in featured"
+          :key="template.id"
+          :template="template"
+          show-mode
+          action-label="Use template"
+          @select="openDialog(template.mode, template.id)"
+        />
+      </div>
+    </section>
+
+    <NewProjectDialog
+      v-model="dialog.open"
+      :initial-mode="dialog.mode"
+      :initial-template-id="dialog.templateId"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import GridEditor from '@/components/flat/GridEditor.vue';
-import MiyukiBeads from '@/components/flat/MiyukiBeads.vue';
-import BraceletPreview from '@/components/flat/BraceletPreview.vue';
-import WorkingPage from '@/components/flat/WorkingPage.vue';
+import { computed, reactive } from 'vue';
+import { RouterLink } from 'vue-router';
+import BaseButton from '@/components/ui/BaseButton.vue';
+import BaseIcon from '@/components/ui/BaseIcon.vue';
+import DriveConnectCard from '@/components/drive/DriveConnectCard.vue';
+import ModeCard from '@/components/projects/ModeCard.vue';
+import NewProjectDialog from '@/components/projects/NewProjectDialog.vue';
+import PatternThumb from '@/components/projects/PatternThumb.vue';
+import ProjectCard from '@/components/projects/ProjectCard.vue';
+import TemplateCard from '@/components/projects/TemplateCard.vue';
+import { EXTRA_MODES, getMode, PROJECT_MODES } from '@/lib/projects/modes.js';
+import { projectState, sortedProjects } from '@/lib/projects/projectStore.js';
+import {
+  CATEGORIES,
+  getTemplate,
+  templatesFor,
+} from '@/lib/projects/templates.js';
+import { useProjectActions } from '@/composables/useProjectActions.js';
 
-// Props
-const props = defineProps({
-  isMobileHeaderOpen: {
-    type: Boolean,
-    default: false
-  }
-});
+const { openProject, menuItems } = useProjectActions();
 
-// The hamburger state lives in App.vue, so ask it to close the panel after
-// an action runs. On desktop the panel is already closed and this is a no-op.
-const emit = defineEmits(['close-mobile-header']);
+const features = [
+  { icon: 'palette', label: 'Design patterns' },
+  { icon: 'cube', label: 'Preview in 3D' },
+  { icon: 'steps', label: 'Step-by-step' },
+  { icon: 'save', label: 'Auto-saved projects' },
+];
 
-const rows = ref(16);
-const cols = ref(80);
-const pattern = ref(Array(16 * 80).fill('#ffffff'));
-const isGridEditorVisible = ref(true);
-const isMiyukiBeadsVisible = ref(false);
-const isBraceletPreviewVisible = ref(false);
-const isWorking = ref(false);
+const heroTemplate = getTemplate('flat-floral-band');
+const heroMatrix = getMode('flat').toMatrix(heroTemplate.data);
 
-function toggleGridEditor() {
-  isGridEditorVisible.value = true;
-  isMiyukiBeadsVisible.value = false;
-  isBraceletPreviewVisible.value = false;
-  isWorking.value = false;
-  emit('close-mobile-header');
+const recent = computed(() => sortedProjects().slice(0, 8));
+
+// One or two templates of each mode, so all modes are represented.
+const featured = PROJECT_MODES.flatMap((mode) =>
+  templatesFor(mode.id).slice(0, 2),
+).slice(0, 6);
+
+function countFor(mode) {
+  return projectState.projects.filter((p) => p.mode === mode).length;
 }
 
-function toggleMiyukiBeads() {
-  isMiyukiBeadsVisible.value = true;
-  isGridEditorVisible.value = false;
-  isBraceletPreviewVisible.value = false;
-  isWorking.value = false;
-  emit('close-mobile-header');
-}
+const dialog = reactive({ open: false, mode: 'flat', templateId: null });
 
-function toggleBraceletPreview() {
-  isBraceletPreviewVisible.value = true;
-  isMiyukiBeadsVisible.value = false;
-  isGridEditorVisible.value = false;
-  isWorking.value = false;
-  emit('close-mobile-header');
-}
-
-function startWorking() {
-  isWorking.value = true;
-  isGridEditorVisible.value = false;
-  isMiyukiBeadsVisible.value = false;
-  isBraceletPreviewVisible.value = false;
-  emit('close-mobile-header');
-}
-
-function handleUpdateGrid(matrix) {
-  if (!Array.isArray(matrix) || matrix.length === 0) {
-    pattern.value = [];
-    rows.value = 0;
-    cols.value = 0;
-    return;
-  }
-  rows.value = matrix.length;
-  cols.value = Array.isArray(matrix[0]) ? matrix[0].length : 0;
-  // flatten 2D matrix to 1D array expected by MiyukiBeads
-  pattern.value = matrix.flat();
+function openDialog(mode = 'flat', templateId = null) {
+  dialog.mode = mode;
+  dialog.templateId = templateId;
+  dialog.open = true;
 }
 </script>
 
 <style scoped>
-.home-container {
-  min-height: calc(100vh - 78px);
-  background: var(--bg);
-  padding: 20px;
-}
-
-@media (max-width: 768px) {
-  .home-container {
-    min-height: auto;
-    max-height: calc(100vh - 58px);
-    overflow-y: auto;
-  }
-}
-
-/* Stats Section */
-.stats-section {
-  display: flex;
-  flex-direction: row;
-  justify-content: center;
-  gap: 10px;
-}
-
-.stat-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  text-align: center;
-  background: var(--surface);
-  border-radius: 12px;
-  padding: 10px;
-  border: 1px solid var(--border);
-  min-width: 100px;
-}
-
-.stat-number {
-  font-size: .8rem;
-  font-weight: bold;
-  color: var(--text);
-  margin-bottom: 5px;
-}
-
-.stat-label {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
-
-/* Content Container */
-.content-container {
-  background: var(--surface);
-  /* Load-bearing, not decorative: backdrop-filter makes this element the
-     containing block for the position:fixed panels the editors render
-     inside it. Removing it lets those panels escape to the viewport and
-     cover the app header. */
-  backdrop-filter: blur(10px);
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  overflow: hidden;
-  min-height: calc(100vh - 160px);
-}
-
-.content-component {
-  min-height: 500px;
-}
-
-@media (max-width: 768px) {
-  .content-container {
-    min-height: calc(100vh - 110px);
-    max-height: auto;
-    overflow-y: auto;
-  }
-}
-
-/* Animations */
-@keyframes bounce {
-  0%,
-  20%,
-  50%,
-  80%,
-  100% {
-    transform: translateY(0);
-  }
-  40% {
-    transform: translateY(-10px);
-  }
-  60% {
-    transform: translateY(-5px);
-  }
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-  .hero-title {
-    font-size: 1rem;
-  }
-
-  .hero-subtitle {
-    font-size: 0.8rem;
-  }
-
-  .cards-container {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-
-  .stats-section {
-    flex-direction: column;
-    gap: 20px;
-    align-items: center;
-  }
-
-  .hero-section {
-    padding: 20px 10px;
-  }
-}
-
-/* Mobile Header Panel */
-.mobile-header-panel {
-  position: fixed;
-  top: 50px;
-  left: 0;
-  right: 0;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 6px 16px rgba(41, 37, 36, 0.08);
-  transform: translateY(-100%);
-  transition: transform 0.3s ease-in-out;
-  z-index: 999;
-  max-height: 0;
-  overflow: hidden;
-}
-
-.mobile-header-panel.open {
-  transform: translateY(0);
-  max-height: 300px;
-}
-
-.mobile-header-content {
-  padding: 15px 20px;
-}
-
-.mobile-actions {
+.home {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 15px;
+  gap: 32px;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 24px;
 }
 
-.mobile-action-btn {
-  padding: 10px 15px;
-  border-radius: 8px;
-  background: var(--surface-muted);
+/* ---- Hero ---------------------------------------------------------------------- */
+.hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 240px;
+  overflow: hidden;
+  padding: 32px 36px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background:
+    radial-gradient(
+      circle at 85% 20%,
+      rgba(255, 255, 255, 0.7),
+      transparent 45%
+    ),
+    linear-gradient(115deg, var(--accent-soft) 0%, #f9e9e2 45%, #f1ddd3 100%);
+}
+
+.hero__text {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 560px;
+}
+
+.hero__title {
+  color: var(--dark);
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.hero__subtitle {
+  color: var(--text);
+  font-size: clamp(15px, 1.6vw, 19px);
+}
+
+.hero__features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 6px;
+  list-style: none;
+}
+
+.hero__features li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: var(--shadow-sm);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.hero__features li :deep(svg) {
+  color: var(--accent-text);
+}
+
+.hero__art {
+  position: absolute;
+  top: 50%;
+  right: -40px;
+  width: 46%;
+  height: 120px;
+  transform: translateY(-50%) perspective(700px) rotateY(-24deg) rotate(-8deg);
+}
+
+.hero__bracelet {
+  width: 100%;
+  height: 100%;
+  border-radius: 60px;
+  border: 6px solid #e2b866;
+  box-shadow:
+    0 20px 40px rgba(61, 46, 41, 0.25),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
+/* ---- Sections ------------------------------------------------------------------- */
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.section-head__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 21px;
+  font-weight: 800;
+}
+
+.section-head__title :deep(svg) {
+  color: var(--accent);
+}
+
+.section-head__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--text);
   font-size: 14px;
-  font-weight: 500;
-  border: 1px solid var(--border-strong);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-align: center;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
 }
 
-.mobile-action-btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
+.section-head__link:hover {
+  color: var(--accent-text);
 }
 
-.mobile-action-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(41, 37, 36, 0.15);
-}
-
-.mobile-stats {
+.modes {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
 }
 
-.mobile-stat-item {
-  background: var(--surface-muted);
-  border-radius: 10px;
-  padding: 10px;
-  text-align: center;
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 16px;
   border: 1px solid var(--border);
-}
-
-.mobile-stat-number {
-  font-size: 16px;
-  font-weight: bold;
+  border-radius: 999px;
+  background: var(--surface);
   color: var(--text);
-  margin-bottom: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
 }
 
-.mobile-stat-label {
+.chip:hover {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 36px 20px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
   color: var(--text-muted);
-  font-size: 12px;
+  text-align: center;
 }
 
-@media (max-width: 480px) {
-  .home-container {
-    padding: 10px;
+.empty__title {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.empty__text {
+  max-width: 420px;
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .hero__art {
+    opacity: 0.35;
+  }
+}
+
+@media (max-width: 640px) {
+  .home {
+    gap: 26px;
+    padding: 16px;
   }
 
-  .nav-card {
-    padding: 20px;
+  .hero {
+    padding: 24px 20px;
   }
 
-  .hero-title {
-    font-size: 1.8rem;
+  .hero__art {
+    display: none;
   }
 
-  .mobile-header-panel {
-    top: 52px;
+  .section-head__title {
+    font-size: 18px;
   }
 
-  .mobile-stats {
-    grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
+  .hero__features li {
+    height: 32px;
+    padding: 0 12px;
+    font-size: 12.5px;
   }
 
-  .mobile-stat-item {
-    padding: 8px;
-  }
-
-  .mobile-stat-number {
-    font-size: 14px;
-  }
-
-  .mobile-stat-label {
-    font-size: 10px;
+  .modes,
+  .card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
 }
 </style>

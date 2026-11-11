@@ -3,20 +3,20 @@
     <div
       class="w-full max-w-[1200px] rounded-2xl border border-neutral-300 p-4"
     >
-      <h1 class="mb-4 text-xl font-semibold">الگوی مهره‌ها (SVG + Vue 3)</h1>
+      <h1 class="mb-4 text-xl font-semibold">Bead pattern (SVG + Vue 3)</h1>
 
       <!-- Settings Panel -->
       <div class="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
-        <h2 class="mb-4 text-lg font-medium text-gray-800">تنظیمات الگو</h2>
+        <h2 class="mb-4 text-lg font-medium text-gray-800">Pattern settings</h2>
 
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <!-- Basic Settings -->
           <div class="space-y-3">
-            <h3 class="font-medium text-gray-700">تنظیمات اصلی</h3>
+            <h3 class="font-medium text-gray-700">Main settings</h3>
 
             <div>
               <label class="mb-1 block text-sm font-medium text-gray-600"
-                >تعداد ردیف‌ها</label
+                >Rows</label
               >
               <input
                 v-model.number="settings.rows"
@@ -29,7 +29,7 @@
 
             <div>
               <label class="mb-1 block text-sm font-medium text-gray-600"
-                >تعداد ستون‌ها</label
+                >Columns</label
               >
               <input
                 v-model.number="settings.cols"
@@ -42,7 +42,7 @@
 
             <div>
               <label class="mb-1 block text-sm font-medium text-gray-600"
-                >شعاع مهره</label
+                >Bead radius</label
               >
               <input
                 v-model.number="settings.beadR"
@@ -57,11 +57,11 @@
 
           <!-- Gap Settings -->
           <div class="space-y-3">
-            <h3 class="font-medium text-gray-700">فاصله‌ها</h3>
+            <h3 class="font-medium text-gray-700">Spacing</h3>
 
             <div>
               <label class="mb-1 block text-sm font-medium text-gray-600"
-                >فاصله افقی</label
+                >Horizontal spacing</label
               >
               <input
                 v-model.number="settings.gapX"
@@ -75,7 +75,7 @@
 
             <div>
               <label class="mb-1 block text-sm font-medium text-gray-600"
-                >فاصله عمودی</label
+                >Vertical spacing</label
               >
               <input
                 v-model.number="settings.gapY"
@@ -89,7 +89,7 @@
 
             <div>
               <label class="mb-1 block text-sm font-medium text-gray-600"
-                >پدینگ</label
+                >Padding</label
               >
               <input
                 v-model.number="settings.padding"
@@ -104,7 +104,7 @@
 
           <!-- Fringe Settings -->
           <div class="space-y-3">
-            <h3 class="font-medium text-gray-700">تنظیمات آویز</h3>
+            <h3 class="font-medium text-gray-700">Fringe settings</h3>
 
             <div class="flex items-center space-x-2">
               <input
@@ -116,14 +116,14 @@
               <label
                 for="showFringe"
                 class="text-sm font-medium text-gray-600"
-                >نمایش آویز</label
+                >Show fringe</label
               >
             </div>
 
             <div v-if="settings.showFringe">
               <div>
                 <label class="mb-1 block text-sm font-medium text-gray-600"
-                  >پایه آویز</label
+                  >Fringe base</label
                 >
                 <input
                   v-model.number="settings.fringeBase"
@@ -137,7 +137,7 @@
 
               <div>
                 <label class="mb-1 block text-sm font-medium text-gray-600"
-                  >دامنه آویز</label
+                  >Fringe amplitude</label
                 >
                 <input
                   v-model.number="settings.fringeAmp"
@@ -151,7 +151,7 @@
 
               <div>
                 <label class="mb-1 block text-sm font-medium text-gray-600"
-                  >دوره آویز</label
+                  >Fringe period</label
                 >
                 <input
                   v-model.number="settings.fringePeriod"
@@ -167,7 +167,7 @@
 
           <!-- Other Settings -->
           <div class="space-y-3">
-            <h3 class="font-medium text-gray-700">سایر تنظیمات</h3>
+            <h3 class="font-medium text-gray-700">Other settings</h3>
 
             <div class="flex items-center space-x-2">
               <input
@@ -179,7 +179,7 @@
               <label
                 for="stagger"
                 class="text-sm font-medium text-gray-600"
-                >نمایش پلکانی</label
+                >Staggered rows</label
               >
             </div>
 
@@ -193,18 +193,18 @@
               <label
                 for="showGridHelpers"
                 class="text-sm font-medium text-gray-600"
-                >نمایش راهنما</label
+                >Show guides</label
               >
             </div>
           </div>
 
           <!-- Color Settings -->
           <div class="space-y-3">
-            <h3 class="font-medium text-gray-700">تنظیمات رنگ</h3>
+            <h3 class="font-medium text-gray-700">Colour settings</h3>
 
             <div>
               <label class="mb-1 block text-sm font-medium text-gray-600"
-                >رنگ مهره‌ها</label
+                >Bead colour</label
               >
               <div class="flex items-center space-x-2">
                 <input
@@ -220,13 +220,13 @@
                 />
               </div>
               <p class="mt-1 text-xs text-gray-500">
-                بوردر به طور خودکار تنظیم می‌شود
+                The outline is set automatically
               </p>
             </div>
 
             <div>
               <label class="mb-1 block text-sm font-medium text-gray-600"
-                >رنگ پس‌زمینه SVG</label
+                >Background colour SVG</label
               >
               <div class="flex items-center space-x-2">
                 <input
@@ -251,13 +251,13 @@
             class="rounded-md bg-gray-500 px-4 py-2 text-white hover:bg-gray-600 focus:ring-2 focus:ring-gray-500 focus:outline-none"
             @click="resetSettings"
           >
-            بازنشانی تنظیمات
+            Reset settings
           </button>
           <button
             class="rounded-md bg-red-500 px-4 py-2 text-white hover:bg-red-600 focus:ring-2 focus:ring-red-500 focus:outline-none"
             @click="clearAllColors"
           >
-            پاک کردن همه رنگ‌ها
+            Clear all colours
           </button>
         </div>
       </div>
@@ -284,20 +284,20 @@
 
       <div class="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
         <h3 class="mb-2 text-sm font-medium text-blue-800">
-          راهنمای رنگ‌آمیزی:
+          How to colour:
         </h3>
         <ul class="space-y-1 text-sm text-blue-700">
-          <li>• رنگ مهره‌ها را در بالا انتخاب کنید</li>
-          <li>• روی هر مهره کلیک کنید تا آن را رنگ کنید</li>
-          <li>• برای حذف رنگ، دوباره روی مهره کلیک کنید</li>
-          <li>• بوردر به طور خودکار تنظیم می‌شود (مشکی برای رنگ‌های روشن)</li>
-          <li>• از دکمه "پاک کردن همه رنگ‌ها" برای شروع مجدد استفاده کنید</li>
+          <li>• Choose the bead colour above</li>
+          <li>• Click a bead to colour it</li>
+          <li>• Click the bead again to remove its colour</li>
+          <li>• The outline is set automatically (black for light colours)</li>
+          <li>• Use "Clear all colours" to start again</li>
         </ul>
       </div>
 
       <p class="mt-3 text-sm text-neutral-600">
-        نکته: برای «دقیقاً» مطابق تصویر، می‌تونی <code>fringeMap</code> رو دستی
-        بر اساس هر ستون ست کنی تا تعداد مهره‌های آویزِ هر ستون دقیقاً یکی باشه.
+        Tip: to match the picture exactly, you can set <code>fringeMap</code> by hand
+        for each column so every column has exactly the right number of fringe beads.
       </p>
     </div>
   </div>
@@ -353,9 +353,9 @@ const clearAllColors = () => {
   coloredBeads.clear();
 };
 
-// اگر بخواهی دقیقاً طول هر ستون را خودت بدهی، این آرایه را پر کن (طول = تعداد ستون‌ها)
+// To set the exact length of each column yourself, fill this array (length = number of columns)
 const customFringe = null;
-// نمونه‌ی دقیق‌تر: V تکراریِ عمیق‌تر در هر 6 ستون
+// More precise example: V deeper repeating V every 6 columns
 // const customFringe = Array.from({length: 38}, (_, c) => {
 //   const p = 6, base = 6, amp = 5
 //   const pos = ((c % p) + p) % p

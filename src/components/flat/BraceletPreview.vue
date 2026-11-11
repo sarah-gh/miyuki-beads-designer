@@ -1,8 +1,8 @@
 <template>
   <div class="bracelet-wrapper">
     <div class="header">
-      <h2 class="title">پیش‌نمایش دستبند</h2>
-      <p class="subtitle">نمایش سه‌بعدی طرح انتخاب شده</p>
+      <h2 class="title">Bracelet Preview</h2>
+      <p class="subtitle">3D view of your current pattern</p>
     </div>
 
     <div class="canvas-container">
@@ -15,11 +15,11 @@
         <div class="controls-hint">
           <div class="hint-item">
             <span class="hint-icon">🖱️</span>
-            <span>برای چرخاندن کلیک و درگ کنید</span>
+            <span>Click and drag to rotate</span>
           </div>
           <div class="hint-item">
             <span class="hint-icon">🔍</span>
-            <span>برای زوم اسکرول کنید</span>
+            <span>Scroll to zoom</span>
           </div>
         </div>
       </div>
@@ -31,12 +31,12 @@
         @click="downloadImage"
       >
         <span class="btn-icon">📥</span>
-        <span>دانلود تصویر</span>
+        <span>Download image</span>
       </button>
 
       <div class="controls-panel">
         <div class="control-group">
-          <label class="control-label">چرخش عکس مهره‌ها:</label>
+          <label class="control-label">Bead image rotation:</label>
           <div class="slider-container">
             <input
               v-model="localTextureRotation"
@@ -53,11 +53,11 @@
 
       <div class="info-panel">
         <div class="info-item">
-          <span class="info-label">ابعاد:</span>
+          <span class="info-label">Size:</span>
           <span class="info-value">{{ cols }} × {{ rows }}</span>
         </div>
         <div class="info-item">
-          <span class="info-label">تعداد مهره:</span>
+          <span class="info-label">Beads:</span>
           <span class="info-value">{{ cols * rows }}</span>
         </div>
       </div>
@@ -74,10 +74,10 @@ const props = defineProps({
   pattern: { type: Array, required: true },
   rows: { type: Number, required: true },
   cols: { type: Number, required: true },
-  // عرض/ارتفاع خروچی رندر
+  // Width / height of the rendered output
   width: { type: Number, default: 900 },
   height: { type: Number, default: 600 },
-  // چرخش texture (بر حسب درجه)
+  // Texture rotation (degrees)
   textureRotation: { type: Number, default: 90 },
 });
 
@@ -85,7 +85,7 @@ const container = ref(null);
 let scene, camera, renderer, controls;
 let beads = [];
 
-// کنترل چرخش texture
+// Texture rotation control
 const localTextureRotation = ref(props.textureRotation);
 
 // Cache textures for image-based bead colors to avoid reloading
@@ -119,7 +119,7 @@ function getBeadMaterial(colorLike, textureRotation = 0) {
 
     // Clone texture to avoid affecting cached version
     const clonedTexture = texture.clone();
-    clonedTexture.rotation = textureRotation; // چرخش texture بر حسب رادیان
+    clonedTexture.rotation = textureRotation; // texture rotation in radians
 
     const material = new THREE.MeshPhysicalMaterial({
       color: 0xffffff,
@@ -157,48 +157,48 @@ function createCurvedBracelet() {
   if (!scene) return;
   clearBeads();
 
-  // پارامترهای هندسی دستبند
-  const radius = 20; // شعاع خمیدگی دستبند
-  const arcAngle = Math.PI * 1.55; // حدود 243 درجه (مشابه عکس)
+  // Bracelet geometry
+  const radius = 20; // bend radius of the bracelet
+  const arcAngle = Math.PI * 1.55; // about 243 degrees
   const startAngle = -arcAngle / 2;
 
-  // ابعاد مهره‌ها را برای قرارگیری صحیح روی انحنا محاسبه می‌کنیم
-  // طرح عمودی (16×80) رو افقی روی دستبند نشون می‌دیم
-  // انحنا روی طول (rows = 80) و عرض دستبند از cols (16)
-  const dTheta = arcAngle / props.rows; // گام زاویه‌ای روی طول (80)
-  const beadWidthTangential = radius * dTheta * 0.98; // طول قوس هر سلول با کمی فاصله
-  const beadHeight = 0.95; // ارتفاع عمودی هر مهره با کمی فاصله
-  const verticalSpacing = 1.0; // فاصله عمودی بین مهره‌ها
+  // Bead size so the beads sit correctly on the curve
+  // The vertical pattern (16x80) is laid horizontally around the bracelet
+  // Curve along the length (rows = 80), width from cols (16)
+  const dTheta = arcAngle / props.rows; // angle step along the length
+  const beadWidthTangential = radius * dTheta * 0.98; // arc length per cell, with a small gap
+  const beadHeight = 0.95; // bead height, with a small gap
+  const verticalSpacing = 1.0; // vertical spacing between beads
 
-  // هندسه استوانه‌ای با گوشه‌های گرد برای حالت منجوق
-  // از CylinderGeometry با تعداد وجه‌های بیشتر برای گردی
+  // Rounded cylinder geometry for a seed-bead look
+  // CylinderGeometry with more segments for roundness
   const beadGeometry = new THREE.CylinderGeometry(
-    beadHeight * 0.7, // شعاع بالا
-    beadHeight * 0.7, // شعاع پایین
-    beadWidthTangential, // ارتفاع (طول قوس)
-    16, // تعداد وجه‌های استوانه برای گردی بیشتر
+    beadHeight * 0.7, // top radius
+    beadHeight * 0.7, // bottom radius
+    beadWidthTangential, // height (arc length)
+    16, // radial segments
   );
 
   for (let y = 0; y < props.rows; y++) {
-    // rows = طول دستبند (80)
+    // rows = bracelet length (80)
     for (let x = 0; x < props.cols; x++) {
-      // cols = عرض دستبند (16)
+      // cols = bracelet width (16)
       let colorHex = '#ffffff';
 
-      // بررسی نوع pattern و استخراج رنگ
+      // Read the colour from the pattern
       if (Array.isArray(props.pattern[0])) {
-        // pattern یک matrix است
+        // pattern is a matrix
         colorHex =
           props.pattern[y] && props.pattern[y][x]
             ? props.pattern[y][x]
             : '#ffffff';
       } else {
-        // pattern یک آرایه ساده است
-        const idx = y * props.cols + x; // از cols برای محاسبه index استفاده می‌کنیم
+        // pattern is a flat array
+        const idx = y * props.cols + x; // index uses cols
         colorHex = props.pattern[idx] || '#ffffff';
       }
 
-      // بررسی اعتبار رنگ
+      // Validate the colour
       if (!colorHex || colorHex === '#' || colorHex.length < 3) {
         colorHex = '#ffffff';
         console.warn(
@@ -208,26 +208,26 @@ function createCurvedBracelet() {
         );
       }
 
-      // محاسبه چرخش texture
+      // Texture rotation
       const textureRotationRadians =
-        (localTextureRotation.value * Math.PI) / 180; // تبدیل درجه به رادیان
+        (localTextureRotation.value * Math.PI) / 180; // degrees to radians
 
       const beadMaterial = getBeadMaterial(colorHex, textureRotationRadians);
 
-      // مرکز هر مهره در وسط بازه‌اش قرار می‌گیرد تا فاصله عرضی صفر شود
-      // y = طول (انحنا)، x = عرض (عمودی)
-      const theta = startAngle + (y + 0.5) * dTheta; // انحنا روی طول (y)
-      const posY = (props.cols / 2 - 0.5 - x) * verticalSpacing; // عرض دستبند (x)
+      // Centre each bead in its slot so there is no gap across
+      // y = length (curve), x = width (vertical)
+      const theta = startAngle + (y + 0.5) * dTheta; // curve along y
+      const posY = (props.cols / 2 - 0.5 - x) * verticalSpacing; // bracelet width (x)
       const posX = radius * Math.sin(theta);
       const posZ = radius * Math.cos(theta);
 
       const bead = new THREE.Mesh(beadGeometry, beadMaterial);
       bead.position.set(posX, posY, posZ);
 
-      // مهره‌ها را مماس بر انحنا قرار می‌دهیم
-      // ابتدا 90 درجه حول محور Z می‌چرخانیم تا افقی شوند
+      // Orient beads tangent to the curve
+      // First rotate 90 degrees around Z so they lie horizontally
       bead.rotation.z = Math.PI / 2;
-      // سپس حول محور Y می‌چرخانیم تا مماس بر انحنا باشند
+      // Then rotate around Y to follow the curve
       bead.rotation.y = theta;
 
       scene.add(bead);
@@ -257,7 +257,7 @@ function initScene() {
   renderer.setSize(props.width, props.height, false);
   container.value.appendChild(renderer.domElement);
 
-  // نورپردازی ملایم شبیه عکس نمونه
+  // Soft lighting
   scene.add(new THREE.AmbientLight(0xffffff, 0.7));
   const dir1 = new THREE.DirectionalLight(0xffffff, 1.1);
   dir1.position.set(8, 10, 12);
@@ -335,7 +335,7 @@ defineExpose({ downloadImage });
   padding: 24px;
   background: var(--surface-muted);
   min-height: 100vh;
-  font-family: 'Vazirmatn', 'Tahoma', sans-serif;
+  font-family: var(--font-sans);
 }
 
 .header {

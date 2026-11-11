@@ -10,7 +10,7 @@ export const showSuccess = (
     title,
     text: message,
     confirmButtonText: 'OK',
-    confirmButtonColor: '#10b981',
+    confirmButtonColor: '#6b7f3a',
   });
 };
 
@@ -24,7 +24,7 @@ export const showError = (
     title,
     text: message,
     confirmButtonText: 'OK',
-    confirmButtonColor: '#ef4444',
+    confirmButtonColor: '#b4423a',
   });
 };
 
@@ -38,7 +38,7 @@ export const showWarning = (
     title,
     text: message,
     confirmButtonText: 'OK',
-    confirmButtonColor: '#f59e0b',
+    confirmButtonColor: '#b07a1e',
   });
 };
 
@@ -52,7 +52,7 @@ export const showInfo = (
     title,
     text: message,
     confirmButtonText: 'OK',
-    confirmButtonColor: '#3b82f6',
+    confirmButtonColor: '#3f7a78',
   });
 };
 
@@ -66,18 +66,18 @@ export const showConfirm = (
     text: message,
     icon: 'question',
     showCancelButton: true,
-    confirmButtonColor: '#10b981',
-    cancelButtonColor: '#6b7280',
-    confirmButtonText: 'بله، ادامه بده',
-    cancelButtonText: 'لغو',
+    confirmButtonColor: '#6b7f3a',
+    cancelButtonColor: '#85736a',
+    confirmButtonText: 'Yes, continue',
+    cancelButtonText: 'Cancel',
   });
 };
 
 // Custom alert with options
 export const showCustom = (options) => {
   return Swal.fire({
-    confirmButtonColor: '#10b981',
-    cancelButtonColor: '#6b7280',
+    confirmButtonColor: '#6b7f3a',
+    cancelButtonColor: '#85736a',
     ...options,
   });
 };
@@ -94,10 +94,10 @@ export const showInput = (
     input: 'text',
     inputPlaceholder,
     showCancelButton: true,
-    confirmButtonColor: '#10b981',
-    cancelButtonColor: '#6b7280',
-    confirmButtonText: 'ثبت',
-    cancelButtonText: 'لغو',
+    confirmButtonColor: '#6b7f3a',
+    cancelButtonColor: '#85736a',
+    confirmButtonText: 'Submit',
+    cancelButtonText: 'Cancel',
     inputValidator: (value) => {
       if (!value) {
         return 'You need to write something!';
@@ -123,12 +123,12 @@ export const closeLoading = () => {
 };
 
 // Toast notification
-export const showToast = (message, icon = 'success', position = 'top-end') => {
+export const showToast = (message, icon = 'success', position = 'bottom-end') => {
   const Toast = Swal.mixin({
     toast: true,
     position,
     showConfirmButton: false,
-    timer: 3000,
+    timer: 2200,
     timerProgressBar: true,
   });
 

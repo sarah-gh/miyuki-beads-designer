@@ -14,7 +14,7 @@ const props = defineProps({
   pattern: { type: Array, required: true },
   rows: { type: Number, default: 10 },
   cols: { type: Number, default: 50 },
-  // چرخش texture (بر حسب درجه)
+  // rotation texture (in degrees)
   textureRotation: { type: Number, default: 90 },
 });
 
@@ -56,7 +56,7 @@ function getBeadMaterial(colorLike, textureRotation = 0) {
 
     // Clone texture to avoid affecting cached version
     const clonedTexture = texture.clone();
-    clonedTexture.rotation = textureRotation; // چرخش texture بر حسب رادیان
+    clonedTexture.rotation = textureRotation; // rotation texture in radians
 
     const material = new THREE.MeshPhysicalMaterial({
       color: 0xffffff,
@@ -100,8 +100,8 @@ function createBeads() {
       const idx = y * props.cols + x;
       const colorOrUrl = props.pattern[idx] || '#ffffff';
 
-      // محاسبه چرخش texture
-      const textureRotationRadians = (props.textureRotation * Math.PI) / 180; // تبدیل درجه به رادیان
+      // Compute texture
+      const textureRotationRadians = (props.textureRotation * Math.PI) / 180; // degrees to radians
 
       const beadMaterial = getBeadMaterial(colorOrUrl, textureRotationRadians);
       const bead = new THREE.Mesh(beadGeometry, beadMaterial);

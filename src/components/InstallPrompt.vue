@@ -3,7 +3,7 @@
     <div
       v-if="isVisible"
       class="install-prompt"
-      dir="rtl"
+      dir="ltr"
       role="dialog"
       aria-labelledby="install-prompt-title"
     >
@@ -20,21 +20,21 @@
           id="install-prompt-title"
           class="install-title"
         >
-          نصب اپلیکیشن میوکی
+          Install Miyuki Beads
         </p>
         <p
           v-if="!needsIosInstructions"
           class="install-text"
         >
-          آن را به صفحهٔ اصلی اضافه کنید تا تمام‌صفحه اجرا شود و بدون اینترنت هم
-          کار کند.
+          Add it to your home screen to run it full screen, even
+          without an internet connection.
         </p>
         <p
           v-else
           class="install-text"
         >
-          در سافاری روی <span class="ios-key">هم‌رسانی</span> بزنید و سپس
-          <span class="ios-key">افزودن به صفحهٔ اصلی</span> را انتخاب کنید.
+          In Safari, tap <span class="ios-key">Share</span> and then choose
+          <span class="ios-key">Add to Home Screen</span>.
         </p>
       </div>
 
@@ -44,19 +44,19 @@
           class="install-btn install-btn--primary"
           @click="install"
         >
-          نصب
+          Install
         </button>
         <button
           class="install-btn install-btn--ghost"
           @click="dismiss"
         >
-          {{ needsIosInstructions ? 'متوجه شدم' : 'فعلاً نه' }}
+          {{ needsIosInstructions ? 'Got it' : 'Not now' }}
         </button>
       </div>
 
       <button
         class="install-close"
-        aria-label="بستن"
+        aria-label="Close"
         @click="dismiss"
       >
         &times;

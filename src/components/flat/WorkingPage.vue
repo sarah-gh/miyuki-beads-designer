@@ -8,14 +8,14 @@
         class="mobile-hamburger-btn"
         :class="{ active: isSettingsPanelOpen }"
         :aria-expanded="isSettingsPanelOpen"
-        aria-label="نمایش تنظیمات و اطلاعات"
+        aria-label="Show settings and info"
         @click="isSettingsPanelOpen = !isSettingsPanelOpen"
       >
         <span class="hamburger-line"></span>
         <span class="hamburger-line"></span>
         <span class="hamburger-line"></span>
       </button>
-      <span class="mobile-top-title">🧶 مراحل اجرا</span>
+      <span class="mobile-top-title">🧶 Step-by-step</span>
       <span class="mobile-step-badge">
         {{ currentStepIndex + 1 }}/{{ totalSteps }}
       </span>
@@ -29,19 +29,19 @@
     >
       <!-- Header Section -->
       <div class="page-header">
-        <h1 class="page-title">🧶 مراحل اجرای دستبند میوکی</h1>
+        <h1 class="page-title">🧶 Miyuki Bracelet Step-by-Step</h1>
         <p class="page-subtitle">
-          مراحل بافت دستبند را ردیف به ردیف (از بالا به پایین) مشاهده کنید
+          Follow the bracelet row by row (top to bottom)
         </p>
       </div>
 
       <!-- Controls Panel -->
       <div class="controls-panel">
         <div class="control-group">
-          <h3>🎯 تنظیمات شروع</h3>
+          <h3>🎯 Start settings</h3>
           <div class="start-controls">
             <label class="control-label">
-              <span>شروع از ردیف:</span>
+              <span>Start from row:</span>
               <input
                 v-model.number="startRow"
                 type="number"
@@ -51,71 +51,71 @@
               />
             </label>
             <label class="control-label">
-              <span>جهت اجرا:</span>
+              <span>Direction:</span>
               <select
                 v-model="direction"
                 class="control-select"
               >
-                <option value="forward">⬇️ از بالا به پایین</option>
-                <option value="backward">⬆️ از پایین به بالا</option>
+                <option value="forward">⬇️ Top to bottom</option>
+                <option value="backward">⬆️ Bottom to top</option>
               </select>
             </label>
           </div>
         </div>
 
         <div class="control-group desktop-controls">
-          <h3>🎮 کنترل‌ها</h3>
+          <h3>🎮 Controls</h3>
           <div class="navigation-controls">
             <button
               :disabled="currentStepIndex <= 0"
               class="nav-btn prev-btn"
               @click="previousStep"
             >
-              ⬅️ مرحله قبل
+              ⬅️ Previous step
             </button>
             <button
               :disabled="currentStepIndex >= totalSteps - 1"
               class="nav-btn next-btn"
               @click="nextStep"
             >
-              مرحله بعد ➡️
+              Next step ➡️
             </button>
             <button
               class="nav-btn reset-btn"
               @click="resetToStart"
             >
-              🔄 شروع مجدد
+              🔄 Start over
             </button>
           </div>
         </div>
 
         <div class="control-group">
-          <h3>📊 اطلاعات</h3>
+          <h3>📊 Info</h3>
           <div class="info-display">
             <div class="info-item">
-              <span class="info-label">مرحله فعلی:</span>
+              <span class="info-label">Current step:</span>
               <span class="info-value"
-                >{{ currentStepIndex + 1 }} از {{ totalSteps }}</span
+                >{{ currentStepIndex + 1 }} of {{ totalSteps }}</span
               >
             </div>
             <div class="info-item">
-              <span class="info-label">ردیف فعلی:</span>
+              <span class="info-label">Current row:</span>
               <span class="info-value"
-                >{{ currentRowIndex + 1 }} از {{ lineCount }}</span
+                >{{ currentRowIndex + 1 }} of {{ lineCount }}</span
               >
             </div>
             <div class="info-item">
-              <span class="info-label">رنگ‌های مورد نیاز:</span>
-              <span class="info-value">{{ currentRowColors.length }} رنگ</span>
+              <span class="info-label">Colours needed:</span>
+              <span class="info-value">{{ currentRowColors.length }} colours</span>
             </div>
           </div>
         </div>
 
         <div class="control-group">
-          <h3>🎨 مدیریت رنگ‌ها</h3>
+          <h3>🎨 Colours</h3>
           <div class="color-management">
             <div class="color-list-management">
-              <h4>رنگ‌های استفاده شده در طرح:</h4>
+              <h4>Colours used in the pattern:</h4>
               <div class="all-colors-list">
                 <div
                   v-for="(color, index) in allUsedColors"
@@ -142,12 +142,12 @@
                   <input
                     v-model="colorNames[color]"
                     type="text"
-                    :placeholder="`نام رنگ ${index + 1}`"
+                    :placeholder="`Colour name ${index + 1}`"
                     class="color-name-input"
                     @input="updateColorName(color, $event.target.value)"
                   />
                   <span class="color-count-badge"
-                    >{{ getTotalColorCount(color) }} مهره</span
+                    >{{ getTotalColorCount(color) }} beads</span
                   >
                   <span class="color-code">{{ color }}</span>
                 </div>
@@ -161,17 +161,17 @@
     <!-- Pattern Display -->
     <div class="pattern-container">
       <div class="pattern-header">
-        <h3>🎨 الگوی دستبند</h3>
+        <h3>🎨 Bracelet pattern</h3>
         <div class="pattern-info">
-          <span>ابعاد: {{ rows }} × {{ cols }}</span>
+          <span>Size: {{ rows }} × {{ cols }}</span>
         </div>
       </div>
       <!-- Current Row Instructions -->
       <div class="instructions-panel">
-        <h4>📋 دستورالعمل ردیف {{ currentRowIndex + 1 }}</h4>
+        <h4>📋 Row {{ currentRowIndex + 1 }} instructions</h4>
         <div class="row-instructions">
           <div class="color-instructions">
-            <h5>رنگ‌های مورد نیاز:</h5>
+            <h5>Colours needed:</h5>
             <div class="color-list">
               <div
                 v-for="(color, index) in currentRowColors"
@@ -200,7 +200,7 @@
             </div>
           </div>
           <div class="pattern-instructions">
-            <h5>ترتیب رنگ‌ها:</h5>
+            <h5>Colour order:</h5>
             <div class="pattern-sequence">
               <div
                 v-for="(color, index) in currentRowPattern"
@@ -257,7 +257,7 @@
               backgroundPosition: 'center',
               opacity: getCellOpacity(index),
             }"
-            :title="`ردیف ${Math.floor(index / cols) + 1}, ستون ${(index % cols) + 1}: ${cell.color}`"
+            :title="`Row ${Math.floor(index / cols) + 1}, column ${(index % cols) + 1}: ${cell.color}`"
           ></div>
         </div>
       </div>
@@ -265,13 +265,13 @@
 
     <!-- Keyboard Shortcuts Info -->
     <div class="shortcuts-info">
-      <h4>⌨️ کلیدهای میانبر</h4>
+      <h4>⌨️ Keyboard shortcuts</h4>
       <div class="shortcuts-list">
         <div class="shortcut-item">
-          <kbd>Enter</kbd> یا <kbd>Space</kbd> - مرحله بعد
+          <kbd>Enter</kbd> or <kbd>Space</kbd> - next step
         </div>
-        <div class="shortcut-item"><kbd>←</kbd> - مرحله قبل</div>
-        <div class="shortcut-item"><kbd>R</kbd> - شروع مجدد</div>
+        <div class="shortcut-item"><kbd>←</kbd> - previous step</div>
+        <div class="shortcut-item"><kbd>R</kbd> - start over</div>
       </div>
     </div>
 
@@ -286,20 +286,20 @@
           class="mobile-nav-btn prev-btn"
           @click="previousStep"
         >
-          ⬅️ قبلی
+          ⬅️ Previous
         </button>
         <button
           class="mobile-nav-btn reset-btn"
           @click="resetToStart"
         >
-          🔄 شروع
+          🔄 Restart
         </button>
         <button
           :disabled="currentStepIndex >= totalSteps - 1"
           class="mobile-nav-btn next-btn"
           @click="nextStep"
         >
-          بعدی ➡️
+          Next ➡️
         </button>
       </div>
     </Teleport>
@@ -326,8 +326,8 @@ const props = defineProps({
 });
 
 // Reactive data
-const startRow = ref(0); // شروع از ردیف (ارتفاع)
-const direction = ref('forward'); // forward: بالا به پایین، backward: پایین به بالا
+const startRow = ref(0); // row to start from
+const direction = ref('forward'); // forward: top to bottom, backward: bottom to top
 const currentStepIndex = ref(0);
 const colorNames = ref({}); // Store color names
 const isSettingsPanelOpen = ref(false); // Mobile-only: collapses the sections above the pattern
@@ -385,7 +385,7 @@ const isVertical = ref(true);
 // Computed properties
 const lineCount = computed(() => (isVertical.value ? props.rows : props.cols));
 const maxStartIndex = computed(() => lineCount.value - 1);
-const totalSteps = computed(() => lineCount.value); // مراحل بر اساس جهت فعال
+const totalSteps = computed(() => lineCount.value); // one step per line
 
 const currentRowIndex = computed(() => {
   const base =
@@ -619,8 +619,8 @@ watch(
   max-width: 1400px;
   margin: 0 auto;
   padding: 20px;
-  font-family: 'Vazirmatn', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  direction: rtl;
+  font-family: var(--font-sans);
+  direction: ltr;
 }
 
 /* Navigation breadcrumb removed - not needed when embedded */
