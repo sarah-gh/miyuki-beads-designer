@@ -1,81 +1,85 @@
-// Minimal Google Drive v3 client (fetch only). Every project is one JSON file
+// Google Drive helpers for project sync. Every project is one JSON file
 // inside an app folder; its id and edit date are kept in appProperties so the
 // folder can be listed without downloading every file.
+//
+// HTTP goes through the axios services (the access token is added by the
+// httpGoogle interceptor); reads go through vue-query's shared client, which
+// de-duplicates parallel requests and retries transient failures.
 
-const API = 'https://www.googleapis.com/drive/v3';
-const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
+import { GoogleAuthError, GoogleApiError } from '@/services/axios/index';
+import {
+  createDriveFile,
+  downloadDriveFile,
+  getDriveFile,
+  searchDriveFiles,
+  updateDriveFile,
+  uploadDriveFile,
+} from '@/services/axios/googleDrive.service';
+import { getGoogleUser } from '@/services/axios/googleUser.service';
+import { queryClient, queryKeys } from '@/services/queryClient';
+
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 export const FOLDER_NAME = 'Miyuki Beads Designer';
 
-export class DriveAuthError extends Error {}
+// Kept under its old name: the sync code treats it as "reconnect needed".
+export { GoogleAuthError as DriveAuthError };
 
-async function call(token, url, options = {}) {
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${token.accessToken}`,
-      ...options.headers,
-    },
-  });
-  if (response.status === 401) {
-    throw new DriveAuthError('Google sign-in expired.');
-  }
-  if (!response.ok) {
-    let message = `Google Drive error ${response.status}`;
-    try {
-      message = (await response.json()).error?.message || message;
-    } catch {
-      /* not JSON */
-    }
-    throw new Error(message);
-  }
-  return response.status === 204 ? null : response;
-}
+/** Always hits the network (sync needs fresh data), cached only while in flight. */
+const fetchFresh = (queryKey, queryFn) =>
+  queryClient.fetchQuery({ queryKey, queryFn, staleTime: 0, gcTime: 0 });
 
 const q = (text) => text.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
+/** Name, email and picture of the signed-in Google account. */
+export async function fetchGoogleUser() {
+  const info = await fetchFresh(queryKeys.google.user(), getGoogleUser);
+  return { name: info.name, email: info.email, picture: info.picture };
+}
+
 /** The app folder's id, creating the folder the first time. */
-export async function ensureFolder(token, knownId) {
+export async function ensureFolder(knownId) {
   if (knownId) {
     try {
-      const res = await call(
-        token,
-        `${API}/files/${knownId}?fields=id,trashed`,
+      const folder = await fetchFresh(queryKeys.google.driveFile(knownId), () =>
+        getDriveFile(knownId, 'id,trashed'),
       );
-      const folder = await res.json();
       if (!folder.trashed) return folder.id;
     } catch (error) {
-      if (error instanceof DriveAuthError) throw error;
+      if (error instanceof GoogleAuthError) throw error;
       /* gone: look it up again below */
     }
   }
-  const query = `name='${q(FOLDER_NAME)}' and mimeType='${FOLDER_MIME}' and trashed=false`;
-  const res = await call(
-    token,
-    `${API}/files?q=${encodeURIComponent(query)}&fields=files(id)&spaces=drive`,
+  const params = {
+    q: `name='${q(FOLDER_NAME)}' and mimeType='${FOLDER_MIME}' and trashed=false`,
+    fields: 'files(id)',
+    spaces: 'drive',
+  };
+  const { files } = await fetchFresh(queryKeys.google.driveFiles(params), () =>
+    searchDriveFiles(params),
   );
-  const { files } = await res.json();
   if (files?.length) return files[0].id;
 
-  const created = await call(token, `${API}/files?fields=id`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: FOLDER_NAME, mimeType: FOLDER_MIME }),
+  const created = await createDriveFile({
+    name: FOLDER_NAME,
+    mimeType: FOLDER_MIME,
   });
-  return (await created.json()).id;
+  return created.id;
 }
 
 /** [{ fileId, projectId, updatedAt }] for every project file in the folder. */
-export async function listProjectFiles(token, folderId) {
-  const query = `'${folderId}' in parents and trashed=false`;
+export async function listProjectFiles(folderId) {
   const result = [];
   let pageToken = '';
   do {
-    const url =
-      `${API}/files?q=${encodeURIComponent(query)}&pageSize=1000` +
-      `&fields=nextPageToken,files(id,appProperties)` +
-      (pageToken ? `&pageToken=${pageToken}` : '');
-    const page = await (await call(token, url)).json();
+    const params = {
+      q: `'${folderId}' in parents and trashed=false`,
+      pageSize: 1000,
+      fields: 'nextPageToken,files(id,appProperties)',
+      ...(pageToken ? { pageToken } : {}),
+    };
+    const page = await fetchFresh(queryKeys.google.driveFiles(params), () =>
+      searchDriveFiles(params),
+    );
     for (const file of page.files ?? []) {
       const props = file.appProperties ?? {};
       if (props.projectId) {
@@ -91,9 +95,10 @@ export async function listProjectFiles(token, folderId) {
   return result;
 }
 
-export async function downloadFile(token, fileId) {
-  const res = await call(token, `${API}/files/${fileId}?alt=media`);
-  return res.json();
+export function downloadFile(fileId) {
+  return fetchFresh(queryKeys.google.driveFileContent(fileId), () =>
+    downloadDriveFile(fileId),
+  );
 }
 
 function fileName(name) {
@@ -102,7 +107,7 @@ function fileName(name) {
 }
 
 /** Create (no fileId) or overwrite a project file. Returns the file id. */
-export async function uploadProject(token, { folderId, fileId, payload }) {
+export async function uploadProject({ folderId, fileId, payload }) {
   const { project } = payload;
   const metadata = {
     name: fileName(project.name),
@@ -120,34 +125,25 @@ export async function uploadProject(token, { folderId, fileId, payload }) {
     `${JSON.stringify(metadata)}\r\n` +
     `--${boundary}\r\nContent-Type: application/json\r\n\r\n` +
     `${JSON.stringify(payload)}\r\n--${boundary}--`;
-  const url = fileId
-    ? `${UPLOAD}/files/${fileId}?uploadType=multipart&fields=id`
-    : `${UPLOAD}/files?uploadType=multipart&fields=id`;
-  const res = await call(token, url, {
-    method: fileId ? 'PATCH' : 'POST',
-    headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
-    body,
-  });
-  return (await res.json()).id;
+  const uploaded = await uploadDriveFile({ fileId, body, boundary });
+  return uploaded.id;
 }
 
 /** Move a project file to the Drive trash (recoverable for 30 days). */
-export async function trashFile(token, fileId) {
+export async function trashFile(fileId) {
   try {
-    await call(token, `${API}/files/${fileId}?fields=id`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trashed: true }),
-    });
+    await updateDriveFile(fileId, { trashed: true });
   } catch (error) {
     // Already gone is fine.
-    if (
-      error instanceof DriveAuthError ||
-      !/404|not found/i.test(error.message)
-    ) {
+    if (!(error instanceof GoogleApiError && error.status === 404)) {
       throw error;
     }
   }
+}
+
+/** Forget every cached Google response (sign-out / account switch). */
+export function clearGoogleQueries() {
+  queryClient.removeQueries({ queryKey: queryKeys.google.all });
 }
 
 export function folderUrl(folderId) {

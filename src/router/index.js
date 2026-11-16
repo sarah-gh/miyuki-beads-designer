@@ -38,6 +38,18 @@ const router = createRouter({
       meta: { layout: 'dashboard' },
     },
     {
+      path: '/photo-to-bracelet',
+      name: 'image-pattern',
+      component: () => import('../views/ImagePatternView.vue'),
+      meta: { layout: 'dashboard' },
+    },
+    {
+      path: '/settings',
+      name: 'settings',
+      component: () => import('../views/SettingsView.vue'),
+      meta: { layout: 'dashboard' },
+    },
+    {
       path: '/templates',
       name: 'templates',
       component: () => import('../views/TemplatesView.vue'),

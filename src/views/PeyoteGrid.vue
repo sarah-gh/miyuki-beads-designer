@@ -37,7 +37,8 @@
         />
         <WorkingPage
           v-if="mode === 'steps'"
-          :pattern="workingPattern"
+          :pattern="pattern"
+          :peyote-orientation="orientation"
           :rows="rows"
           :cols="cols"
           class="content-component"
@@ -53,7 +54,6 @@ import { computed, ref } from 'vue';
 import AppPortal from '@/components/layout/AppPortal.vue';
 import StatusBar from '@/components/ui/StatusBar.vue';
 import ViewModeActions from '@/components/editor/ViewModeActions.vue';
-import { beadSwatch } from '@/components/peyote/delicaCatalog.js';
 import GridEditor from '@/components/peyote/PeyoteGridEditor.vue';
 import MiyukiBeads from '@/components/peyote/MiyukiBeads.vue';
 import BraceletPreview from '@/components/peyote/BraceletPreview.vue';
@@ -70,7 +70,6 @@ const gridEditor = ref(null);
 const rows = ref(0);
 const cols = ref(0);
 const pattern = ref([]);
-const workingPattern = computed(() => pattern.value.map(beadSwatch));
 const mode = ref('editor'); // editor | beads | preview | steps
 
 function setMode(next) {

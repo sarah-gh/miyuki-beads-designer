@@ -33,7 +33,10 @@
         />
         <WorkingPage
           v-if="mode === 'steps'"
-          :pattern="workingPattern"
+          :pattern="pattern"
+          :peyote-orientation="
+            activeDesign === 'peyote' ? previewProps.orientation : null
+          "
           :rows="rows"
           :cols="cols"
           class="content-component"
@@ -51,7 +54,6 @@ import StatusBar from '@/components/ui/StatusBar.vue';
 import ViewModeActions from '@/components/editor/ViewModeActions.vue';
 import PeyoteBeads from '@/components/peyote/MiyukiBeads.vue';
 import PeyoteBracelet from '@/components/peyote/BraceletPreview.vue';
-import { beadSwatch } from '@/components/peyote/delicaCatalog.js';
 import MiyukiBeads from '@/components/flat/MiyukiBeads.vue';
 import BraceletPreview from '@/components/flat/BraceletPreview.vue';
 import WorkingPage from '@/components/flat/WorkingPage.vue';
@@ -77,8 +79,6 @@ const previewProps = computed(() =>
 const rows = computed(() => previewProps.value.rows);
 const cols = computed(() => previewProps.value.cols);
 const pattern = computed(() => previewProps.value.pattern);
-const workingPattern = computed(() => pattern.value.map(beadSwatch));
-
 
 function setMode(next) {
   syncPeyote();
@@ -92,7 +92,6 @@ function readMatrix(matrix) {
     pattern: matrix.flat(),
   };
 }
-
 
 function handlePeyoteUpdate(matrix, orientation) {
   peyote.value = { ...readMatrix(matrix), orientation };

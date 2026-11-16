@@ -1,5 +1,5 @@
 <template>
-  <div class="working-page backdrop-filter-none">
+  <div class="working-page step-workspace backdrop-filter-none">
     <!-- No navigation breadcrumb needed when embedded in HomeView -->
 
     <!-- Mobile Top Bar (hamburger for the sections above the pattern) -->
@@ -29,93 +29,96 @@
     >
       <!-- Header Section -->
       <div class="page-header">
-        <h1 class="page-title">🧶 Miyuki Bracelet Step-by-Step</h1>
+        <h1 class="page-title">
+          {{ isPeyote ? 'Peyote Step-by-step' : 'Flat Grid Step-by-step' }}
+        </h1>
         <p class="page-subtitle">
-          Follow the bracelet row by row (top to bottom)
+          {{
+            isPeyote
+              ? 'Follow the staggered bead passes in stitching order.'
+              : 'Follow the bracelet one line at a time.'
+          }}
         </p>
       </div>
 
       <!-- Controls Panel -->
       <div class="controls-panel">
-        <div class="control-group">
-          <h3>🎯 Start settings</h3>
-          <div class="start-controls">
-            <label class="control-label">
-              <span>Start from row:</span>
-              <input
-                v-model.number="startRow"
-                type="number"
-                min="0"
-                :max="maxStartIndex"
-                class="control-input"
-              />
-            </label>
-            <label class="control-label">
-              <span>Direction:</span>
-              <select
-                v-model="direction"
-                class="control-select"
-              >
-                <option value="forward">⬇️ Top to bottom</option>
-                <option value="backward">⬆️ Bottom to top</option>
-              </select>
-            </label>
-          </div>
-        </div>
-
-        <div class="control-group desktop-controls">
-          <h3>🎮 Controls</h3>
-          <div class="navigation-controls">
-            <button
-              :disabled="currentStepIndex <= 0"
-              class="nav-btn prev-btn"
-              @click="previousStep"
-            >
-              ⬅️ Previous step
-            </button>
-            <button
-              :disabled="currentStepIndex >= totalSteps - 1"
-              class="nav-btn next-btn"
-              @click="nextStep"
-            >
-              Next step ➡️
-            </button>
-            <button
-              class="nav-btn reset-btn"
-              @click="resetToStart"
-            >
-              🔄 Start over
-            </button>
-          </div>
-        </div>
-
-        <div class="control-group">
-          <h3>📊 Info</h3>
-          <div class="info-display">
-            <div class="info-item">
-              <span class="info-label">Current step:</span>
-              <span class="info-value"
-                >{{ currentStepIndex + 1 }} of {{ totalSteps }}</span
-              >
-            </div>
-            <div class="info-item">
-              <span class="info-label">Current row:</span>
-              <span class="info-value"
-                >{{ currentRowIndex + 1 }} of {{ lineCount }}</span
-              >
-            </div>
-            <div class="info-item">
-              <span class="info-label">Colours needed:</span>
-              <span class="info-value">{{ currentRowColors.length }} colours</span>
+        <div class="step-settings">
+          <div class="control-group">
+            <h3>Settings</h3>
+            <div class="start-controls">
+              <label class="control-label">
+                <span>{{
+                  isPeyote
+                    ? 'Start pass (0-based):'
+                    : stepsByRow
+                      ? 'Start row (0-based):'
+                      : 'Start column (0-based):'
+                }}</span>
+                <input
+                  v-model.number="startRow"
+                  type="number"
+                  min="0"
+                  :max="maxStartIndex"
+                  class="control-input"
+                />
+              </label>
+              <label class="control-label">
+                <span>Direction:</span>
+                <select
+                  v-model="direction"
+                  class="control-select"
+                >
+                  <option value="forward">
+                    {{ !stepsByRow ? 'Left to right' : 'Top to bottom' }}
+                  </option>
+                  <option value="backward">
+                    {{ !stepsByRow ? 'Right to left' : 'Bottom to top' }}
+                  </option>
+                </select>
+              </label>
             </div>
           </div>
-        </div>
 
-        <div class="control-group">
-          <h3>🎨 Colours</h3>
+          <div class="control-group desktop-controls">
+            <h3>Navigation</h3>
+            <div class="navigation-controls">
+              <button
+                :disabled="currentStepIndex <= 0"
+                class="nav-btn prev-btn"
+                @click="previousStep"
+              >
+                ⬅️ Previous step
+              </button>
+              <button
+                :disabled="currentStepIndex >= totalSteps - 1"
+                class="nav-btn next-btn"
+                @click="nextStep"
+              >
+                Next step ➡️
+              </button>
+              <button
+                class="nav-btn reset-btn"
+                @click="resetToStart"
+              >
+                🔄 Start over
+              </button>
+            </div>
+          </div>
+
+          <div class="control-group step-progress">
+            <h3>Progress</h3>
+            <progress
+              aria-label="Stitching progress"
+              :value="totalSteps ? currentStepIndex + 1 : 0"
+              :max="totalSteps || 1"
+            ></progress>
+          </div>
+        </div>
+        <div class="control-group step-palette">
+          <h3>Pattern colours</h3>
           <div class="color-management">
             <div class="color-list-management">
-              <h4>Colours used in the pattern:</h4>
               <div class="all-colors-list">
                 <div
                   v-for="(color, index) in allUsedColors"
@@ -129,7 +132,7 @@
                         '/miyuki-beads-designer/beads/',
                       )
                         ? 'transparent'
-                        : color,
+                        : beadSwatch(color),
                       backgroundImage: color.startsWith(
                         '/miyuki-beads-designer/beads/',
                       )
@@ -144,12 +147,15 @@
                     type="text"
                     :placeholder="`Colour name ${index + 1}`"
                     class="color-name-input"
+                    :aria-label="`Colour name ${index + 1}`"
                     @input="updateColorName(color, $event.target.value)"
                   />
                   <span class="color-count-badge"
                     >{{ getTotalColorCount(color) }} beads</span
                   >
-                  <span class="color-code">{{ color }}</span>
+                  <span class="color-code">{{
+                    catalogLabels.get(color) ?? color
+                  }}</span>
                 </div>
               </div>
             </div>
@@ -160,15 +166,20 @@
 
     <!-- Pattern Display -->
     <div class="pattern-container">
-      <div class="pattern-header">
-        <h3>🎨 Bracelet pattern</h3>
-        <div class="pattern-info">
-          <span>Size: {{ rows }} × {{ cols }}</span>
-        </div>
-      </div>
-      <!-- Current Row Instructions -->
       <div class="instructions-panel">
-        <h4>📋 Row {{ currentRowIndex + 1 }} instructions</h4>
+        <div
+          class="step-heading"
+          aria-live="polite"
+        >
+          <h2>
+            {{ isPeyote ? 'Pass' : stepsByRow ? 'Row' : 'Column' }}
+            {{ totalSteps ? currentRowIndex + 1 : 0 }}
+          </h2>
+          <span
+            >{{ totalSteps ? currentStepIndex + 1 : 0 }} of
+            {{ totalSteps }}</span
+          >
+        </div>
         <div class="row-instructions">
           <div class="color-instructions">
             <h5>Colours needed:</h5>
@@ -185,7 +196,7 @@
                       '/miyuki-beads-designer/beads/',
                     )
                       ? 'transparent'
-                      : color,
+                      : beadSwatch(color),
                     backgroundImage: color.startsWith(
                       '/miyuki-beads-designer/beads/',
                     )
@@ -196,6 +207,9 @@
                   }"
                 ></div>
                 <span class="color-count">{{ getColorCount(color) }}</span>
+                <span class="color-label" :title="getColorName(color)">{{
+                  getColorName(color)
+                }}</span>
               </div>
             </div>
           </div>
@@ -211,7 +225,7 @@
                     '/miyuki-beads-designer/beads/',
                   )
                     ? 'transparent'
-                    : color,
+                    : beadSwatch(color),
                   backgroundImage: color.startsWith(
                     '/miyuki-beads-designer/beads/',
                   )
@@ -228,9 +242,17 @@
       </div>
 
       <!-- Grid Display -->
-      <div class="grid-wrapper">
+      <div class="step-overview">
+        <h3>Pattern overview</h3>
+        <span>{{ rows }} × {{ cols }} · {{ pattern.length }} beads</span>
+      </div>
+      <div
+        ref="patternViewport"
+        class="grid-wrapper"
+      >
         <div
           class="pattern-grid"
+          :class="{ 'peyote-pattern-grid': isPeyote }"
           :style="{ gridTemplateColumns: `repeat(${cols}, 12px)` }"
         >
           <div
@@ -247,7 +269,7 @@
                 '/miyuki-beads-designer/beads/',
               )
                 ? 'transparent'
-                : cell.color,
+                : beadSwatch(cell.color),
               backgroundImage: cell.color.startsWith(
                 '/miyuki-beads-designer/beads/',
               )
@@ -256,6 +278,9 @@
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               opacity: getCellOpacity(index),
+              left:
+                isPeyote && !stepsByRow && cell.row % 2 ? '6.5px' : undefined,
+              top: isPeyote && stepsByRow && cell.col % 2 ? '6.5px' : undefined,
             }"
             :title="`Row ${Math.floor(index / cols) + 1}, column ${(index % cols) + 1}: ${cell.color}`"
           ></div>
@@ -307,10 +332,17 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
+
+import {
+  beadSwatch,
+  delicaEntry,
+  delicaCatalog,
+} from '@/components/peyote/delicaCatalog.js';
 
 // Props
 const props = defineProps({
+  peyoteOrientation: { type: String, default: null },
   pattern: {
     type: Array,
     default: () => [],
@@ -324,6 +356,41 @@ const props = defineProps({
     default: 80,
   },
 });
+
+function rgb(hex) {
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) return null;
+  const value = Number.parseInt(hex.slice(1), 16);
+  return [value >> 16, (value >> 8) & 255, value & 255];
+}
+
+const catalogColours = Object.values(delicaCatalog)
+  .map((entry) => ({ entry, channels: rgb(entry.color) }))
+  .filter(({ channels }) => channels);
+
+function catalogLabel(color) {
+  const exact = delicaEntry(color);
+  if (exact) return `${exact.code} · ${exact.name}`;
+  const hex = /^#[0-9a-f]{3}$/i.test(color)
+    ? '#' + [...color.slice(1)].map((digit) => digit.repeat(2)).join('')
+    : color;
+  const channels = rgb(hex);
+  if (!channels) return color;
+  const [r, g, b] = channels;
+  let closest;
+  let bestDistance = Infinity;
+  for (const {
+    entry,
+    channels: [red, green, blue],
+  } of catalogColours) {
+    const distance =
+      2 * (r - red) ** 2 + 4 * (g - green) ** 2 + 3 * (b - blue) ** 2;
+    if (distance < bestDistance) {
+      closest = entry;
+      bestDistance = distance;
+    }
+  }
+  return closest ? `≈ ${closest.code} · ${closest.name}` : color;
+}
 
 // Reactive data
 const startRow = ref(0); // row to start from
@@ -382,10 +449,24 @@ const gridCells = ref(generateGridFromPattern());
 // Orientation from editor settings (vertical=true means step by rows; false => step by columns)
 const isVertical = ref(true);
 
-// Computed properties
-const lineCount = computed(() => (isVertical.value ? props.rows : props.cols));
-const maxStartIndex = computed(() => lineCount.value - 1);
-const totalSteps = computed(() => lineCount.value); // one step per line
+const isPeyote = computed(() => props.peyoteOrientation !== null);
+const stepsByRow = computed(() =>
+  isPeyote.value ? props.peyoteOrientation === 'vertical' : isVertical.value,
+);
+const acrossCount = computed(() =>
+  stepsByRow.value ? props.cols : props.rows,
+);
+const lineCount = computed(() => {
+  const length = stepsByRow.value ? props.rows : props.cols;
+  return isPeyote.value && acrossCount.value > 1 ? length * 2 : length;
+});
+const maxStartIndex = computed(() => Math.max(0, lineCount.value - 1));
+const totalSteps = computed(() => {
+  if (!isPeyote.value) return lineCount.value;
+  return direction.value === 'forward'
+    ? Math.max(0, lineCount.value - startRow.value)
+    : Math.min(lineCount.value, startRow.value + 1);
+});
 
 const currentRowIndex = computed(() => {
   const base =
@@ -395,45 +476,62 @@ const currentRowIndex = computed(() => {
   return Math.max(0, Math.min(lineCount.value - 1, base));
 });
 
-const currentRowColors = computed(() => {
-  const colors = [];
-  if (isVertical.value) {
-    for (let col = 0; col < props.cols; col++) {
-      const index = currentRowIndex.value * props.cols + col;
-      const color = props.pattern[index] || '#ffffff';
-      if (!colors.includes(color)) {
-        colors.push(color);
-      }
-    }
-  } else {
-    for (let row = 0; row < props.rows; row++) {
-      const index = row * props.cols + currentRowIndex.value;
-      const color = props.pattern[index] || '#ffffff';
-      if (!colors.includes(color)) {
-        colors.push(color);
-      }
-    }
-  }
-  return colors;
-});
+const hasStaggeredPasses = computed(
+  () => isPeyote.value && acrossCount.value > 1,
+);
+
+function passForCell(index) {
+  const row = Math.floor(index / props.cols);
+  const col = index % props.cols;
+  const along = stepsByRow.value ? row : col;
+  const across = stepsByRow.value ? col : row;
+  return hasStaggeredPasses.value ? along * 2 + (across % 2) : along;
+}
 
 const currentRowPattern = computed(() => {
+  if (!lineCount.value) return [];
+  const pass = currentRowIndex.value;
+  const along = hasStaggeredPasses.value ? Math.floor(pass / 2) : pass;
+  const stride = hasStaggeredPasses.value ? 2 : 1;
+  const first = hasStaggeredPasses.value ? pass % 2 : 0;
   const pattern = [];
-  if (isVertical.value) {
-    for (let col = 0; col < props.cols; col++) {
-      const index = currentRowIndex.value * props.cols + col;
-      const color = props.pattern[index] || '#ffffff';
-      pattern.push(color);
-    }
-  } else {
-    for (let row = 0; row < props.rows; row++) {
-      const index = row * props.cols + currentRowIndex.value;
-      const color = props.pattern[index] || '#ffffff';
-      pattern.push(color);
-    }
+  for (let across = first; across < acrossCount.value; across += stride) {
+    const index = stepsByRow.value
+      ? along * props.cols + across
+      : across * props.cols + along;
+    pattern.push(props.pattern[index] || '#ffffff');
   }
   return pattern;
 });
+
+const patternViewport = ref(null);
+
+watch(
+  currentRowIndex,
+  async () => {
+    await nextTick();
+    const viewport = patternViewport.value;
+    const bead = viewport?.querySelector('.active-row');
+    if (!bead) return;
+    const bounds = viewport.getBoundingClientRect();
+    const target = bead.getBoundingClientRect();
+    if (
+      stepsByRow.value &&
+      (target.top < bounds.top || target.bottom > bounds.bottom)
+    ) {
+      viewport.scrollTop += target.top - bounds.top - viewport.clientHeight / 2;
+    } else if (
+      !stepsByRow.value &&
+      (target.left < bounds.left || target.right > bounds.right)
+    ) {
+      viewport.scrollLeft +=
+        target.left - bounds.left - viewport.clientWidth / 2;
+    }
+  },
+  { immediate: true },
+);
+
+const currentRowColors = computed(() => [...new Set(currentRowPattern.value)]);
 
 const allUsedColors = computed(() => {
   const colors = new Set();
@@ -445,36 +543,25 @@ const allUsedColors = computed(() => {
   return Array.from(colors).sort();
 });
 
-// Methods
-const isInCurrentRow = (index) => {
-  const row = Math.floor(index / props.cols);
-  const col = index % props.cols;
-  return isVertical.value
-    ? row === currentRowIndex.value
-    : col === currentRowIndex.value;
-};
+const catalogLabels = computed(
+  () =>
+    new Map(allUsedColors.value.map((color) => [color, catalogLabel(color)])),
+);
 
-const isInCompletedRow = (index) => {
-  const row = Math.floor(index / props.cols);
-  const col = index % props.cols;
-  return isVertical.value
-    ? row == currentRowIndex.value
-    : col == currentRowIndex.value;
-};
+// Methods
+const isInCurrentRow = (index) => passForCell(index) === currentRowIndex.value;
 
 const isInUpcomingRow = (index) => {
-  const row = Math.floor(index / props.cols);
-  const col = index % props.cols;
-  if (direction.value === 'forward') {
-    return isVertical.value
-      ? row > currentRowIndex.value
-      : col > currentRowIndex.value;
-  } else {
-    return isVertical.value
-      ? row < currentRowIndex.value
-      : col < currentRowIndex.value;
-  }
+  const pass = passForCell(index);
+  return direction.value === 'forward'
+    ? pass > currentRowIndex.value
+    : pass < currentRowIndex.value;
 };
+
+const isInCompletedRow = (index) =>
+  isPeyote.value
+    ? !isInCurrentRow(index) && !isInUpcomingRow(index)
+    : isInCurrentRow(index);
 
 const getCellOpacity = (index) => {
   if (isInCurrentRow(index)) {
@@ -486,25 +573,8 @@ const getCellOpacity = (index) => {
   }
 };
 
-const getColorCount = (color) => {
-  let count = 0;
-  if (isVertical.value) {
-    for (let col = 0; col < props.cols; col++) {
-      const index = currentRowIndex.value * props.cols + col;
-      if (props.pattern[index] === color) {
-        count++;
-      }
-    }
-  } else {
-    for (let row = 0; row < props.rows; row++) {
-      const index = row * props.cols + currentRowIndex.value;
-      if (props.pattern[index] === color) {
-        count++;
-      }
-    }
-  }
-  return count;
-};
+const getColorCount = (color) =>
+  currentRowPattern.value.filter((value) => value === color).length;
 
 const getTotalColorCount = (color) => {
   let count = 0;
@@ -518,6 +588,17 @@ const getTotalColorCount = (color) => {
 
 const updateColorName = (color, name) => {
   colorNames.value[color] = name;
+};
+
+// Short label for the current-row legend: the user's own name if set,
+// otherwise the Delica catalogue label (exact or nearest match).
+const getColorName = (color) => {
+  const custom = colorNames.value[color]?.trim();
+  if (custom) return custom;
+  if (color.startsWith('/miyuki-beads-designer/beads/')) {
+    return color.split('/').pop().replace(/\.\w+$/, '');
+  }
+  return catalogLabels.value.get(color) ?? catalogLabel(color);
 };
 
 const getColorDisplayName = (color) => {
@@ -588,16 +669,25 @@ onUnmounted(() => {
 
 // Watch for direction changes to reset step index
 watch(direction, () => {
+  if (isPeyote.value) {
+    startRow.value = direction.value === 'forward' ? 0 : maxStartIndex.value;
+  }
   currentStepIndex.value = 0;
 });
 
 // Watch for start row changes to reset step index
 watch(startRow, () => {
+  if (isPeyote.value) {
+    startRow.value = Math.max(
+      0,
+      Math.min(maxStartIndex.value, Math.trunc(Number(startRow.value) || 0)),
+    );
+  }
   currentStepIndex.value = 0;
 });
 
 // Watch for orientation changes from editor settings
-watch(isVertical, () => {
+watch([stepsByRow, maxStartIndex], () => {
   currentStepIndex.value = 0;
   if (startRow.value > maxStartIndex.value) {
     startRow.value = 0;
@@ -753,32 +843,6 @@ watch(
   border-color: var(--accent-hover);
 }
 
-.info-display {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.info-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
-  background: var(--surface-muted);
-  border-radius: 6px;
-  border: 1px solid var(--border);
-}
-
-.info-label {
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
-.info-value {
-  font-weight: bold;
-  color: var(--text);
-}
-
 .pattern-container {
   background: white;
   border-radius: 12px;
@@ -786,30 +850,6 @@ watch(
   border: 1px solid var(--border);
   margin-bottom: 30px;
   overflow: hidden;
-}
-
-.pattern-header {
-  background: var(--surface-muted);
-  padding: 20px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.pattern-header h3 {
-  margin: 0;
-  color: var(--text);
-  font-size: 1.3rem;
-}
-
-.pattern-info {
-  background: var(--accent);
-  color: white;
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 0.9rem;
-  font-weight: 500;
 }
 
 .grid-wrapper {
@@ -827,6 +867,14 @@ watch(
   border-radius: 8px;
   padding: 10px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.peyote-pattern-grid {
+  background: var(--surface);
+}
+
+.peyote-pattern-grid .grid-cell {
+  border-radius: 3px;
 }
 
 .grid-cell {
@@ -871,14 +919,6 @@ watch(
   border-top: 1px solid var(--border);
 }
 
-.instructions-panel h4 {
-  margin: 0 0 15px 0;
-  color: var(--text);
-  font-size: 1.1rem;
-  border-bottom: 1px solid var(--accent);
-  padding-bottom: 8px;
-}
-
 .row-instructions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -921,6 +961,16 @@ watch(
   color: var(--text);
 }
 
+.color-label {
+  font-size: 0.8em;
+  color: var(--text);
+  opacity: 0.75;
+  max-width: 12ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pattern-sequence {
   display: flex;
   gap: 2px;
@@ -949,14 +999,6 @@ watch(
 /* Color Management Styles */
 .color-management {
   margin-top: 10px;
-}
-
-.color-list-management h4 {
-  margin: 0 0 15px 0;
-  color: var(--text);
-  font-size: 1rem;
-  border-bottom: 1px solid var(--accent);
-  padding-bottom: 8px;
 }
 
 .all-colors-list {
@@ -1216,10 +1258,6 @@ kbd {
     font-size: 16px;
   }
 
-  .info-item {
-    font-size: 0.85rem;
-  }
-
   .all-colors-list {
     max-height: 220px;
   }
@@ -1326,6 +1364,251 @@ kbd {
   .pattern-grid {
     max-width: 100%;
     overflow-x: auto;
+  }
+}
+
+@media (min-width: 769px) {
+  .step-workspace .collapsible-sections,
+  .step-workspace .controls-panel {
+    display: contents;
+  }
+
+  .step-workspace {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(0, 2.5fr) minmax(
+        180px,
+        1fr
+      );
+    align-items: start;
+    gap: 16px;
+    padding: clamp(16px, 2vw, 28px);
+  }
+
+  .step-workspace .step-settings {
+    display: block;
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .step-workspace .pattern-container {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .step-workspace .step-palette {
+    grid-column: 3;
+    grid-row: 2;
+  }
+
+  .step-workspace .page-header,
+  .step-workspace .shortcuts-info {
+    grid-column: 1 / -1;
+  }
+}
+
+.step-workspace {
+  background: var(--bg);
+}
+
+.step-workspace .page-header {
+  margin: 0;
+  padding: 22px;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  color: var(--text);
+  text-align: start;
+  box-shadow: none;
+}
+
+.step-workspace .page-title {
+  color: var(--text);
+  font-size: clamp(1.35rem, 2.2vw, 2rem);
+  text-shadow: none;
+}
+
+.step-workspace .page-subtitle {
+  color: var(--text-muted);
+}
+
+.step-workspace
+  :is(.step-settings, .step-palette, .pattern-container, .shortcuts-info) {
+  min-width: 0;
+  margin: 0;
+  box-shadow: none;
+}
+
+.step-workspace :is(.step-settings, .step-palette, .pattern-container) {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.step-workspace .step-settings .control-group {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.step-workspace .step-settings .control-group + .control-group {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+}
+
+.step-progress progress {
+  width: 100%;
+  height: 8px;
+  accent-color: var(--accent);
+}
+
+.step-workspace .instructions-panel {
+  padding: 0;
+  background: transparent;
+  border: 0;
+}
+
+.step-heading,
+.step-overview {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--text);
+}
+
+.step-heading {
+  margin-bottom: 12px;
+}
+
+.step-heading h2,
+.step-overview h3 {
+  font-weight: 800;
+}
+
+.step-heading span,
+.step-overview span {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.step-workspace .row-instructions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.step-workspace :is(.color-instructions, .pattern-instructions) {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.step-workspace .pattern-sequence {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.step-workspace .grid-wrapper {
+  justify-content: safe center;
+  max-height: min(55vh, 460px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.step-workspace .pattern-grid {
+  flex: none;
+  width: max-content;
+  margin: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.step-workspace .grid-cell.active-row {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.step-workspace .all-colors-list {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.step-workspace .control-label {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.step-workspace .control-select {
+  max-width: 100%;
+}
+
+.step-workspace .nav-btn {
+  flex: 1 1 auto;
+  padding: 8px 10px;
+}
+
+.step-workspace .reset-btn {
+  flex-basis: 100%;
+}
+
+.step-workspace .color-management-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 6px;
+  padding: 6px;
+}
+
+.step-workspace .color-name-input {
+  min-width: 0;
+  width: 100%;
+  padding: 5px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.step-workspace .color-code {
+  grid-column: 2 / -1;
+  overflow-wrap: anywhere;
+}
+
+.step-workspace .color-count-badge {
+  white-space: nowrap;
+}
+
+@media (min-width: 769px) and (max-width: 1050px) {
+  .step-workspace {
+    grid-template-columns: minmax(190px, 1fr) minmax(0, 2fr);
+  }
+
+  .step-workspace .step-palette {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .step-workspace .pattern-container {
+    grid-row: 2 / 4;
+  }
+}
+
+@media (max-width: 768px) {
+  .step-workspace .step-settings {
+    display: block;
+  }
+
+  .step-workspace .grid-wrapper {
+    max-height: 44dvh;
+  }
+
+  .step-workspace .step-palette {
+    margin-top: 8px;
   }
 }
 </style>

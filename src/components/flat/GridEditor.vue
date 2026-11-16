@@ -438,7 +438,15 @@ const displayRows = computed({
 });
 
 function drawFlatBead(ctx, value, x, y, width, height) {
-  return drawDelicaBead(ctx, value, x, y, width, height, cols.value > rows.value);
+  return drawDelicaBead(
+    ctx,
+    value,
+    x,
+    y,
+    width,
+    height,
+    cols.value > rows.value,
+  );
 }
 
 function getDisplayGridMatrix() {
@@ -497,6 +505,13 @@ const toolItems = computed(() => [
     shortcut: 'B',
     active: tool.value === 'paint' && !panMode.value,
     onClick: () => chooseTool('paint'),
+  },
+  {
+    id: 'pick',
+    label: 'Pick bead',
+    icon: 'pipette',
+    active: tool.value === 'pick' && !panMode.value,
+    onClick: () => chooseTool('pick'),
   },
   {
     id: 'fill',

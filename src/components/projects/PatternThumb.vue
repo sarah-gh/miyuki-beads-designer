@@ -29,7 +29,7 @@ import { drawThumb, makeThumb } from '@/lib/projects/thumbnail.js';
 const props = defineProps({
   thumb: { type: Object, default: null },
   matrix: { type: Array, default: null },
-  fit: { type: String, default: 'cover' }, // cover | contain
+  fit: { type: String, default: 'contain' }, // cover | contain
 });
 
 const canvas = ref(null);

@@ -10,6 +10,8 @@ import {
   TextureLoader,
 } from 'three';
 import { delicaEntry } from './delicaCatalog.js';
+import { applyPicassoCoating } from './picassoCoating.js';
+import { applySilkFinish, createSilkGeometry } from './silkFinish.js';
 
 // The short cylinder points across the band. The outer diameter sets the pitch along it.
 const alongPitch = 0.00162;
@@ -64,6 +66,7 @@ export function createPeyoteModel(
   // The exported glTF bore already points along Y, across the band and along the bend axis.
   const textures = new TextureLoader();
   let liningGeometry;
+  let silkGeometry;
   pattern.forEach((value, index) => {
     if (!value || !cols || index >= rows * cols) return;
     if (!entries.has(value)) entries.set(value, []);
@@ -77,6 +80,8 @@ export function createPeyoteModel(
         roughness: 0.32,
       },
     );
+    applyPicassoCoating(material, entry);
+    applySilkFinish(material, entry);
     if (
       value.startsWith('data:image/') ||
       value.startsWith('/miyuki-beads-designer/beads/')
@@ -85,7 +90,8 @@ export function createPeyoteModel(
       material.map.colorSpace = SRGBColorSpace;
       material.map.flipY = false;
     }
-    const batch = new InstancedMesh(geometry, material, indices.length);
+    const body = entry?.silk ? (silkGeometry ??= createSilkGeometry(geometry)) : geometry;
+    const batch = new InstancedMesh(body, material, indices.length);
     batch.name = value;
     const batches = [batch];
     if (entry?.lining) {
@@ -140,6 +146,7 @@ export function createPeyoteModel(
         batch.dispose();
       }
       liningGeometry?.dispose();
+      silkGeometry?.dispose();
       group.clear();
     },
   };

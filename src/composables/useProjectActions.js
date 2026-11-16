@@ -19,10 +19,11 @@ export function useProjectActions() {
     if (mode) router.push({ name: mode.route, params: { id: project.id } });
   }
 
-  function create({ mode, name, template = null }) {
+  function create({ mode, name, category, template = null }) {
     try {
       const project = createProject({
         mode,
+        category,
         name: name || template?.name,
         data: template?.data ?? null,
         templateId: template?.id ?? null,

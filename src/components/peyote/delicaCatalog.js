@@ -124,10 +124,16 @@ const metals = { gold: '#efba58', silver: '#e7edf2', copper: '#c87950' };
 
 function makeEntry(record) {
   const tuned = tunedEntries[record.code];
-  const color = record.swatch?.hex ?? tuned?.color ?? '#a5a29f';
+  const color =
+    record.code === 'DB2264'
+      ? '#47c1bf'
+      : (record.swatch?.hex ?? tuned?.color ?? '#a5a29f');
   const tags = record.finishTags;
   const matte = tags.includes('matte');
-  const silk = record.glassType === 'silk' || tags.includes('silk');
+  const silk =
+    record.glassType === 'silk' ||
+    tags.includes('silk') ||
+    /\bsilk\b/i.test(record.finish ?? '');
   const metallic = ['metallic', 'galvanized', 'plated'].some((tag) =>
     tags.includes(tag),
   );
@@ -159,12 +165,38 @@ function makeEntry(record) {
     ...(silk ? { anisotropy: 0.8 } : {}),
     ...(tags.includes('iridescent') ? { iridescence: 0.45 } : {}),
   };
+  const previewSurface = { ...(tuned?.surface ?? surface) };
+  // The transmission pass cannot reliably reproduce a coloured sleeve inside
+  // a tiny bead. Carry its colour on the glass wall as well.
+  if (record.lining === 'color') {
+    previewSurface.color = color;
+    previewSurface.transmission = Math.min(previewSurface.transmission ?? 0, 0.42);
+  }
+  // Keep tinted transparent glass readable against a light preview background.
+  if (previewSurface.transmission > 0.7 && /^#[\da-f]{6}$/i.test(color)) {
+    const rgb = Number.parseInt(color.slice(1), 16);
+    const darkestChannel = Math.min(rgb >> 16, (rgb >> 8) & 255, rgb & 255);
+    if (darkestChannel < 190 && !metalColor) previewSurface.transmission = 0.7;
+  }
   return {
     ...record,
     name: record.name ?? tuned?.name ?? record.code,
     label: record.finish ?? tuned?.label ?? record.glassType ?? '',
     color,
-    surface: tuned?.surface ?? surface,
+    silk,
+    // `lining` below becomes 3D material settings; keep the catalog category for filtering.
+    liningType: record.lining ?? null,
+    surface: silk
+      ? {
+          ...previewSurface,
+          color,
+          transmission: 0.12,
+          roughness: 0.32,
+          anisotropy: 0.55,
+          clearcoat: 0.48,
+          clearcoatRoughness: 0.2,
+        }
+      : previewSurface,
     lining: tuned?.lining ?? lining,
   };
 }

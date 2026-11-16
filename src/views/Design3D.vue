@@ -97,7 +97,6 @@
           paint-mode="color"
           :recent-colors="recent"
           :show-image-mode="false"
-          show-finish-filter
           @fill-with-bead="fillFace"
           @clear-recent-colors="recent = []"
           @remove-recent-color="
@@ -130,6 +129,10 @@
                 Face {{ face + 1 }}
               </option>
             </select>
+          </label>
+          <label v-if="design.shape === 'triangle'">
+            <input v-model="mirrorFaces" type="checkbox" />
+            Mirror painting to other faces
           </label>
           <label
             ><input
@@ -252,6 +255,7 @@ const tool = ref('paint');
 const faceFilter = ref('');
 const activeFace = ref(0);
 const outlines = ref(false);
+const mirrorFaces = ref(false);
 const reference = ref(null);
 const referenceVisible = ref(true);
 const referenceBeside = ref(true);
@@ -404,11 +408,28 @@ function scheduleSave() {
   pendingSave = setTimeout(save, 200);
 }
 
-function setFace(face, cells, code) {
-  if (cells.every((value, i) => value === design.value.panels[face][i])) return;
-  undoStack.value.push([{ face, cells: design.value.panels[face] }]);
+function paintBead(face, index, code, before, mirrored) {
+  const panels = design.value.panels;
+  function write(side, beadIndex) {
+    const cells = panels[side];
+    if (cells[beadIndex] === code) return;
+    if (!before.has(side)) before.set(side, [...cells]);
+    cells[beadIndex] = code;
+  }
+  write(face, index);
+  if (mirrored && design.value.shape === 'triangle') {
+    const { row, column } = triangleCell(index);
+    const reflected = index + row - 2 * column;
+    panels.forEach((_, side) => {
+      if (side !== face) write(side, reflected);
+    });
+  }
+}
+
+function commitPaint(before, code) {
+  if (!before.size) return;
+  undoStack.value.push(Array.from(before, ([face, cells]) => ({ face, cells })));
   redoStack.value = [];
-  design.value.panels[face] = cells;
   recent.value = [
     code,
     ...recent.value.filter((value) => value !== code),
@@ -439,6 +460,7 @@ function startBrush(event) {
     id: event.pointerId,
     surface: event.currentTarget,
     code: selected.value,
+    mirrored: mirrorFaces.value,
     x: event.clientX,
     y: event.clientY,
     step: Math.max(1, Math.min(bead.offsetWidth, bead.offsetHeight) / 4),
@@ -461,10 +483,7 @@ function sweepBrush(x, y) {
     const { panel, index } = bead.dataset;
     if (faceFilter.value !== '' && panel !== faceFilter.value) continue;
     const face = Number(panel);
-    const cells = design.value.panels[face];
-    if (cells[index] === brush.code) continue;
-    if (!brush.before.has(face)) brush.before.set(face, [...cells]);
-    cells[index] = brush.code;
+    paintBead(face, Number(index), brush.code, brush.before, brush.mirrored);
     activeFace.value = face;
   }
   brush.x = x;
@@ -483,16 +502,7 @@ function endBrush(event) {
   if (event.type === 'pointerup') moveBrush(event);
   const { before, code } = brush;
   brush = undefined;
-  if (!before.size) return;
-  undoStack.value.push(
-    Array.from(before, ([face, cells]) => ({ face, cells })),
-  );
-  redoStack.value = [];
-  recent.value = [
-    code,
-    ...recent.value.filter((value) => value !== code),
-  ].slice(0, 12);
-  scheduleSave();
+  commitPaint(before, code);
 }
 
 function editCell(cell) {
@@ -506,16 +516,20 @@ function editCell(cell) {
   } else if (tool.value === 'fill') {
     fillFace(selected.value);
   } else {
-    const next = [...cells];
-    next[cell.index] = selected.value;
-    setFace(cell.panel, next, selected.value);
+    const before = new Map();
+    paintBead(cell.panel, cell.index, selected.value, before, mirrorFaces.value);
+    commitPaint(before, selected.value);
   }
 }
 function fillFace(code) {
   if (!delicaEntry(code)) return;
   const face =
     faceFilter.value === '' ? activeFace.value : Number(faceFilter.value);
-  setFace(face, Array(triangleBeadCount(design.value.rounds)).fill(code), code);
+  const before = new Map();
+  for (let index = 0; index < design.value.panels[face].length; index++) {
+    paintBead(face, index, code, before, mirrorFaces.value);
+  }
+  commitPaint(before, code);
 }
 function removeReference() {
   if (reference.value) URL.revokeObjectURL(reference.value);

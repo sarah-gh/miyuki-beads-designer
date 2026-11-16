@@ -29,6 +29,8 @@
 </template>
 
 <script setup>
+import { applyPicassoCoating } from '@/components/peyote/picassoCoating.js';
+import { applySilkFinish, createSilkGeometry } from '@/components/peyote/silkFinish.js';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -57,14 +59,18 @@ const linerGeometry = new THREE.CylinderGeometry(
 );
 let renderer, scene, camera, controls, environment, observer, model, geometry;
 let closed = false;
+let silkGeometry;
 
 function materialsFor(code) {
   if (!materials.has(code)) {
     const entry = delicaEntry(code);
+    const body = new THREE.MeshPhysicalMaterial(
+      entry?.surface ?? { color: '#a5a29f', roughness: 0.4 },
+    );
+    applyPicassoCoating(body, entry);
+    applySilkFinish(body, entry);
     materials.set(code, {
-      body: new THREE.MeshPhysicalMaterial(
-        entry?.surface ?? { color: '#a5a29f', roughness: 0.4 },
-      ),
+      body,
       liner:
         entry?.lining &&
         new THREE.MeshPhysicalMaterial({
@@ -118,7 +124,10 @@ function rebuild() {
       const radius = triangleCell(index).radius;
       const inset = (radius - hinge) * (1 - cosine);
       const rise = (outer - radius) * sine;
-      const mesh = new THREE.Mesh(geometry, materialsFor(code).body);
+      const bodyGeometry = delicaEntry(code)?.silk
+        ? (silkGeometry ??= createSilkGeometry(geometry))
+        : geometry;
+      const mesh = new THREE.Mesh(bodyGeometry, materialsFor(code).body);
       mesh.rotation.set(0, cell.angle, -Math.PI / 2, 'YXZ');
       mesh.position.set(
         (cell.x + Math.sin(cell.angle) * inset) * 0.001,
@@ -208,6 +217,10 @@ onMounted(async () => {
     room.dispose();
     pmrem.dispose();
     scene.environment = environment.texture;
+    scene.environmentIntensity = 0.55;
+    const keyLight = new THREE.DirectionalLight('#ffffff', 2);
+    keyLight.position.set(-0.035, 0.065, 0.04);
+    scene.add(keyLight);
     observer = new ResizeObserver(resize);
     observer.observe(viewport.value);
     resize();
@@ -250,7 +263,9 @@ onBeforeUnmount(() => {
   observer?.disconnect();
   controls?.dispose();
   geometry?.dispose();
+  silkGeometry?.dispose();
   for (const { body, liner } of materials.values()) {
+    body.map?.dispose();
     body.dispose();
     liner?.dispose();
   }

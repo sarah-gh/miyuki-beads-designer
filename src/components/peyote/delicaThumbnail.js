@@ -1,4 +1,5 @@
 import { delicaEntry } from './delicaCatalog.js';
+import { picassoTile } from './picassoCoating.js';
 
 const tiles = new Map();
 const urls = new Map();
@@ -15,15 +16,17 @@ function tile(entry) {
   const surface = entry.surface;
   const matte = surface.roughness >= 0.48;
   const metallic = surface.metalness >= 0.6;
-  const translucent = surface.transmission > 0;
 
   ctx.beginPath();
   ctx.roundRect(tileInset, tileInset, beadSize, beadSize, 10);
   ctx.clip();
-  ctx.fillStyle = translucent ? surface.color : entry.color;
-  ctx.globalAlpha = translucent ? 0.58 : 1;
+  // Keep the catalog swatch independent of the editor background. Glass
+  // finishes are represented by the lining, highlights and sheen below.
+  ctx.fillStyle = entry.color;
   ctx.fillRect(0, 0, size, size);
-  ctx.globalAlpha = 1;
+
+  const coating = picassoTile(entry);
+  if (coating) ctx.drawImage(coating, 0, 0, size, size);
 
   if (entry.lining) {
     const core = ctx.createLinearGradient(0, 0, size, 0);
@@ -55,17 +58,11 @@ function tile(entry) {
 
   if (entry.finishTags.includes('iridescent')) {
     const sheen = ctx.createLinearGradient(8, 0, 58, 64);
-    sheen.addColorStop(0, 'rgba(255,158,204,.28)');
-    sheen.addColorStop(0.5, 'rgba(143,225,250,.10)');
-    sheen.addColorStop(1, 'rgba(250,218,122,.28)');
+    sheen.addColorStop(0, 'rgba(255,158,204,.12)');
+    sheen.addColorStop(0.5, 'rgba(143,225,250,.04)');
+    sheen.addColorStop(1, 'rgba(250,218,122,.12)');
     ctx.fillStyle = sheen;
     ctx.fillRect(0, 0, size, size);
-  }
-  if (surface.anisotropy) {
-    for (let x = 8; x < 57; x += 3) {
-      ctx.fillStyle = x % 2 ? 'rgba(255,255,255,.20)' : 'rgba(39,24,22,.13)';
-      ctx.fillRect(x, 5, 1, 54);
-    }
   }
   const rims = ctx.createLinearGradient(0, 0, 0, size);
   rims.addColorStop(0, 'rgba(30,17,13,.46)');
@@ -77,7 +74,7 @@ function tile(entry) {
   ctx.fillStyle = rims;
   ctx.fillRect(0, 0, size, size);
 
-  if (!matte) {
+  if (!matte && !entry.silk) {
     ctx.fillStyle = metallic
       ? 'rgba(255,255,255,.79)'
       : 'rgba(255,255,255,.57)';

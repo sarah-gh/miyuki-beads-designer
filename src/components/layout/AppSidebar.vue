@@ -42,6 +42,7 @@ const items = computed(() => [
     count: projectState.projects.length,
   },
   { name: 'templates', label: 'Templates', icon: 'templates' },
+  { name: 'settings', label: 'Settings', icon: 'settings' },
 ]);
 </script>
 

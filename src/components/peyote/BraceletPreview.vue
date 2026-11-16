@@ -16,7 +16,7 @@
           v-model.number="bend"
           type="range"
           min="0"
-          max="315"
+          max="360"
           step="5"
         />
         <span dir="ltr">{{ bend }}°</span>
@@ -29,6 +29,32 @@
         Download image
       </button>
     </header>
+    <details class="lighting">
+      <summary>Lighting</summary>
+      <div class="lighting__controls">
+        <label
+          v-for="control in lightControls"
+          :key="control.key"
+        >
+          {{ control.label }}
+          <input
+            v-model.number="lighting[control.key]"
+            type="range"
+            :min="control.min"
+            :max="control.max"
+            :step="control.step"
+          />
+          <output>{{ lighting[control.key] }}{{ control.unit }}</output>
+        </label>
+        <button
+          type="button"
+          class="theme-btn"
+          @click="resetLighting"
+        >
+          Reset lighting
+        </button>
+      </div>
+    </details>
     <div
       ref="container"
       class="viewport"
@@ -81,26 +107,106 @@ const props = defineProps({
 const container = ref(null);
 const status = ref('loading');
 const bend = ref(270);
-let renderer, scene, camera, controls, observer, geometry, environment, model;
-let disposed = false;
+const defaultLighting = { direction: -60, elevation: 51, intensity: 2.1 };
+const lighting = ref({ ...defaultLighting });
+const lightControls = [
+  {
+    key: 'direction',
+    label: 'Direction',
+    min: -180,
+    max: 180,
+    step: 1,
+    unit: '°',
+  },
+  {
+    key: 'elevation',
+    label: 'Elevation',
+    min: 15,
+    max: 90,
+    step: 1,
+    unit: '°',
+  },
+  { key: 'intensity', label: 'Intensity', min: 0, max: 5, step: 0.1, unit: '' },
+];
 
-function fitModel() {
-  const sphere = model.bounds.getBoundingSphere(new THREE.Sphere());
-  const radius = Math.max(sphere.radius, 0.001);
-  const halfFov = THREE.MathUtils.degToRad(camera.fov / 2);
-  const fit = Math.min(halfFov, Math.atan(Math.tan(halfFov) * camera.aspect));
-  const direction = new THREE.Vector3(
+function resetLighting() {
+  lighting.value = { ...defaultLighting };
+}
+let renderer, scene, camera, controls, observer, geometry, environment, model;
+let pivot, floor, sun;
+let disposed = false;
+let radius = 0.01;
+
+// Fixed camera direction in world space: slightly above, so the floor and shadow are visible.
+const viewDirection = new THREE.Vector3(0.18, 0.5, 1).normalize();
+const worldUp = new THREE.Vector3(0, 1, 0);
+// Gap between the bracelet's bounding sphere and the floor, as a share of the radius.
+const floorGap = 0.06;
+
+function frameBasis(back, up) {
+  const x = new THREE.Vector3().crossVectors(up, back).normalize();
+  const y = new THREE.Vector3().crossVectors(back, x);
+  return new THREE.Matrix4().makeBasis(x, y, back);
+}
+
+// Turns the bracelet so it looks the same as the previous orbiting camera's start view.
+function initialOrientation() {
+  const legacyView = new THREE.Vector3(
     0.25,
     props.curved ? 0.8 : 0.22,
     1,
   ).normalize();
-  controls.target.copy(sphere.center);
+  const legacyUp =
+    props.orientation === 'vertical'
+      ? new THREE.Vector3(-1, 0, 0)
+      : new THREE.Vector3(0, 1, 0);
+  const from = frameBasis(legacyView, legacyUp);
+  const to = frameBasis(viewDirection, worldUp);
+  return new THREE.Quaternion().setFromRotationMatrix(
+    to.multiply(from.transpose()),
+  );
+}
+
+function fitModel() {
+  const halfFov = THREE.MathUtils.degToRad(camera.fov / 2);
+  const fit = Math.min(halfFov, Math.atan(Math.tan(halfFov) * camera.aspect));
+  controls.target.set(0, 0, 0);
   camera.position
-    .copy(sphere.center)
-    .addScaledVector(direction, (1.12 * radius) / Math.sin(fit));
+    .copy(viewDirection)
+    .multiplyScalar((1.2 * radius) / Math.sin(fit));
   controls.minDistance = radius * 0.2;
-  controls.maxDistance = radius * 30;
+  controls.maxDistance = radius * 12;
   controls.update();
+}
+
+// Floor and shadow follow the bracelet's size. The bracelet spins around the centre of its
+// bounding sphere, so a floor just below that sphere can never be crossed in any rotation.
+function updateLighting() {
+  if (!sun) return;
+  const { direction, elevation, intensity } = lighting.value;
+  const azimuth = THREE.MathUtils.degToRad(direction);
+  const altitude = THREE.MathUtils.degToRad(elevation);
+  const distance = radius * 6.4;
+  const horizontal = distance * Math.cos(altitude);
+  sun.position.set(
+    horizontal * Math.sin(azimuth),
+    distance * Math.sin(altitude),
+    horizontal * Math.cos(azimuth),
+  );
+  sun.intensity = intensity;
+}
+
+function placeStage() {
+  floor.position.y = -radius * (1 + floorGap);
+  floor.scale.setScalar(radius * 14);
+  updateLighting();
+  const shadow = sun.shadow.camera;
+  shadow.left = shadow.bottom = -radius * 2.5;
+  shadow.right = shadow.top = radius * 2.5;
+  shadow.near = radius * 0.5;
+  shadow.far = radius * 14;
+  shadow.updateProjectionMatrix();
+  sun.shadow.normalBias = radius * 0.004;
 }
 
 function rebuild(refit) {
@@ -115,14 +221,103 @@ function rebuild(refit) {
     props.curved ? THREE.MathUtils.degToRad(bend.value) : 0,
     props.staggered,
   );
-  scene.add(model.group);
-  if (refit) fitModel();
-  else {
-    const center = model.bounds.getCenter(new THREE.Vector3());
-    camera.position.add(center.clone().sub(controls.target));
-    controls.target.copy(center);
-    controls.update();
+  const sphere = model.bounds.getBoundingSphere(new THREE.Sphere());
+  radius = Math.max(sphere.radius, 0.001);
+  model.group.position.copy(sphere.center).negate();
+  model.group.traverse((object) => {
+    if (object.isMesh) object.castShadow = true;
+  });
+  pivot.add(model.group);
+  placeStage();
+  if (refit) {
+    pivot.quaternion.copy(initialOrientation());
+    spin.set(0, 0);
+    fitModel();
   }
+}
+
+// --- Rotating the bracelet (camera, floor and light stay fixed) ---
+const pointers = new Set();
+const spin = new THREE.Vector2();
+const turnX = new THREE.Quaternion();
+const turnY = new THREE.Quaternion();
+const cameraRight = new THREE.Vector3();
+let drag = null;
+
+function turnModel(dx, dy) {
+  cameraRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
+  turnY.setFromAxisAngle(worldUp, dx);
+  turnX.setFromAxisAngle(cameraRight, dy);
+  pivot.quaternion.premultiply(turnY).premultiply(turnX).normalize();
+}
+
+function onPointerDown(event) {
+  pointers.add(event.pointerId);
+  spin.set(0, 0);
+  drag =
+    pointers.size === 1
+      ? { x: event.clientX, y: event.clientY, time: performance.now() }
+      : null;
+}
+
+function onPointerMove(event) {
+  if (!drag || !pointers.has(event.pointerId)) return;
+  const scale = (2 * Math.PI) / Math.max(container.value.clientHeight, 1);
+  const dx = (event.clientX - drag.x) * scale;
+  const dy = (event.clientY - drag.y) * scale;
+  turnModel(dx, dy);
+  spin.set(dx, dy);
+  drag = { x: event.clientX, y: event.clientY, time: performance.now() };
+}
+
+function onPointerUp(event) {
+  pointers.delete(event.pointerId);
+  if (drag && performance.now() - drag.time > 80) spin.set(0, 0);
+  drag = null;
+}
+
+function animate() {
+  if (!drag && spin.lengthSq() > 1e-8) {
+    turnModel(spin.x, spin.y);
+    spin.multiplyScalar(0.92);
+  }
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+function createStage() {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 256;
+  const context = canvas.getContext('2d');
+  const fade = context.createRadialGradient(128, 128, 0, 128, 128, 128);
+  fade.addColorStop(0, '#fff');
+  fade.addColorStop(0.45, '#fff');
+  fade.addColorStop(1, '#000');
+  context.fillStyle = fade;
+  context.fillRect(0, 0, 256, 256);
+  floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshStandardMaterial({
+      color: '#ddd5ce',
+      roughness: 0.95,
+      alphaMap: new THREE.CanvasTexture(canvas),
+      transparent: true,
+      depthWrite: false,
+    }),
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  sun = new THREE.DirectionalLight('#ffffff', defaultLighting.intensity);
+  sun.castShadow = true;
+  // Low resolution plus a wide blur keeps the shadow soft. Lower intensity keeps it light.
+  sun.shadow.mapSize.set(512, 512);
+  sun.shadow.radius = 16;
+  sun.shadow.blurSamples = 20;
+  sun.shadow.intensity = 0.65;
+  sun.shadow.bias = -0.0004;
+  scene.add(sun);
 }
 
 function resize() {
@@ -152,14 +347,23 @@ onMounted(async () => {
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.shadowMap.enabled = true;
+    // VSM can blur the shadow map, which gives the soft, diffuse shadow under the bracelet.
+    renderer.shadowMap.type = THREE.VSMShadowMap;
     container.value.append(renderer.domElement);
-    camera.up.set(
-      props.orientation === 'vertical' ? -1 : 0,
-      props.orientation === 'vertical' ? 0 : 1,
-      0,
-    );
+    pivot = new THREE.Group();
+    scene.add(pivot);
+    createStage();
+    // OrbitControls only zooms; dragging turns the bracelet instead of the camera.
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controls.enableRotate = false;
+    controls.enablePan = false;
+    const canvas = renderer.domElement;
+    canvas.addEventListener('pointerdown', onPointerDown);
+    canvas.addEventListener('pointermove', onPointerMove);
+    canvas.addEventListener('pointerup', onPointerUp);
+    canvas.addEventListener('pointercancel', onPointerUp);
 
     const room = new RoomEnvironment();
     const pmrem = new THREE.PMREMGenerator(renderer);
@@ -167,6 +371,9 @@ onMounted(async () => {
     room.dispose();
     pmrem.dispose();
     scene.environment = environment.texture;
+    // Retain studio reflections on glass and metal without letting the
+    // omnidirectional environment wash out the fixed key light.
+    scene.environmentIntensity = 0.38;
     observer = new ResizeObserver(resize);
     observer.observe(container.value);
     resize();
@@ -181,10 +388,7 @@ onMounted(async () => {
     if (disposed) return;
     if (!geometry) throw new Error('Delica geometry missing from GLB');
     rebuild(true);
-    renderer.setAnimationLoop(() => {
-      controls.update();
-      renderer.render(scene, camera);
-    });
+    renderer.setAnimationLoop(animate);
     status.value = 'ready';
   } catch (error) {
     if (!disposed) {
@@ -203,13 +407,25 @@ watch(
   () => rebuild(false),
 );
 watch(bend, () => rebuild(false));
+watch(lighting, updateLighting, { deep: true });
 
 onBeforeUnmount(() => {
   disposed = true;
   observer?.disconnect();
   renderer?.setAnimationLoop(null);
   controls?.dispose();
+  if (renderer) {
+    const canvas = renderer.domElement;
+    canvas.removeEventListener('pointerdown', onPointerDown);
+    canvas.removeEventListener('pointermove', onPointerMove);
+    canvas.removeEventListener('pointerup', onPointerUp);
+    canvas.removeEventListener('pointercancel', onPointerUp);
+  }
   model?.dispose();
+  floor?.geometry.dispose();
+  floor?.material.alphaMap?.dispose();
+  floor?.material.dispose();
+  sun?.shadow.dispose();
   geometry?.dispose();
   environment?.dispose();
   renderer?.dispose();
@@ -242,6 +458,36 @@ label {
   overflow: hidden;
   border-radius: 10px;
   background: #eae5e1;
+}
+.lighting {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+.lighting summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.lighting__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  padding-top: 8px;
+}
+.lighting__controls label {
+  flex: 1 1 220px;
+}
+.lighting__controls input {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+.lighting__controls output {
+  min-width: 4ch;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
 }
 .viewport :deep(canvas) {
   display: block;

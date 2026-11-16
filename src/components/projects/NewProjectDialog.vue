@@ -3,6 +3,7 @@
     <Transition name="npd-fade">
       <div
         v-if="modelValue"
+        ref="dialogLayer"
         class="npd-backdrop"
         @pointerdown.self="close"
       >
@@ -71,6 +72,99 @@
             </section>
 
             <section>
+              <label
+                class="npd__label"
+                for="npd-category"
+                >Category (optional)</label
+              >
+              <SelectRoot v-model="category">
+                <SelectTrigger
+                  id="npd-category"
+                  class="npd__input npd__category-trigger"
+                >
+                  <SelectValue />
+                  <SelectIcon
+                    ><BaseIcon
+                      name="chevronDown"
+                      :size="16"
+                  /></SelectIcon>
+                </SelectTrigger>
+                <SelectPortal
+                  v-if="dialogLayer"
+                  :to="dialogLayer"
+                >
+                  <SelectContent
+                    style="z-index: 1001"
+                    position="popper"
+                    :side-offset="6"
+                  >
+                    <SelectViewport class="npd__category-menu">
+                      <SelectItem
+                        v-for="option in categoryOptions"
+                        :key="option"
+                        :value="option"
+                        class="npd__category-option"
+                      >
+                        <SelectItemText>{{ option }}</SelectItemText>
+                        <SelectItemIndicator
+                          ><BaseIcon
+                            name="check"
+                            :size="16"
+                        /></SelectItemIndicator>
+                      </SelectItem>
+                    </SelectViewport>
+                  </SelectContent>
+                </SelectPortal>
+              </SelectRoot>
+              <div
+                v-if="addingCategory"
+                class="npd__category-add"
+              >
+                <label
+                  class="npd__label"
+                  for="npd-category-name"
+                  >New category name</label
+                >
+                <div class="npd__category-actions">
+                  <input
+                    id="npd-category-name"
+                    ref="categoryInput"
+                    v-model="categoryName"
+                    class="npd__input"
+                    maxlength="48"
+                    @keydown.enter.prevent="saveCategory"
+                  />
+                  <BaseButton
+                    type="button"
+                    :disabled="!categoryName.trim()"
+                    @click="saveCategory"
+                    >Add</BaseButton
+                  >
+                  <BaseButton
+                    type="button"
+                    @click="addingCategory = false"
+                    >Cancel</BaseButton
+                  >
+                </div>
+                <p
+                  v-if="categoryError"
+                  role="alert"
+                >
+                  {{ categoryError }}
+                </p>
+              </div>
+              <BaseButton
+                v-else
+                type="button"
+                icon="plus"
+                class="npd__category-add"
+                @click="startCategory"
+              >
+                Add category
+              </BaseButton>
+            </section>
+
+            <section>
               <h3 class="npd__label">Start from</h3>
               <div class="npd__templates">
                 <button
@@ -118,11 +212,30 @@
 
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue';
+import {
+  SelectContent,
+  SelectIcon,
+  SelectItem,
+  SelectItemIndicator,
+  SelectItemText,
+  SelectPortal,
+  SelectRoot,
+  SelectTrigger,
+  SelectValue,
+  SelectViewport,
+} from 'reka-ui';
 import BaseButton from '@/components/ui/BaseButton.vue';
 import BaseIcon from '@/components/ui/BaseIcon.vue';
 import TemplateCard from './TemplateCard.vue';
 import { getMode, PROJECT_MODES } from '@/lib/projects/modes.js';
-import { getTemplate, templatesFor } from '@/lib/projects/templates.js';
+import {
+  getTemplate,
+  templatesFor,
+} from '@/lib/projects/templates.js';
+import {
+  addProjectCategory,
+  projectCategories,
+} from '@/lib/projects/projectStore.js';
 import { useProjectActions } from '@/composables/useProjectActions.js';
 
 /** Pick a type, a name and blank / template, then create and open the project. */
@@ -138,7 +251,15 @@ const { create } = useProjectActions();
 const mode = ref(props.initialMode);
 const templateId = ref(null);
 const name = ref('');
+const uncategorized = 'Uncategorized';
+const categoryOptions = computed(() => [uncategorized, ...projectCategories()]);
+const addingCategory = ref(false);
+const categoryInput = ref(null);
+const categoryName = ref('');
+const categoryError = ref('');
+const category = ref(uncategorized);
 const nameInput = ref(null);
+const dialogLayer = ref(null);
 
 const modeTemplates = computed(() => templatesFor(mode.value));
 const template = computed(() => getTemplate(templateId.value));
@@ -164,6 +285,8 @@ watch(
     mode.value = getMode(props.initialMode) ? props.initialMode : 'flat';
     templateId.value = props.initialTemplateId;
     name.value = '';
+    category.value = uncategorized;
+    addingCategory.value = false;
     await nextTick();
     nameInput.value?.focus();
   },
@@ -174,11 +297,34 @@ function close() {
   emit('update:modelValue', false);
 }
 
+async function startCategory() {
+  categoryName.value = '';
+  categoryError.value = '';
+  addingCategory.value = true;
+  await nextTick();
+  categoryInput.value?.focus();
+}
+
+function saveCategory() {
+  try {
+    const saved = addProjectCategory(categoryName.value);
+    if (!saved) {
+      categoryError.value = 'Enter a category name other than Uncategorized.';
+      return;
+    }
+    category.value = saved;
+    addingCategory.value = false;
+  } catch {
+    categoryError.value = 'Could not save the category in this browser.';
+  }
+}
+
 function submit() {
   const project = create({
     mode: mode.value,
     name: name.value.trim() || placeholderName.value,
     template: template.value,
+    category: category.value === uncategorized ? null : category.value,
   });
   if (project) close();
 }
@@ -294,6 +440,64 @@ function submit() {
 .npd__input:focus {
   border-color: var(--accent);
   background: var(--surface);
+}
+
+.npd__category-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+}
+
+:global(.npd__category-menu) {
+  box-sizing: border-box;
+  width: var(--reka-select-trigger-width);
+  max-height: min(280px, var(--reka-select-content-available-height));
+  overflow-y: auto;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+}
+
+.npd__category-add {
+  margin-top: 8px;
+}
+
+.npd__category-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.npd__category-actions .npd__input {
+  flex: 1 1 160px;
+}
+
+.npd__category-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  cursor: pointer;
+  outline: none;
+}
+
+.npd__category-option[data-state='checked'] {
+  color: var(--accent-text);
+  font-weight: 700;
+}
+
+.npd__category-option[data-highlighted] {
+  background: var(--accent-soft);
+  color: var(--accent-text);
 }
 
 .npd__templates {

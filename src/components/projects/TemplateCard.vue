@@ -8,7 +8,7 @@
   >
     <PatternThumb
       class="template-card__thumb"
-      :matrix="matrix"
+      :thumb="thumb"
     />
     <span class="template-card__body">
       <span class="template-card__name">{{ template.name }}</span>
@@ -34,6 +34,7 @@ import { computed } from 'vue';
 import BaseIcon from '@/components/ui/BaseIcon.vue';
 import PatternThumb from './PatternThumb.vue';
 import { getMode } from '@/lib/projects/modes.js';
+import { makeProjectThumb } from '@/lib/projects/thumbnail.js';
 
 const props = defineProps({
   template: { type: Object, required: true },
@@ -45,7 +46,9 @@ const props = defineProps({
 defineEmits(['select']);
 
 const mode = computed(() => getMode(props.template.mode));
-const matrix = computed(() => mode.value.toMatrix(props.template.data));
+const thumb = computed(() =>
+  makeProjectThumb(props.template.mode, props.template.data),
+);
 const size = computed(() => {
   const { width, height } = mode.value.size(props.template.data);
   return `${width} × ${height}`;

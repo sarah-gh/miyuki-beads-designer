@@ -41,6 +41,8 @@ export const ICONS = {
   check: '<path d="M20 6 9 17l-5-5"/>',
   pencil:
     '<path d="M21.17 6.81a1 1 0 0 0-3.98-3.98L3.84 16.17a2 2 0 0 0-.5.83l-1.32 4.35a.5.5 0 0 0 .62.62l4.35-1.32a2 2 0 0 0 .83-.5z"/><path d="m15 5 4 4"/>',
+  settings:
+    '<path d="M4 7h16M4 17h16"/><circle cx="8" cy="7" r="2" fill="var(--surface-muted)"/><circle cx="16" cy="17" r="2" fill="var(--surface-muted)"/>',
   chevronDown: '<path d="m6 9 6 6 6-6"/>',
   chevronUp: '<path d="m18 15-6-6-6 6"/>',
   chevronLeft: '<path d="m15 18-6-6 6-6"/>',

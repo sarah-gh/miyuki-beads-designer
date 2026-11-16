@@ -4,13 +4,14 @@ import { createPinia } from 'pinia';
 import App from './App.vue';
 import router from './router';
 import { VueQueryPlugin } from '@tanstack/vue-query';
+import { queryClient } from './services/queryClient.js';
 import { initDriveSync, setActiveProject } from './lib/drive/driveSync.js';
 
 const app = createApp(App);
 
 const pinia = createPinia();
 
-app.use(pinia).use(router).use(VueQueryPlugin);
+app.use(pinia).use(router).use(VueQueryPlugin, { queryClient });
 
 // Google Drive sync: resume a previous sign-in, and never pull over the
 // project that is open in an editor.

@@ -30,7 +30,7 @@
         />
         <WorkingPage
           v-else-if="mode === 'steps'"
-          :pattern="workingPattern"
+          :pattern="pattern"
           :rows="rows"
           :cols="cols"
         />
@@ -48,7 +48,6 @@ import ViewModeActions from '@/components/editor/ViewModeActions.vue';
 import GridEditor from '@/components/flat/GridEditor.vue';
 import squareStitchBeadUrl from '@/components/flat/Square-Stitch-Delica.glb?url&inline';
 import BraceletPreview from '@/components/peyote/BraceletPreview.vue';
-import { beadSwatch } from '@/components/peyote/delicaCatalog.js';
 import WorkingPage from '@/components/flat/WorkingPage.vue';
 
 defineProps({
@@ -66,7 +65,6 @@ const pattern = ref(Array(16 * 80).fill('#ffffff'));
 const braceletOrientation = computed(() =>
   rows.value > cols.value ? 'vertical' : 'horizontal',
 );
-const workingPattern = computed(() => pattern.value.map(beadSwatch));
 
 function setMode(next) {
   // Make sure the other views get the latest pattern.

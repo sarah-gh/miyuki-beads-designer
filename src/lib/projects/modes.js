@@ -1,7 +1,6 @@
 import {
   designMatrix,
   designShapes,
-  shapeFor,
   validDesign,
   triangleRounds,
 } from './designShapes.js';
@@ -51,7 +50,7 @@ export const MODES = {
   },
   flat: {
     id: 'flat',
-    label: 'Flat Grid',
+    label: 'Loom weaving',
     description: 'Simple, straight square-stitch patterns',
     icon: 'flatGrid',
     route: 'flat-editor',
@@ -114,7 +113,7 @@ export const MODES = {
 /** Modes that support saved projects, in display order. */
 export const PROJECT_MODES = [
   MODES.flat,
-  MODES.weaving,
+  // MODES.weaving,
   MODES.peyote,
   MODES['3d'],
 ];

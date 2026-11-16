@@ -27,6 +27,12 @@
           @click="openDialog()"
           >New project</BaseButton
         >
+        <RouterLink
+          class="photo-link"
+          :to="{ name: 'image-pattern' }"
+        >
+          Photo to bracelet
+        </RouterLink>
       </div>
       <div
         class="hero__art"
@@ -67,11 +73,11 @@
           :count="countFor(mode.id)"
           @select="openDialog(mode.id)"
         />
-        <ModeCard
+        <!-- <ModeCard
           v-for="mode in EXTRA_MODES"
           :key="mode.id"
           :mode="mode"
-        />
+        /> -->
       </div>
     </section>
 
@@ -186,7 +192,7 @@ import NewProjectDialog from '@/components/projects/NewProjectDialog.vue';
 import PatternThumb from '@/components/projects/PatternThumb.vue';
 import ProjectCard from '@/components/projects/ProjectCard.vue';
 import TemplateCard from '@/components/projects/TemplateCard.vue';
-import { EXTRA_MODES, getMode, PROJECT_MODES } from '@/lib/projects/modes.js';
+import { getMode, PROJECT_MODES } from '@/lib/projects/modes.js';
 import { projectState, sortedProjects } from '@/lib/projects/projectStore.js';
 import {
   CATEGORIES,
@@ -454,5 +460,12 @@ function openDialog(mode = 'flat', templateId = null) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
   }
+}
+.photo-link {
+  display: inline-block;
+  margin: 8px 12px;
+  color: var(--accent-text);
+  font-weight: 700;
+  text-decoration: underline;
 }
 </style>

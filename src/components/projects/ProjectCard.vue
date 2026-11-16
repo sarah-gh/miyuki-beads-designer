@@ -31,14 +31,22 @@
             timeAgo(project.updatedAt)
           }}</span>
         </p>
+        <span
+          v-if="project.category"
+          class="project-card__category"
+        >
+          {{ project.category }}
+        </span>
       </div>
 
       <DropdownMenu :items="menuItems">
-        <template #trigger>
+        <template #trigger="{ open }">
           <button
             type="button"
             class="project-card__menu"
             :aria-label="`Actions for ${project.name}`"
+            :aria-expanded="open"
+            aria-haspopup="menu"
           >
             <BaseIcon
               name="moreVertical"
@@ -70,6 +78,7 @@ const mode = computed(() => getMode(props.project.mode));
 
 <style scoped>
 .project-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -85,6 +94,11 @@ const mode = computed(() => getMode(props.project.mode));
 .project-card:hover {
   box-shadow: var(--shadow);
   transform: translateY(-2px);
+}
+
+/* Lift the whole card above neighbouring canvases while its menu is open. */
+.project-card:has(.project-card__menu[aria-expanded='true']) {
+  z-index: 1;
 }
 
 .project-card__open {
@@ -128,6 +142,16 @@ const mode = computed(() => getMode(props.project.mode));
   color: var(--text-muted);
   font-size: 12.5px;
   white-space: nowrap;
+}
+
+.project-card__category {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .project-card__menu {

@@ -25,13 +25,13 @@
     </span>
 
     <span
-      v-if="artMatrix"
+      v-if="artThumb"
       class="mode-card__art"
       aria-hidden="true"
     >
       <PatternThumb
         class="mode-card__strip"
-        :matrix="artMatrix"
+        :thumb="artThumb"
       />
     </span>
 
@@ -48,7 +48,7 @@ import { computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import BaseIcon from '@/components/ui/BaseIcon.vue';
 import PatternThumb from './PatternThumb.vue';
-import { getMode } from '@/lib/projects/modes.js';
+import { makeProjectThumb } from '@/lib/projects/thumbnail.js';
 
 /**
  * Big "start a project in this mode" tile. Project modes emit `select`;
@@ -69,8 +69,8 @@ const linkAttrs = computed(() =>
     ? { type: 'button', disabled: props.mode.disabled }
     : { to: props.mode.to },
 );
-const artMatrix = computed(() =>
-  props.art ? getMode(props.art.mode).toMatrix(props.art.data) : null,
+const artThumb = computed(() =>
+  props.art ? makeProjectThumb(props.art.mode, props.art.data) : null,
 );
 
 function onClick() {

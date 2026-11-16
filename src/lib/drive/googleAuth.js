@@ -59,6 +59,11 @@ function writeToken(token) {
   }
 }
 
+/** The saved token as stored (may be expired) — used by the httpGoogle interceptor. */
+export function savedToken() {
+  return readToken();
+}
+
 /** The saved token if it is still valid for at least a minute, else null. */
 export function currentToken() {
   const token = readToken();
@@ -117,19 +122,10 @@ export async function requestToken({ hint } = {}) {
   });
 }
 
-/** Name, email and picture of the signed-in account (cached with the token). */
-export async function fetchUser(token) {
-  const response = await fetch(
-    'https://www.googleapis.com/oauth2/v3/userinfo',
-    {
-      headers: { Authorization: `Bearer ${token.accessToken}` },
-    },
-  );
-  if (!response.ok) throw new Error('Could not read the Google account.');
-  const info = await response.json();
-  const user = { name: info.name, email: info.email, picture: info.picture };
-  writeToken({ ...token, user });
-  return user;
+/** Remember the signed-in account's name, email and picture with the token. */
+export function saveUser(user) {
+  const token = readToken();
+  if (token) writeToken({ ...token, user });
 }
 
 export function savedUser() {

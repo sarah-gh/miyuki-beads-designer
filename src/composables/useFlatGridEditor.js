@@ -665,6 +665,26 @@ export function useFlatGridEditor({ onGridChange, active, projectId } = {}) {
   let selectionStart = null;
 
   function startStroke(index) {
+    if (tool.value === 'pick') {
+      const value = grid.value[index];
+      if (!value) return;
+      const image =
+        [...availableImages.value, ...recentImages.value].find(
+          ({ url }) => url === value,
+        ) ??
+        (value.startsWith(BEAD_IMAGE_PREFIX) || value.startsWith('data:image/')
+          ? { url: value, name: 'Picked bead', displayName: 'Picked bead' }
+          : null);
+      if (image) {
+        paintMode.value = 'image';
+        selectBeadImage(image);
+      } else {
+        paintMode.value = 'color';
+        selectedColor.value = value;
+      }
+      setTool('paint');
+      return;
+    }
     if (tool.value === 'paste') {
       if (isPasteMode.value) {
         pastePosition.value = {

@@ -103,9 +103,7 @@
             :size="16"
           />
           <span
-            >Click a bead to paste the copied beads{{
-              pasteMirrorLabel
-            }}.</span
+            >Click a bead to paste the copied beads{{ pasteMirrorLabel }}.</span
           >
           <BaseButton
             size="sm"
@@ -375,7 +373,10 @@ const route = useRoute();
 const router = useRouter();
 function openProjects() {
   // Also used by the Weaving page, so go back to whichever mode is open.
-  router.push({ name: 'projects', query: { mode: route.meta.mode ?? 'peyote' } });
+  router.push({
+    name: 'projects',
+    query: { mode: route.meta.mode ?? 'peyote' },
+  });
 }
 const MAX_SIZE = 200;
 const HISTORY_LIMIT = 10;
@@ -499,9 +500,7 @@ function redo() {
 }
 
 const canUndo = computed(() => historyIndex.value > 0);
-const canRedo = computed(
-  () => historyIndex.value < history.value.length - 1,
-);
+const canRedo = computed(() => historyIndex.value < history.value.length - 1);
 
 // ---- Grid setup / resize -------------------------------------------------------------
 function initializeGrid(initialPattern = null) {
@@ -976,6 +975,27 @@ function startStroke(index) {
     return;
   }
 
+  if (tool.value === 'pick') {
+    const value = grid[r]?.[c];
+    if (!value) return;
+    const image =
+      [...availableImages.value, ...recentImages.value].find(
+        ({ url }) => url === value,
+      ) ??
+      (value.startsWith(BEAD_IMAGE_PREFIX) || value.startsWith('data:image/')
+        ? { url: value, name: 'Picked bead', displayName: 'Picked bead' }
+        : null);
+    if (image) {
+      selectionMode.value = 'image';
+      selectBeadImage(image);
+    } else {
+      selectionMode.value = 'color';
+      selectedColor.value = value;
+    }
+    setTool('paint');
+    return;
+  }
+
   strokeActive = true;
   switch (tool.value) {
     case 'paint':
@@ -1025,7 +1045,8 @@ function cancelStroke() {
   strokeActive = false;
   if (pendingHistorySave.value) {
     const state = history.value[historyIndex.value];
-    if (state) grid.splice(0, grid.length, ...state.grid.map((row) => [...row]));
+    if (state)
+      grid.splice(0, grid.length, ...state.grid.map((row) => [...row]));
     pendingHistorySave.value = false;
   }
 }
@@ -1097,6 +1118,13 @@ const toolItems = computed(() => [
     shortcut: 'B',
     active: tool.value === 'paint' && !panMode.value && !isPasteMode.value,
     onClick: () => chooseTool('paint'),
+  },
+  {
+    id: 'pick',
+    label: 'Pick bead',
+    icon: 'pipette',
+    active: tool.value === 'pick' && !panMode.value,
+    onClick: () => chooseTool('pick'),
   },
   {
     id: 'fill',
@@ -1415,7 +1443,9 @@ const currentPaintStyle = computed(() =>
       }
     : {
         backgroundColor: beadSwatch(selectedColor.value),
-        backgroundImage: delicaEntry(selectedColor.value) ? `url(${delicaThumbnail(selectedColor.value)})` : undefined,
+        backgroundImage: delicaEntry(selectedColor.value)
+          ? `url(${delicaThumbnail(selectedColor.value)})`
+          : undefined,
         backgroundSize: 'cover',
       },
 );

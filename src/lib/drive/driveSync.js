@@ -10,17 +10,19 @@ import {
 } from '@/lib/projects/projectStore.js';
 import {
   currentToken,
-  fetchUser,
   hasSignedInBefore,
   isGoogleConfigured,
   preloadGoogle,
   requestToken,
+  saveUser,
   savedUser,
   signOutGoogle,
 } from './googleAuth.js';
 import {
   DriveAuthError,
+  clearGoogleQueries,
   downloadFile,
+  fetchGoogleUser,
   ensureFolder,
   folderUrl,
   listProjectFiles,
@@ -103,17 +105,17 @@ function handleError(error) {
   }
 }
 
-function tokenOrExpire() {
-  const token = currentToken();
-  if (!token) {
+/** False (and status "expired") when there is no usable Google token. */
+function hasTokenOrExpire() {
+  if (!currentToken()) {
     drive.status = 'expired';
-    return null;
+    return false;
   }
-  return token;
+  return true;
 }
 
-async function folderFor(token) {
-  const folderId = await ensureFolder(token, map.folderId);
+async function folderFor() {
+  const folderId = await ensureFolder(map.folderId);
   if (folderId !== map.folderId) {
     // A different (new) folder: nothing in it is known yet.
     map = { ...emptyMap(map.account), folderId };
@@ -128,13 +130,13 @@ function payloadFor(id) {
   return exported ? { format: FORMAT, version: 1, ...exported } : null;
 }
 
-async function upload(token, folderId, id) {
+async function upload(folderId, id) {
   const payload = payloadFor(id);
   if (!payload) return;
   const known = map.files[id];
   let fileId;
   try {
-    fileId = await uploadProject(token, {
+    fileId = await uploadProject({
       folderId,
       fileId: known?.fileId,
       payload,
@@ -142,21 +144,21 @@ async function upload(token, folderId, id) {
   } catch (error) {
     if (!known || error instanceof DriveAuthError) throw error;
     // The known file is gone (deleted in Drive): create a new one.
-    fileId = await uploadProject(token, { folderId, payload });
+    fileId = await uploadProject({ folderId, payload });
   }
   map.files[id] = { fileId, updatedAt: payload.project.updatedAt };
   writeMap();
 }
 
-async function pull(token, fileId) {
-  const content = await downloadFile(token, fileId);
+async function pull(fileId) {
+  const content = await downloadFile(fileId);
   if (content?.format !== FORMAT || !content.project) return null;
   return importProject(content.project, content.data);
 }
 
-async function flushTombstones(token) {
+async function flushTombstones() {
   for (const [id, fileId] of Object.entries(map.tombstones)) {
-    await trashFile(token, fileId);
+    await trashFile(fileId);
     delete map.tombstones[id];
     writeMap();
   }
@@ -165,16 +167,15 @@ async function flushTombstones(token) {
 // ---- Sync -------------------------------------------------------------------------------
 
 async function fullSync() {
-  const token = tokenOrExpire();
-  if (!token) return;
+  if (!hasTokenOrExpire()) return;
   drive.status = 'syncing';
   drive.error = '';
-  const folderId = await folderFor(token);
-  await flushTombstones(token);
+  const folderId = await folderFor();
+  await flushTombstones();
 
   // Newest file per project (in case a project was saved twice).
   const remote = new Map();
-  for (const file of await listProjectFiles(token, folderId)) {
+  for (const file of await listProjectFiles(folderId)) {
     const seen = remote.get(file.projectId);
     if (!seen || file.updatedAt > seen.updatedAt)
       remote.set(file.projectId, file);
@@ -191,9 +192,9 @@ async function fullSync() {
       !local ||
       (file.updatedAt > localTime && file.projectId !== activeProjectId)
     ) {
-      await pull(token, file.fileId);
+      await pull(file.fileId);
     } else if (localTime > file.updatedAt) {
-      await upload(token, folderId, file.projectId);
+      await upload(folderId, file.projectId);
     }
   }
 
@@ -209,7 +210,7 @@ async function fullSync() {
       deleteProject(local.id, { silent: true });
       delete map.files[local.id];
     } else {
-      await upload(token, folderId, local.id);
+      await upload(folderId, local.id);
     }
   }
 
@@ -221,14 +222,13 @@ async function fullSync() {
 
 async function pushDirty() {
   if (!dirty.size && !Object.keys(map.tombstones).length) return;
-  const token = tokenOrExpire();
-  if (!token) return;
+  if (!hasTokenOrExpire()) return;
   drive.status = 'syncing';
-  const folderId = await folderFor(token);
-  await flushTombstones(token);
+  const folderId = await folderFor();
+  await flushTombstones();
   for (const id of [...dirty]) {
     dirty.delete(id);
-    if (getProject(id)) await upload(token, folderId, id);
+    if (getProject(id)) await upload(folderId, id);
   }
   drive.status = 'synced';
   drive.lastSyncedAt = new Date().toISOString();
@@ -285,11 +285,13 @@ export async function signIn() {
   drive.status = 'connecting';
   drive.error = '';
   try {
-    const token = await requestToken({
+    await requestToken({
       hint: drive.user?.email ?? savedUser()?.email,
     });
-    const user = await fetchUser(token);
+    const user = await fetchGoogleUser();
+    saveUser(user);
     if (map.account !== user.email) {
+      clearGoogleQueries();
       map = emptyMap(user.email);
       writeMap();
     }
@@ -315,6 +317,7 @@ export function signOut() {
   clearTimeout(pushTimer);
   dirty.clear();
   signOutGoogle();
+  clearGoogleQueries();
   map = emptyMap();
   writeMap();
   Object.assign(drive, {

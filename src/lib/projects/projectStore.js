@@ -1,13 +1,15 @@
 import { reactive } from 'vue';
 import { getMode } from './modes.js';
-import { makeThumb } from './thumbnail.js';
+import { CATEGORIES } from './templates.js';
+import { makeProjectThumb, THUMB_VERSION } from './thumbnail.js';
 
 // Saved projects live in this browser's localStorage:
-//   mbd.projects.v1      -> index: [{ id, mode, name, createdAt, updatedAt, size, thumb, templateId }]
+//   mbd.projects.v1      -> index: [{ id, mode, name, createdAt, updatedAt, size, thumb, templateId, category }]
 //   mbd.project.<id>     -> the editor's own save data for that project
 // The index is kept small so listing projects never has to read every grid.
 
 const INDEX_KEY = 'mbd.projects.v1';
+const CATEGORIES_KEY = 'mbd.projectCategories.v1';
 const DATA_PREFIX = 'mbd.project.';
 
 // Single-save keys used before projects existed; imported once as projects.
@@ -16,7 +18,7 @@ const LEGACY = [
   { key: 'peyoteGrid', mode: 'peyote' },
 ];
 
-const state = reactive({ projects: [] });
+const state = reactive({ projects: [], customCategories: [] });
 
 // Change listeners (used by Google Drive sync): fn({ type: 'save' | 'delete', id })
 const listeners = new Set();
@@ -58,11 +60,46 @@ function newId() {
   );
 }
 
+function normalizeCategory(category) {
+  if (typeof category !== 'string') return null;
+  const name = category.trim();
+  return name && name.length <= 48 && name.toLowerCase() !== 'uncategorized'
+    ? name
+    : null;
+}
+
+export function projectCategories() {
+  const unique = new Map();
+  for (const value of [
+    ...CATEGORIES,
+    ...state.customCategories,
+    ...state.projects.map((project) => project.category),
+  ]) {
+    const name = normalizeCategory(value);
+    if (name && !unique.has(name.toLowerCase()))
+      unique.set(name.toLowerCase(), name);
+  }
+  return [...unique.values()];
+}
+
+export function addProjectCategory(value) {
+  const name = normalizeCategory(value);
+  if (!name) return null;
+  const existing = projectCategories().find(
+    (category) => category.toLowerCase() === name.toLowerCase(),
+  );
+  if (existing) return existing;
+  const categories = [...state.customCategories, name];
+  localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
+  state.customCategories = categories;
+  return name;
+}
+
 function describe(mode, data) {
   const def = getMode(mode);
   return {
     size: def.size(data),
-    thumb: makeThumb(def.toMatrix(data)),
+    thumb: makeProjectThumb(mode, data),
   };
 }
 
@@ -104,9 +141,20 @@ function migrateLegacy() {
 }
 
 function init() {
+  const categories = readJson(CATEGORIES_KEY);
+  if (Array.isArray(categories)) state.customCategories = categories;
   const index = readJson(INDEX_KEY);
   if (Array.isArray(index)) {
     state.projects = index.filter((p) => p && p.id && getMode(p.mode));
+    let refreshed = false;
+    for (const project of state.projects) {
+      if (project.thumb?.version === THUMB_VERSION) continue;
+      const data = readJson(DATA_PREFIX + project.id);
+      if (!getMode(project.mode).isValid(data)) continue;
+      project.thumb = makeProjectThumb(project.mode, data);
+      refreshed = true;
+    }
+    if (refreshed) writeIndex();
   } else {
     state.projects = [];
     migrateLegacy();
@@ -140,7 +188,13 @@ export function loadProjectData(id) {
 // ---- Mutations ------------------------------------------------------------------------
 
 /** Create a project and return its index entry. Throws if storage is full. */
-export function createProject({ mode, name, data, templateId = null }) {
+export function createProject({
+  mode,
+  name,
+  data,
+  templateId = null,
+  category = null,
+}) {
   const def = getMode(mode);
   if (!def) throw new Error(`Unknown mode: ${mode}`);
   const payload = JSON.parse(JSON.stringify(data ?? def.blank()));
@@ -152,6 +206,7 @@ export function createProject({ mode, name, data, templateId = null }) {
     createdAt: now,
     updatedAt: now,
     templateId,
+    category: normalizeCategory(category),
     ...describe(mode, payload),
   };
   payload.projectName = project.name;
@@ -220,6 +275,7 @@ export function duplicateProject(id) {
     name: `${project.name} (copy)`,
     data,
     templateId: project.templateId,
+    category: project.category,
   });
 }
 
@@ -252,6 +308,7 @@ export function importProject(meta, data) {
     createdAt: meta.createdAt ?? meta.updatedAt,
     updatedAt: meta.updatedAt,
     templateId: meta.templateId ?? null,
+    category: normalizeCategory(meta.category),
     ...describe(meta.mode, data),
   };
   localStorage.setItem(
